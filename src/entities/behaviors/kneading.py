@@ -31,8 +31,11 @@ class KneadingBehavior(BaseBehavior):
         self.settle_duration = 1.5
 
     def next(self, context):
-        from entities.behaviors.stretching import StretchingBehavior
-        return StretchingBehavior
+        if random.random() < 0.5:
+            from entities.behaviors.stretching import StretchingBehavior
+            return StretchingBehavior
+        from entities.behaviors.lounging import LoungeingBehavior
+        return LoungeingBehavior
 
     def start(self, on_complete=None):
         if self._active:
