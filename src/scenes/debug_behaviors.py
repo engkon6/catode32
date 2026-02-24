@@ -19,6 +19,7 @@ from entities.behaviors.hunting import HuntingBehavior
 from entities.behaviors.gift_bringing import GiftBringingBehavior
 from entities.behaviors.pacing import PacingBehavior
 from entities.behaviors.sulking import SulkingBehavior
+from entities.behaviors.mischief import MischiefBehavior
 from entities.behaviors.playing import PlayingBehavior
 from entities.behaviors.affection import AffectionBehavior
 from entities.behaviors.attention import AttentionBehavior
@@ -46,6 +47,7 @@ BEHAVIOR_ENTRIES = [
     ("gift_bringing","Gift Bringing",GiftBringingBehavior, {}),
     ("pacing",       "Pacing",       PacingBehavior,       {}),
     ("sulking",      "Sulking",      SulkingBehavior,      {}),
+    ("mischief",     "Mischief",     MischiefBehavior,     {}),
     ("playing",      "Playing",      PlayingBehavior,      {}),
     ("affection",    "Affection",    AffectionBehavior,    {"variant": "pets"}),
     ("attention",    "Attention",    AttentionBehavior,    {"variant": "psst"}),

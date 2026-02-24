@@ -74,6 +74,16 @@ class PacingBehavior(BaseBehavior):
             from entities.behaviors.sulking import SulkingBehavior
             return SulkingBehavior
 
+        # Act out if the pet is immature, devious, and still has energy for it
+        if (getattr(context, 'mischievousness', 50) > 60 and
+                getattr(context, 'craftiness', 50) > 60 and
+                getattr(context, 'maturity', 50) < 40 and
+                getattr(context, 'playfulness', 50) > 60 and
+                getattr(context, 'energy', 50) > 50 and
+                random.random() < 0.5):
+            from entities.behaviors.mischief import MischiefBehavior
+            return MischiefBehavior
+
         return None  # -> idle
 
     def start(self, on_complete=None):
