@@ -58,10 +58,15 @@ class HuntingBehavior(BaseBehavior):
         self.catch_duration = 2.0
 
     def next(self, context):
-        if random.random() < 0.5:
+        roll = random.random()
+        if roll < 0.5:
             from entities.behaviors.eating import EatingBehavior
             from assets.items import FISH1
             return (EatingBehavior, {"food_sprite": FISH1, "meal_type": "fish"})
+        elif roll < 0.75:
+            from entities.behaviors.gift_bringing import GiftBringingBehavior
+            from assets.items import FISH1
+            return (GiftBringingBehavior, {"gift_sprite": FISH1})
         return None  # -> idle (prey escaped)
 
     def start(self, on_complete=None):
