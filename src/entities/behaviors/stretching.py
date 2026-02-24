@@ -15,11 +15,11 @@ class StretchingBehavior(BaseBehavior):
 
     NAME = "stretching"
 
-    # Trigger when comfort is low
-    TRIGGER_STAT = "comfort"
-    TRIGGER_THRESHOLD = 40
-    TRIGGER_BELOW = True
     PRIORITY = 50
+
+    @classmethod
+    def can_trigger(cls, context):
+        return context.comfort < 40
 
     # Stretching improves comfort and vigor
     STAT_EFFECTS = {"comfort": 1.5}

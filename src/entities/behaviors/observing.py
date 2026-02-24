@@ -19,10 +19,11 @@ class ObservingBehavior(BaseBehavior):
 
     NAME = "observing"
 
-    TRIGGER_STAT = "curiosity"
-    TRIGGER_THRESHOLD = 70
-    TRIGGER_BELOW = False  # Trigger when ABOVE threshold
     PRIORITY = 40  # Same as investigating — idle picks randomly between them
+
+    @classmethod
+    def can_trigger(cls, context):
+        return context.curiosity >= 70
 
     STAT_EFFECTS = {"curiosity": -0.5}  # Drains curiosity, but slower than investigating
     COMPLETION_BONUS = {"curiosity": -10, "fulfillment": 3}

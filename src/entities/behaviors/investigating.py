@@ -15,11 +15,11 @@ class InvestigatingBehavior(BaseBehavior):
 
     NAME = "investigating"
 
-    # Trigger when curiosity is high
-    TRIGGER_STAT = "curiosity"
-    TRIGGER_THRESHOLD = 70
-    TRIGGER_BELOW = False  # Trigger when ABOVE threshold
     PRIORITY = 40
+
+    @classmethod
+    def can_trigger(cls, context):
+        return context.curiosity >= 70
 
     # Investigating satisfies curiosity but adds stimulation
     STAT_EFFECTS = {"curiosity": -1.0}

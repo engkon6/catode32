@@ -19,7 +19,6 @@ class MischiefBehavior(BaseBehavior):
 
     NAME = "mischief"
 
-    TRIGGER_STAT = None  # Only reached from pacing
     PRIORITY = 55
 
     STAT_EFFECTS = {

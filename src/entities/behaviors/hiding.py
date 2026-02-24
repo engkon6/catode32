@@ -18,7 +18,6 @@ class HidingBehavior(BaseBehavior):
 
     NAME = "hiding"
 
-    TRIGGER_STAT = None  # Only reached from pacing or mischief
     PRIORITY = 55
 
     STAT_EFFECTS = {

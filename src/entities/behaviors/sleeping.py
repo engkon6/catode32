@@ -16,11 +16,11 @@ class SleepingBehavior(BaseBehavior):
 
     NAME = "sleeping"
 
-    # Trigger when energy is low
-    TRIGGER_STAT = "energy"
-    TRIGGER_THRESHOLD = 30
-    TRIGGER_BELOW = True
     PRIORITY = 10  # High priority (low number)
+
+    @classmethod
+    def can_trigger(cls, context):
+        return context.energy < 30
 
     # Stat effects during sleep
     STAT_EFFECTS = {"energy": 2.0, "comfort": 0.2}

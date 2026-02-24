@@ -29,8 +29,6 @@ class SnackingBehavior(BaseBehavior):
 
     NAME = "snacking"
 
-    # Never auto-triggered - always manual from menu
-    TRIGGER_STAT = None
     PRIORITY = 5
 
     def __init__(self, character):

@@ -26,7 +26,6 @@ class IdleBehavior(BaseBehavior):
         "standing.side.happy",
     }
 
-    TRIGGER_STAT = None
     PRIORITY = 100  # Lowest priority — only used as fallback
 
     STAT_EFFECTS = {"curiosity": 0.1, "energy": -0.1, "fullness": -0.1, "affection": -0.05}

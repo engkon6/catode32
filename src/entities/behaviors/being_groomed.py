@@ -20,7 +20,6 @@ class BeingGroomedBehavior(BaseBehavior):
 
     NAME = "being_groomed"
 
-    TRIGGER_STAT = None  # Always player-triggered
     PRIORITY = 5
 
     STAT_EFFECTS = {

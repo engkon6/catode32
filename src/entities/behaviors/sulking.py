@@ -20,7 +20,6 @@ class SulkingBehavior(BaseBehavior):
 
     NAME = "sulking"
 
-    TRIGGER_STAT = None  # Only reached from pacing
     PRIORITY = 55
 
     STAT_EFFECTS = {

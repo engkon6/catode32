@@ -19,7 +19,6 @@ class GiftBringingBehavior(BaseBehavior):
 
     NAME = "gift_bringing"
 
-    TRIGGER_STAT = None  # Only reached via behavior chains
     PRIORITY = 20
 
     STAT_EFFECTS = {

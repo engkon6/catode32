@@ -16,8 +16,6 @@ class EatingBehavior(BaseBehavior):
 
     NAME = "eating"
 
-    # Eating cannot be auto-triggered - requires explicit food/meal
-    TRIGGER_STAT = None
     PRIORITY = 10  # High priority when manually triggered
 
     # No per-frame stat effects - stats applied on completion

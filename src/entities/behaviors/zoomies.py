@@ -18,7 +18,6 @@ class ZoomiesBehavior(BaseBehavior):
 
     NAME = "zoomies"
 
-    TRIGGER_STAT = None  # Multi-stat trigger — see can_trigger()
     PRIORITY = 25  # Higher priority than playing; fires when the pet is truly wound up
 
     STAT_EFFECTS = {"energy": -2.0, "playfulness": -3.0}

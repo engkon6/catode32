@@ -15,10 +15,6 @@ class BaseBehavior:
 
     NAME = "base"
 
-    # Triggering configuration (override in subclasses)
-    TRIGGER_STAT = None       # e.g., "energy"
-    TRIGGER_THRESHOLD = 50    # Behavior eligible when stat crosses threshold
-    TRIGGER_BELOW = True      # True = eligible when below, False = when above
     PRIORITY = 50             # Lower = higher priority (0-100)
 
     # Stat effects (override in subclasses)
@@ -67,12 +63,6 @@ class BaseBehavior:
         Returns:
             True if this behavior is eligible to trigger.
         """
-        if cls.TRIGGER_STAT:
-            stat_value = getattr(context, cls.TRIGGER_STAT, 50)
-            if cls.TRIGGER_BELOW:
-                return stat_value < cls.TRIGGER_THRESHOLD
-            else:
-                return stat_value > cls.TRIGGER_THRESHOLD
         return False
 
     @classmethod
@@ -113,7 +103,7 @@ class BaseBehavior:
         if self._active:
             return
 
-        print(f"Starting behavior: {self.NAME}")
+        print(f"[Behavior started] {self.NAME}")
 
         self._active = True
         self._phase_timer = 0.0
@@ -140,7 +130,7 @@ class BaseBehavior:
         if not self._active:
             return
         
-        print(f"Stopping behavior: {self.NAME}")
+        print(f"[Behavior stopped] {self.NAME}")
 
         self._active = False
         self._phase = None

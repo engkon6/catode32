@@ -19,10 +19,11 @@ class NappingBehavior(BaseBehavior):
 
     NAME = "napping"
 
-    TRIGGER_STAT = "energy"
-    TRIGGER_THRESHOLD = 45
-    TRIGGER_BELOW = True
     PRIORITY = 20  # Lower priority than sleeping (10) — sleeping wins if energy is critical
+
+    @classmethod
+    def can_trigger(cls, context):
+        return context.energy < 45
 
     STAT_EFFECTS = {"energy": 1.0, "focus": 0.5}
     COMPLETION_BONUS = {"energy": 5, "focus": 5}

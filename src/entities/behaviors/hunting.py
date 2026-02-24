@@ -22,7 +22,6 @@ class HuntingBehavior(BaseBehavior):
 
     NAME = "hunting"
 
-    TRIGGER_STAT = None  # Multi-stat trigger — see can_trigger()
     PRIORITY = 35  # Between playing (30) and investigating (40)
 
     STAT_EFFECTS = {

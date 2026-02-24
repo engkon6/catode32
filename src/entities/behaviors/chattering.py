@@ -17,7 +17,6 @@ class ChatteringBehavior(BaseBehavior):
 
     NAME = "chattering"
 
-    TRIGGER_STAT = None  # Only reached from observing
     PRIORITY = 40
 
     STAT_EFFECTS = {"curiosity": -0.5, "playfulness": 0.5}

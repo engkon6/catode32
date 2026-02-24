@@ -28,11 +28,11 @@ class PlayingBehavior(BaseBehavior):
 
     NAME = "playing"
 
-    # Trigger when playfulness is high
-    TRIGGER_STAT = "playfulness"
-    TRIGGER_THRESHOLD = 70
-    TRIGGER_BELOW = False  # Trigger when ABOVE threshold
     PRIORITY = 30
+
+    @classmethod
+    def can_trigger(cls, context):
+        return context.playfulness >= 70
 
     # Playing costs energy but satisfies playfulness
     STAT_EFFECTS = {"playfulness": -2.0, "energy": -0.5}

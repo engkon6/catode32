@@ -18,7 +18,6 @@ class LoungeingBehavior(BaseBehavior):
 
     NAME = "lounging"
 
-    TRIGGER_STAT = None
     PRIORITY = 90  # Low priority — comfortable fallback
 
     STAT_EFFECTS = {"comfort": -0.1, "energy": -0.05}

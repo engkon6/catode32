@@ -18,7 +18,6 @@ class SelfGroomingBehavior(BaseBehavior):
 
     NAME = "self_grooming"
 
-    TRIGGER_STAT = None  # Multi-stat trigger — see can_trigger()
     PRIORITY = 45
 
     STAT_EFFECTS = {

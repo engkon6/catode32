@@ -18,7 +18,6 @@ class TrainingBehavior(BaseBehavior):
 
     NAME = "training"
 
-    TRIGGER_STAT = None  # Always player-triggered
     PRIORITY = 5
 
     STAT_EFFECTS = {

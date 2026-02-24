@@ -27,7 +27,6 @@ class PacingBehavior(BaseBehavior):
 
     NAME = "pacing"
 
-    TRIGGER_STAT = None  # Multi-stat trigger — see can_trigger()
     PRIORITY = 55  # Below stretching (50), above lounging (90)
 
     STAT_EFFECTS = {

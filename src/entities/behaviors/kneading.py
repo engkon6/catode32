@@ -18,7 +18,6 @@ class KneadingBehavior(BaseBehavior):
 
     NAME = "kneading"
 
-    TRIGGER_STAT = None  # Only reached via stretching's next(), never auto-triggered
     PRIORITY = 50
 
     STAT_EFFECTS = {"serenity": 0.3, "comfort": 0.2}

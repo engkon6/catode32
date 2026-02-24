@@ -20,7 +20,6 @@ class VocalizingBehavior(BaseBehavior):
 
     NAME = "vocalizing"
 
-    TRIGGER_STAT = None  # Multi-stat trigger — see can_trigger()
     PRIORITY = 25  # Same as zoomies — idle picks randomly between them
 
     STAT_EFFECTS = {"energy": -1.0, "playfulness": -1.5}
