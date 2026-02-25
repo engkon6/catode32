@@ -26,7 +26,7 @@ class KneadingBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
 
-        self.knead_duration = 8.0
+        self.knead_duration = 16.0
         self.settle_duration = 1.5
 
     def next(self, context):
@@ -41,7 +41,7 @@ class KneadingBehavior(BaseBehavior):
             return
         super().start(on_complete)
         self._phase = "kneading"
-        self._character.set_pose("sleeping.side.sploot")
+        self._character.set_pose("kneading.side.neutral")
 
     def update(self, dt):
         if not self._active:
@@ -55,7 +55,7 @@ class KneadingBehavior(BaseBehavior):
             if self._phase_timer >= self.knead_duration:
                 self._phase = "settling"
                 self._phase_timer = 0.0
-                self._character.set_pose("sleeping.side.modest")
+                self._character.set_pose("leaning_forward.side.neutral")
 
         elif self._phase == "settling":
             if self._phase_timer >= self.settle_duration:
