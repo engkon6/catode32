@@ -116,7 +116,7 @@ class StatsScene(Scene):
         self.selected_index = 0
         self.scroll_offset = 0
         self.showing_detail = False
-        context.debug_print_stats()
+        self.context.debug_print_stats()
 
     def exit(self):
         pass

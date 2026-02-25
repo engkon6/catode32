@@ -44,7 +44,7 @@ class Game:
             self.scene_manager.handle_input()
             
             # Update game logic
-            self.scene_manager.update(delta_time / 1000.0)
+            self.scene_manager.update(delta_time / 1000.0 * self.context.time_speed)
             
             # Render frame
             self.scene_manager.draw()

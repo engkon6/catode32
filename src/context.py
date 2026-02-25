@@ -50,6 +50,9 @@ class GameContext:
 
         # Behavior override - set to behavior name to force that behavior next
         self.override_next_behavior = None
+
+        # Debug: time scale multiplier (1.0 = normal, 2.0 = 2x speed, 0.0 = paused)
+        self.time_speed = 1.0
     
     def debug_print_stats(self):
         print("Stats:")

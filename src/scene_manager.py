@@ -236,6 +236,8 @@ class SceneManager:
         settings_type = metadata.get('settings_type')
         if settings_type == 'environment':
             self.context.environment = result
+        elif settings_type == 'time_speed':
+            self.context.time_speed = result.get('time_speed', 1.0)
         # Return to big menu after settings
         self._open_big_menu()
 
@@ -276,6 +278,7 @@ class SceneManager:
             debug_items.append(MenuItem("Poses", icon=WRENCH_ICON, action=('scene', 'debug_poses')))
         if 'debug_behaviors' in self._scene_registry:
             debug_items.append(MenuItem("Behaviors", icon=WRENCH_ICON, action=('scene', 'debug_behaviors')))
+        debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('settings', 'time_speed')))
         if debug_items:
             items.append(MenuItem("Debug", icon=WRENCH_ICON, submenu=debug_items))
 
@@ -301,6 +304,8 @@ class SceneManager:
             settings_name = action[1]
             if settings_name == 'environment':
                 self._open_environment_settings()
+            elif settings_name == 'time_speed':
+                self._open_time_settings()
     
     def _open_environment_settings(self):
         """Open the environment settings screen"""
@@ -336,6 +341,25 @@ class SceneManager:
             self.settings,
             on_result=self._on_settings_result,
             metadata={'settings_type': 'environment'}
+        )
+
+    def _open_time_settings(self):
+        """Open the time speed settings screen"""
+        items = [
+            SettingItem(
+                "Speed", "time_speed",
+                min_val=0.0,
+                max_val=5.0,
+                step=0.25,
+                value=getattr(self.context, 'time_speed', 1.0)
+            ),
+        ]
+
+        self.settings.open(items, transition=False)
+        self.overlays.push(
+            self.settings,
+            on_result=self._on_settings_result,
+            metadata={'settings_type': 'time_speed'}
         )
 
     def unload_all(self):
