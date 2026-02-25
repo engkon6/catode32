@@ -24,9 +24,9 @@ class EatingBehavior(BaseBehavior):
 
     # Config for each food type: stat effects and how fast it's eaten
     FOOD_CONFIG = {
-        "chicken": {"stats": {"fullness": 30, "energy": 10}, "eating_speed": 0.4},
+        "chicken": {"stats": {"fullness": 30, "energy": 10}, "eating_speed": 0.3},
         "fish":    {"stats": {"fullness": 25, "affection": 5}, "eating_speed": 0.35},
-        "treat":   {"stats": {"fullness": 5, "affection": 3}, "eating_speed": 2.0},
+        "treat":   {"stats": {"fullness": 5, "affection": 3}, "eating_speed": 1.5},
     }
     DEFAULT_FOOD_CONFIG = {"stats": {"fullness": 20}, "eating_speed": 0.4}
 

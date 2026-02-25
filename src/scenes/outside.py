@@ -11,7 +11,7 @@ from entities.behaviors.being_groomed import BeingGroomedBehavior
 from entities.behaviors.training import TrainingBehavior
 from menu import Menu, MenuItem
 from assets.icons import TOYS_ICON, HAND_ICON, KIBBLE_ICON, TOY_ICONS
-from assets.items import TREAT1
+from assets.items import TREAT_PILE
 from assets.nature import PLANT1, PLANTER1, PLANT2
 from sky import SkyRenderer
 
@@ -188,7 +188,7 @@ class OutsideScene(Scene):
         elif action_type == "throw_stick":
             self.character.trigger(PlayingBehavior, trigger="throw_stick")
         elif action_type == "treat":
-            self.character.trigger(EatingBehavior, TREAT1, "treat")
+            self.character.trigger(EatingBehavior, TREAT_PILE, "treat")
         elif action_type == "groom":
             self.character.trigger(BeingGroomedBehavior)
         elif action_type == "train":
