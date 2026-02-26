@@ -67,6 +67,8 @@ class IdleBehavior(BaseBehavior):
         if self._time_until_pose_change <= 0:
             self._pick_new_pose()
 
+        self._progress = min(1.0, self._phase_timer / self._idle_for)
+
         if self._phase_timer >= self._idle_for:
             self.stop(completed=True)
 

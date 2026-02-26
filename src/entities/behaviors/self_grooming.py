@@ -46,7 +46,7 @@ class SelfGroomingBehavior(BaseBehavior):
     
     @classmethod
     def get_priority(cls, context):
-        return random.uniform(0, context.cleanliness) + random.uniform(0, max(10, context.energy * 0.5))
+        return random.uniform(0, context.cleanliness * 0.5) + random.uniform(0, max(10, context.energy * 0.5))
 
     def __init__(self, character):
         super().__init__(character)

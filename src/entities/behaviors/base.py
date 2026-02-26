@@ -201,12 +201,34 @@ class BaseBehavior:
     def apply_completion_bonus(self, context, progress=1.0):
         """Apply completion bonus stats, scaled by how much was completed.
 
+        Stats near 0 or 100 resist changes that push them further toward the
+        extreme (soft clamping).  Changes that move a stat back toward center
+        are allowed to fully apply and get a small boost near the extremes.
+
         Args:
             context: The GameContext to modify.
             progress: How much of the behavior was completed (0.0 to 1.0).
         """
+        SOFT_ZONE = 20.0   # stat range near each extreme where damping kicks in
+        BOOST     = 0.30   # extra multiplier for toward-center changes at extreme
+
         for stat, bonus in self.get_completion_bonus(context).items():
             current = getattr(context, stat, 0)
-            new_value = max(0, min(100, current + bonus * progress))
+            delta = bonus * progress
+
+            if current < SOFT_ZONE:
+                t = current / SOFT_ZONE            # 0 at stat=0, 1.0 at stat=20
+                if delta < 0:
+                    delta *= t                     # dampen: barely moves when near 0
+                else:
+                    delta *= 1.0 + BOOST * (1 - t) # boost: a little extra when low
+            elif current > (100 - SOFT_ZONE):
+                t = (100 - current) / SOFT_ZONE    # 0 at stat=100, 1.0 at stat=80
+                if delta > 0:
+                    delta *= t                     # dampen: barely moves when near 100
+                else:
+                    delta *= 1.0 + BOOST * (1 - t) # boost: a little extra when high
+
+            new_value = max(0, min(100, current + delta))
             setattr(context, stat, new_value)
 
