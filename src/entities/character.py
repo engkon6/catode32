@@ -38,6 +38,8 @@ class CharacterEntity(Entity):
         self._pose = get_pose(pose)
         self.context = context
 
+        self.mirror = False  # True = facing left, False = facing right
+
         self.anim_body = 0.0
         self.anim_head = 0.0
         self.anim_eyes = 0.0

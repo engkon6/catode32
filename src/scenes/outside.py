@@ -63,8 +63,13 @@ class OutsideScene(Scene):
             x=179, y=63 - PLANTER1["height"] - PLANT1["height"]
         )
 
+        # Set movement bounds for behaviors like zoomies (world coordinates)
+        self.context.scene_x_min = 10
+        self.context.scene_x_max = 246
+
         # Create character with context for behavior management
         self.character = CharacterEntity(64, 62, context=self.context)
+        self.character.mirror = True  # default facing left outdoors
         butterfly1 = ButterflyEntity(110, 20)
         butterfly2 = ButterflyEntity(50, 30)
         butterfly2.anim_speed = 10
@@ -126,7 +131,7 @@ class OutsideScene(Scene):
 
         # Draw character separately (needs mirror control)
         camera_offset = int(self.environment.camera_x)
-        self.character.draw(self.renderer, mirror=True, camera_offset=camera_offset)
+        self.character.draw(self.renderer, mirror=self.character.mirror, camera_offset=camera_offset)
 
         # Apply lightning inversion (hardware-level, affects display after show())
         self.renderer.invert(self.sky.get_lightning_invert_state())

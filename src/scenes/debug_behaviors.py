@@ -76,6 +76,8 @@ class DebugBehaviorsScene(Scene):
 
     def load(self):
         super().load()
+        self.context.scene_x_min = 10
+        self.context.scene_x_max = 118
         self.character = CharacterEntity(100, 60, context=self.context)
 
     def unload(self):
@@ -102,7 +104,7 @@ class DebugBehaviorsScene(Scene):
         self._draw_status()
 
         if self.character:
-            self.character.draw(self.renderer)
+            self.character.draw(self.renderer, mirror=self.character.mirror)
 
     def _draw_behavior_list(self):
         """Draw the list of behaviors with selection indicator."""

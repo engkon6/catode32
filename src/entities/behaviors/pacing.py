@@ -61,6 +61,11 @@ class PacingBehavior(BaseBehavior):
         self.start_duration = 1.0
         self.pace_duration = 10.0
         self.stop_duration = 1.5
+        self.pace_speed = 12  # pixels per second
+
+        self._pace_direction = 1
+        self._dir_change_timer = 0.0
+        self._dir_change_interval = 4.0
 
     def next(self, context):
         maturity = getattr(context, 'maturity', 50) / 100.0
@@ -99,11 +104,19 @@ class PacingBehavior(BaseBehavior):
 
         return None  # -> idle
 
+    def _apply_direction(self):
+        """Sync character mirror state with current pace direction."""
+        self._character.mirror = self._pace_direction > 0
+
     def start(self, on_complete=None):
         if self._active:
             return
         super().start(on_complete)
         self._phase = "starting"
+        self._pace_direction = random.choice([-1, 1])
+        self._dir_change_timer = 0.0
+        self._dir_change_interval = random.uniform(3.0, 6.0)
+        self._apply_direction()
         self._character.set_pose("sitting.side.neutral")
 
     def update(self, dt):
@@ -119,6 +132,35 @@ class PacingBehavior(BaseBehavior):
                 self._character.set_pose("standing.side.neutral")
 
         elif self._phase == "pacing":
+            context = self._character.context
+            x_min = getattr(context, 'scene_x_min', 10) + 20
+            x_max = getattr(context, 'scene_x_max', 118) - 20
+
+            # Move the character
+            self._character.x += self._pace_direction * self.pace_speed * dt
+
+            # Bounce at bounds
+            if self._character.x <= x_min:
+                self._character.x = x_min
+                self._pace_direction = 1
+                self._dir_change_timer = 0.0
+                self._dir_change_interval = random.uniform(3.0, 6.0)
+                self._apply_direction()
+            elif self._character.x >= x_max:
+                self._character.x = x_max
+                self._pace_direction = -1
+                self._dir_change_timer = 0.0
+                self._dir_change_interval = random.uniform(3.0, 6.0)
+                self._apply_direction()
+
+            # Occasional mid-pace direction changes
+            self._dir_change_timer += dt
+            if self._dir_change_timer >= self._dir_change_interval:
+                self._pace_direction *= -1
+                self._dir_change_timer = 0.0
+                self._dir_change_interval = random.uniform(3.0, 6.0)
+                self._apply_direction()
+
             self._progress = min(1.0, self._phase_timer / self.pace_duration)
             if self._phase_timer >= self.pace_duration:
                 self._phase = "stopping"

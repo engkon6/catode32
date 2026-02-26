@@ -53,6 +53,10 @@ class GameContext:
 
         # Debug: time scale multiplier (1.0 = normal, 2.0 = 2x speed, 0.0 = paused)
         self.time_speed = 1.0
+
+        # Scene bounds for character movement (world coordinates, set by each scene on load)
+        self.scene_x_min = 10
+        self.scene_x_max = 118
     
     def debug_print_stats(self):
         print("Stats:")

@@ -49,6 +49,11 @@ class ZoomiesBehavior(BaseBehavior):
         self.windup_duration = 1.0
         self.zoom_duration = 8.0
         self.collapse_duration = 2.0
+        self.zoom_speed = 30  # pixels per second
+
+        self._zoom_direction = 1
+        self._dir_change_timer = 0.0
+        self._dir_change_interval = 1.5
 
     def next(self, context):
         if random.random() < 0.2:
@@ -56,11 +61,19 @@ class ZoomiesBehavior(BaseBehavior):
             return VocalizingBehavior
         return None  # -> idle (exhausted)
 
+    def _apply_direction(self):
+        """Sync character mirror state with current zoom direction."""
+        self._character.mirror = self._zoom_direction > 0
+
     def start(self, on_complete=None):
         if self._active:
             return
         super().start(on_complete)
         self._phase = "winding_up"
+        self._zoom_direction = random.choice([-1, 1])
+        self._dir_change_timer = 0.0
+        self._dir_change_interval = random.uniform(1.0, 3.0)
+        self._apply_direction()
         self._character.set_pose("sitting.side.happy")
 
     def update(self, dt):
@@ -76,6 +89,35 @@ class ZoomiesBehavior(BaseBehavior):
                 self._character.set_pose("sitting_silly.side.happy")
 
         elif self._phase == "zooming":
+            context = self._character.context
+            x_min = getattr(context, 'scene_x_min', 10) + 20
+            x_max = getattr(context, 'scene_x_max', 118) - 20
+
+            # Move the character
+            self._character.x += self._zoom_direction * self.zoom_speed * dt
+
+            # Bounce at bounds
+            if self._character.x <= x_min:
+                self._character.x = x_min
+                self._zoom_direction = 1
+                self._dir_change_timer = 0.0
+                self._dir_change_interval = random.uniform(1.0, 3.0)
+                self._apply_direction()
+            elif self._character.x >= x_max:
+                self._character.x = x_max
+                self._zoom_direction = -1
+                self._dir_change_timer = 0.0
+                self._dir_change_interval = random.uniform(1.0, 3.0)
+                self._apply_direction()
+
+            # Random mid-run direction changes
+            self._dir_change_timer += dt
+            if self._dir_change_timer >= self._dir_change_interval:
+                self._zoom_direction *= -1
+                self._dir_change_timer = 0.0
+                self._dir_change_interval = random.uniform(1.0, 3.0)
+                self._apply_direction()
+
             self._progress = min(1.0, self._phase_timer / self.zoom_duration)
             if self._phase_timer >= self.zoom_duration:
                 self._phase = "collapsing"

@@ -70,6 +70,10 @@ class NormalScene(Scene):
             x=141, y=63 - PLANTER1["height"] - PLANT3["height"]
         )
 
+        # Set movement bounds for behaviors like zoomies (world coordinates)
+        self.context.scene_x_min = 10
+        self.context.scene_x_max = 182
+
         # Create character with context for behavior management
         self.character = CharacterEntity(100, 63, context=self.context)
         self.character.set_pose("sitting.forward.neutral")
@@ -106,7 +110,7 @@ class NormalScene(Scene):
 
         # Draw character (with foreground parallax)
         camera_offset = int(self.environment.camera_x)
-        self.character.draw(self.renderer, camera_offset=camera_offset)
+        self.character.draw(self.renderer, mirror=self.character.mirror, camera_offset=camera_offset)
 
     def handle_input(self):
         """Process input - can also return scene change instructions"""
