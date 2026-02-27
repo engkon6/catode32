@@ -2,6 +2,7 @@
 
 import random
 from entities.behaviors.base import BaseBehavior
+from assets.icons import QUESTION_MARK
 
 
 class InvestigatingBehavior(BaseBehavior):
@@ -84,6 +85,19 @@ class InvestigatingBehavior(BaseBehavior):
         elif self._phase == "reacting":
             if self._phase_timer >= self.react_duration:
                 self.stop(completed=True)
+
+    def draw(self, renderer, char_x, char_y, mirror=False):
+        if not self._active or self._phase == "reacting":
+            return
+
+        qmark_y = char_y - 42
+
+        if mirror:
+            qmark_x = char_x + 18
+        else:
+            qmark_x = char_x - QUESTION_MARK["width"] - 18
+
+        renderer.draw_sprite_obj(QUESTION_MARK, qmark_x, qmark_y)
 
     def next(self, context):
         if random.random() < 0.3:
