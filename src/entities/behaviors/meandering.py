@@ -45,7 +45,7 @@ class MeanderingBehavior(BaseBehavior):
         self._phase = "starting"
         self._pace_direction = random.choice([-1, 1])
         self._dir_change_timer = 0.0
-        self._dir_change_interval = random.uniform(3.0, 10.0)
+        self._dir_change_interval = random.uniform(3.0, 20.0)
         self.pace_duration = random.randint(20, 45)
         self._apply_direction()
         self._character.set_pose("sitting.side.neutral")
@@ -75,13 +75,13 @@ class MeanderingBehavior(BaseBehavior):
                 self._character.x = x_min
                 self._pace_direction = 1
                 self._dir_change_timer = 0.0
-                self._dir_change_interval = random.uniform(3.0, 6.0)
+                self._dir_change_interval = random.uniform(3.0, 20.0)
                 self._apply_direction()
             elif self._character.x >= x_max:
                 self._character.x = x_max
                 self._pace_direction = -1
                 self._dir_change_timer = 0.0
-                self._dir_change_interval = random.uniform(3.0, 6.0)
+                self._dir_change_interval = random.uniform(3.0, 20.0)
                 self._apply_direction()
 
             # Occasional mid-pace direction changes
@@ -89,7 +89,7 @@ class MeanderingBehavior(BaseBehavior):
             if self._dir_change_timer >= self._dir_change_interval:
                 self._pace_direction *= -1
                 self._dir_change_timer = 0.0
-                self._dir_change_interval = random.uniform(3.0, 6.0)
+                self._dir_change_interval = random.uniform(3.0, 20.0)
                 self._apply_direction()
 
             self._progress = min(1.0, self._phase_timer / self.pace_duration)
