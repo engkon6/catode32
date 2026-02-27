@@ -2,6 +2,7 @@
 
 import random
 from entities.behaviors.base import BaseBehavior
+from ui import draw_bubble
 
 
 class SulkingBehavior(BaseBehavior):
@@ -21,6 +22,8 @@ class SulkingBehavior(BaseBehavior):
 
     NAME = "sulking"
 
+    BUBBLE_DURATION = 3.5
+
     COMPLETION_BONUS = {
         "comfort": 2,
         "independence": 5,
@@ -38,8 +41,10 @@ class SulkingBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
         self.settle_duration = 1.0
-        self.sulk_duration = 8.0
+        self.sulk_duration = 20.0
         self.emerge_duration = 1.5
+        self._bubble_trigger_time = 0.0
+        self._bubble_timer = None
 
     def next(self, context):
         from entities.behaviors.pacing import PacingBehavior
@@ -51,6 +56,8 @@ class SulkingBehavior(BaseBehavior):
         super().start(on_complete)
         self._phase = "settling"
         self._character.set_pose("sitting.side.aloof")
+        self._bubble_trigger_time = random.uniform(self.sulk_duration * 0.2, self.sulk_duration * 0.7)
+        self._bubble_timer = None
 
     def update(self, dt):
         if not self._active:
@@ -62,10 +69,16 @@ class SulkingBehavior(BaseBehavior):
             if self._phase_timer >= self.settle_duration:
                 self._phase = "sulking"
                 self._phase_timer = 0.0
-                self._character.set_pose("sitting.forward.aloof")
+                self._character.set_pose("laying.side.bored")
 
         elif self._phase == "sulking":
             self._progress = min(1.0, self._phase_timer / self.sulk_duration)
+
+            if self._bubble_timer is None and self._phase_timer >= self._bubble_trigger_time:
+                self._bubble_timer = 0.0
+            if self._bubble_timer is not None and self._bubble_timer < self.BUBBLE_DURATION:
+                self._bubble_timer += dt
+
             if self._phase_timer >= self.sulk_duration:
                 self._phase = "emerging"
                 self._phase_timer = 0.0
@@ -74,3 +87,11 @@ class SulkingBehavior(BaseBehavior):
         elif self._phase == "emerging":
             if self._phase_timer >= self.emerge_duration:
                 self.stop(completed=True)
+
+    def draw(self, renderer, char_x, char_y, mirror=False):
+        if not self._active or self._phase != "sulking":
+            return
+        if self._bubble_timer is None or self._bubble_timer >= self.BUBBLE_DURATION:
+            return
+        progress = self._bubble_timer / self.BUBBLE_DURATION
+        draw_bubble(renderer, "lonely", char_x, char_y, progress, mirror)
