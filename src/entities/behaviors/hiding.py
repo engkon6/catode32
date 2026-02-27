@@ -21,7 +21,7 @@ class HidingBehavior(BaseBehavior):
 
     COMPLETION_BONUS = {
         "comfort": 1.75,
-        "independence": 2.3,
+        "independence": 2,
         "patience": 0.75,
         "charisma": -0.3,
         "courage": -0.3,

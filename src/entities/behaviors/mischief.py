@@ -22,12 +22,12 @@ class MischiefBehavior(BaseBehavior):
 
     COMPLETION_BONUS = {
         "focus": -1,
-        "maturity": -1.6,
-        "loyalty": -0.16,
+        "maturity": -1.5,
+        "loyalty": -0.2,
         "playfulness": -2,
         "energy": -5,
-        "mischievousness": 0.55,
-        "dignity": -0.33,
+        "mischievousness": 0.5,
+        "dignity": -0.2,
     }
 
     @classmethod

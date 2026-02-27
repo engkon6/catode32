@@ -19,10 +19,10 @@ class ZoomiesBehavior(BaseBehavior):
     NAME = "zoomies"
 
     COMPLETION_BONUS = {
-        "energy": -11.1,
-        "playfulness": -6.2,
-        "fitness": 2.1,
-        "cleanliness": -2.1,
+        "energy": -10,
+        "playfulness": -5,
+        "fitness": 2,
+        "cleanliness": -2,
     }
 
     @classmethod

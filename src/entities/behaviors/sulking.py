@@ -22,10 +22,10 @@ class SulkingBehavior(BaseBehavior):
     NAME = "sulking"
 
     COMPLETION_BONUS = {
-        "comfort": 2.05,
-        "independence": 6.05,
-        "curiosity": 4.05,
-        "courage": -0.11,
+        "comfort": 2,
+        "independence": 5,
+        "curiosity": 4,
+        "courage": -0.2,
     }
 
     @classmethod

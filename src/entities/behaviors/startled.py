@@ -39,9 +39,9 @@ class StartledBehavior(BaseBehavior):
         return random.uniform(20, max(20, (context.courage + context.resilience) * 0.6))
 
     COMPLETION_BONUS = {
-        "curiosity": 5.85,
-        "comfort": -5.85,
-        "energy": -5.85,
+        "curiosity": 5,
+        "comfort": -5,
+        "energy": -5,
         "courage": -0.2,
     }
 

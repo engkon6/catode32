@@ -22,8 +22,8 @@ class GiftBringingBehavior(BaseBehavior):
 
     COMPLETION_BONUS = {
         "loyalty": 0.5,
-        "sociability": 5.3,
-        "playfulness": 4.2,
+        "sociability": 5,
+        "playfulness": 4,
         "affection": 2,
     }
 

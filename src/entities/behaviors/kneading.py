@@ -20,9 +20,9 @@ class KneadingBehavior(BaseBehavior):
 
     COMPLETION_BONUS = {
         "focus": -1,
-        "comfort": 5.5,
-        "serenity": 0.28,
-        "cleanliness": 0.88,
+        "comfort": 5,
+        "serenity": 0.5,
+        "cleanliness": -1,
     }
 
     @classmethod

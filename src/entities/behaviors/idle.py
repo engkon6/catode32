@@ -30,7 +30,7 @@ class IdleBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         "fulfillment": -1,
         "playfulness": 0.5,
-        "craftiness": -0.05,
+        "craftiness": -0.1,
         "appetite": -0.1,
         "affection": -0.05,
         "curiosity": 0.75,
@@ -38,7 +38,7 @@ class IdleBehavior(BaseBehavior):
         "fullness": -0.75,
         "cleanliness": -0.75,
         "comfort": -0.2,
-        "focus": -0.19,
+        "focus": -0.2,
     }
 
     def __init__(self, character):

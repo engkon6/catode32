@@ -68,7 +68,7 @@ class OutsideScene(Scene):
         self.context.scene_x_max = 246
 
         # Create character with context for behavior management
-        self.character = CharacterEntity(64, 62, context=self.context)
+        self.character = CharacterEntity(64, 64, context=self.context)
         self.character.mirror = True  # default facing left outdoors
         butterfly1 = ButterflyEntity(110, 20)
         butterfly2 = ButterflyEntity(50, 30)

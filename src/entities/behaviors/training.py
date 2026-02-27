@@ -19,16 +19,16 @@ class TrainingBehavior(BaseBehavior):
     NAME = "training"
 
     COMPLETION_BONUS = {
-        "intelligence": 11.2,
-        "fitness": 1.16,
-        "resilience": 11.2,
-        "sociability": 6.6,
-        "fulfillment": 6.2,
-        "patience": 1.32,
-        "loyalty": 0.82,
-        "courage": 0.82,
-        "energy": -23,
-        "focus": -3.6,
+        "intelligence": 10,
+        "fitness": 1,
+        "resilience": 10,
+        "sociability": 5,
+        "fulfillment": 5,
+        "patience": 1,
+        "loyalty": 0.7,
+        "courage": 0.7,
+        "energy": -10,
+        "focus": -3,
         "dignity": 1,
     }
 

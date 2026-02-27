@@ -29,7 +29,7 @@ class InvestigatingBehavior(BaseBehavior):
         return random.uniform(10, max(10, 100 - context.curiosity))
 
     COMPLETION_BONUS = {
-        "curiosity": -1.83,
+        "curiosity": -1,
         "maturity": 0.3,
         "dignity": 0.2,
         "fulfillment": 0.5,

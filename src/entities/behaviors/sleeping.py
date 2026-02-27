@@ -30,12 +30,12 @@ class SleepingBehavior(BaseBehavior):
         return random.uniform(5, max(5, context.energy * 1.5))
 
     COMPLETION_BONUS = {
-        "energy": 40.54,
-        "comfort": 4.54,
-        "playfulness": 6,
-        "focus": 4,
+        "energy": 45,
+        "comfort": 5,
+        "playfulness": 5,
+        "focus": 5,
         "curiosity": 2,
-        "fitness": 0.16,
+        "fitness": 0.1,
     }
 
     # Sleep pose options

@@ -30,10 +30,10 @@ class PacingBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         "cleanliness": -2,
         "fulfillment": -2,
-        "comfort": 1.25,
-        "charisma": -0.13,
-        "mischievousness": 0.38,
-        "patience": 0.88,
+        "comfort": 2,
+        "charisma": -0.5,
+        "mischievousness": 0.5,
+        "patience": 1,
     }
 
     @classmethod

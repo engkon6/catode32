@@ -21,12 +21,12 @@ class BeingGroomedBehavior(BaseBehavior):
     NAME = "being_groomed"
 
     COMPLETION_BONUS = {
-        "cleanliness": 20.5,
-        "affection": 11.3,
+        "cleanliness": 20,
+        "affection": 10,
         "grace": 5,
         "sociability": 3,
-        "independence": -7.2,
-        "mischievousness": -1.22,
+        "independence": -5,
+        "mischievousness": -1,
         "patience": -5.5,
         "focus": -3.3,
     }

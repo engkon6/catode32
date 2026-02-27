@@ -20,14 +20,14 @@ class SelfGroomingBehavior(BaseBehavior):
     NAME = "self_grooming"
 
     COMPLETION_BONUS = {
-        "cleanliness": 12.25,
-        "fulfillment": 2,
+        "cleanliness": 15,
+        "fulfillment": 3,
         "grace": 1.5,
         "sociability": 0.3,
-        "energy": -1.45,
-        "comfort": -1.45,
-        "focus": -1.45,
-        "charisma": 0.58,
+        "energy": -2,
+        "comfort": 1,
+        "focus": -1,
+        "charisma": 0.5,
     }
 
     @classmethod

@@ -30,13 +30,13 @@ class HuntingBehavior(BaseBehavior):
         "fitness": 1,
         "craftiness": 0.2,
         "mischievousness": 0.2,
-        "energy": -6.35,
-        "cleanliness": -2.35,
-        "comfort": -1.35,
-        "playfulness": -1.35,
-        "charisma": -0.27,
-        "serenity": -0.41,
-        "patience": -0.54,
+        "energy": -5,
+        "cleanliness": -5,
+        "comfort": -2,
+        "playfulness": -2,
+        "charisma": -0.2,
+        "serenity": -0.5,
+        "patience": -0.5,
     }
 
     @classmethod
