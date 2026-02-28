@@ -48,9 +48,6 @@ class GameContext:
         # For storing time/weather/season/moon-phase type data
         self.environment = {}
 
-        # Behavior override - set to behavior name to force that behavior next
-        self.override_next_behavior = None
-
         # Debug: time scale multiplier (1.0 = normal, 2.0 = 2x speed, 0.0 = paused)
         self.time_speed = 1.0
 

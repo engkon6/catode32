@@ -7,7 +7,7 @@ from menu import Menu, MenuItem
 from settings import Settings, SettingItem
 from transitions import TransitionManager
 from ui import OverlayManager
-from assets.icons import WRENCH_ICON, SUN_ICON, HOUSE_ICON, STATS_ICON, MINIGAME_ICONS, MINIGAMES_ICON
+from assets.icons import WRENCH_ICON, SUN_ICON, HOUSE_ICON, STATS_ICON, MINIGAME_ICONS, MINIGAMES_ICON, CAT_ICON
 
 
 class SceneManager:
@@ -246,47 +246,34 @@ class SceneManager:
         """Build the big menu items"""
         items = []
 
-        # Location options
-        if 'normal' in self._scene_registry:
-            items.append(MenuItem("Go inside", icon=HOUSE_ICON, action=('scene', 'normal')))
-        if 'outside' in self._scene_registry:
-            items.append(MenuItem("Go outside", icon=SUN_ICON, action=('scene', 'outside')))
-
         # Stats page
-        if 'stats' in self._scene_registry:
-            items.append(MenuItem("Pet stats", icon=STATS_ICON, action=('scene', 'stats')))
+        items.append(MenuItem("Pet stats", icon=STATS_ICON, action=('scene', 'stats')))
+
+        # Location options
+        location_items = []
+        location_items.append(MenuItem("Go inside", icon=HOUSE_ICON, action=('scene', 'normal')))
+        location_items.append(MenuItem("Go outside", icon=SUN_ICON, action=('scene', 'outside')))
+        items.append(MenuItem("Locations", icon=HOUSE_ICON, submenu=location_items))
 
         # Minigames submenu
         minigame_items = []
-        if 'zoomies' in self._scene_registry:
-            minigame_items.append(MenuItem("Zoomies", icon=MINIGAME_ICONS.get("Zoomies"), action=('scene', 'zoomies')))
-        if 'maze' in self._scene_registry:
-            minigame_items.append(MenuItem("Maze", icon=MINIGAME_ICONS.get("Maze"), action=('scene', 'maze')))
-        if 'breakout' in self._scene_registry:
-            minigame_items.append(MenuItem("Breakout", icon=MINIGAME_ICONS.get("Breakout"), action=('scene', 'breakout')))
-        if 'tictactoe' in self._scene_registry:
-            minigame_items.append(MenuItem("TicTacToe", icon=MINIGAME_ICONS.get("TicTacToe"), action=('scene', 'tictactoe')))
-        if minigame_items:
-            items.append(MenuItem("Minigames", icon=MINIGAMES_ICON, submenu=minigame_items))
-
-        # Environment settings
-        items.append(MenuItem("Environment", icon=SUN_ICON, action=('settings', 'environment')))
+        minigame_items.append(MenuItem("Zoomies", icon=MINIGAME_ICONS.get("Zoomies"), action=('scene', 'zoomies')))
+        minigame_items.append(MenuItem("Maze", icon=MINIGAME_ICONS.get("Maze"), action=('scene', 'maze')))
+        minigame_items.append(MenuItem("Breakout", icon=MINIGAME_ICONS.get("Breakout"), action=('scene', 'breakout')))
+        minigame_items.append(MenuItem("TicTacToe", icon=MINIGAME_ICONS.get("TicTacToe"), action=('scene', 'tictactoe')))
+        items.append(MenuItem("Minigames", icon=MINIGAMES_ICON, submenu=minigame_items))
         
         # Debug submenu
         debug_items = []
-        if 'debug_context' in self._scene_registry:
-            debug_items.append(MenuItem("Context", icon=WRENCH_ICON, action=('scene', 'debug_context')))
-        if 'debug_memory' in self._scene_registry:
-            debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
-        if 'debug_poses' in self._scene_registry:
-            debug_items.append(MenuItem("Poses", icon=WRENCH_ICON, action=('scene', 'debug_poses')))
-        if 'debug_behaviors' in self._scene_registry:
-            debug_items.append(MenuItem("Behaviors", icon=WRENCH_ICON, action=('scene', 'debug_behaviors')))
-        if 'debug_stats' in self._scene_registry:
-            debug_items.append(MenuItem("Stats", icon=WRENCH_ICON, action=('scene', 'debug_stats')))
+        debug_items.append(MenuItem("Environment", icon=SUN_ICON, action=('settings', 'environment')))
+        debug_items.append(MenuItem("Poses", icon=CAT_ICON, action=('scene', 'debug_poses')))
+        debug_items.append(MenuItem("Behaviors", icon=CAT_ICON, action=('scene', 'debug_behaviors')))
+        debug_items.append(MenuItem("Stats", icon=CAT_ICON, action=('scene', 'debug_stats')))
         debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('settings', 'time_speed')))
-        if debug_items:
-            items.append(MenuItem("Debug", icon=WRENCH_ICON, submenu=debug_items))
+        debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
+        debug_items.append(MenuItem("Context", icon=WRENCH_ICON, action=('scene', 'debug_context')))
+        
+        items.append(MenuItem("Debug", icon=WRENCH_ICON, submenu=debug_items))
 
         return items
 
