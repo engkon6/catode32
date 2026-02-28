@@ -37,6 +37,7 @@ class NappingBehavior(BaseBehavior):
         "energy": 30,
         "focus": 15,
         "playfulness": 3,
+        "fullness": -1,
 
         # Medium changers
         "curiosity": 0.1,
