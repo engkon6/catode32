@@ -21,12 +21,12 @@ class EatingBehavior(BaseBehavior):
     FOOD_CONFIG = {
         "chicken":       {"stats": {"fullness": 55, "energy": 5, "appetite": 0.4}, "eating_speed": 0.3},
         "fish":          {"stats": {"fullness": 45, "energy": 2, "affection": 3, "appetite": 0.4}, "eating_speed": 0.35},
-        "caught_snack":  {"stats": {"fullness": 20, "appetite": 0.2}, "eating_speed": 0.8},
+        "caught_snack":  {"stats": {"fullness": 20, "appetite": 0.2}, "eating_speed": 0.4},
         "treat":         {"stats": {"fullness": 5, "affection": 1, "appetite": 0.1}, "eating_speed": 1.5},
     }
     DEFAULT_FOOD_CONFIG = {"stats": {"fullness": 8}, "eating_speed": 0.4}
 
-    FOOD_OFFSET_X = 30  # Horizontal offset of food from character anchor
+    FOOD_OFFSET_X = 34  # Horizontal offset of food from character anchor
 
     @classmethod
     def get_priority(cls, context):
@@ -41,7 +41,7 @@ class EatingBehavior(BaseBehavior):
         self._food_type = None
 
         self.eating_speed = 0.4   # Food frames per second during eating phase (set per food)
-        self.lower_duration = 0.5  # Time for food to lower
+        self.lower_duration = 1.0  # Time for food to lower
         self.pause_duration = 1.5  # Pre/post eating pause
 
     @property

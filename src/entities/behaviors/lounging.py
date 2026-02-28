@@ -35,11 +35,11 @@ class LoungeingBehavior(BaseBehavior):
 
     @classmethod
     def can_trigger(cls, context):
-        trigger = context.focus > 40 and context.serenity > 30
+        trigger = context.focus > 30 and context.serenity > 30
 
         if not trigger:
             failures = []
-            if context.focus <= 40:
+            if context.focus <= 30:
                 failures.append("Focus: %6.2f" % context.focus)
             if context.serenity <= 30:
                 failures.append("Serenity: %6.2f" % context.serenity)
