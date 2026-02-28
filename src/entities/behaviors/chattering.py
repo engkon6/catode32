@@ -19,8 +19,11 @@ class ChatteringBehavior(BaseBehavior):
     NAME = "chattering"
 
     COMPLETION_BONUS = {
-        "curiosity": -0.2,
-        "playfulness": 3
+        # Rapid changers
+        "playfulness": 3,
+
+        # Medium changers
+        "curiosity": -0.1,
     }
 
     @classmethod

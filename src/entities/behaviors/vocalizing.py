@@ -24,7 +24,13 @@ class VocalizingBehavior(BaseBehavior):
     NEED_THRESHOLD = 35
 
     COMPLETION_BONUS = {
+        # Rapid changers
         "energy": -2,
+
+        # Medium changers
+        "independence": -0.05,
+
+        # Slow changers
         "serenity": -0.1,
     }
 
@@ -60,7 +66,7 @@ class VocalizingBehavior(BaseBehavior):
             0,
         )
         if urgency > 0:
-            return max(1, 65 - urgency * 2)
+            return max(10, 65 - urgency * 2)
         return random.uniform(10, max(10, (200 - context.energy - context.playfulness) * 0.6))
 
     @classmethod

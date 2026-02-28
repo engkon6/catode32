@@ -30,11 +30,17 @@ class SleepingBehavior(BaseBehavior):
         return random.uniform(5, max(5, context.energy * 1.5))
 
     COMPLETION_BONUS = {
+        # Rapid changers
         "energy": 45,
         "focus": 15,
         "comfort": 5,
         "playfulness": 5,
-        "curiosity": 1,
+        "fullness": -5,
+
+        # Medium changers
+        "curiosity": 0.25,
+
+        # Slow changers
         "fitness": -0.1,
     }
 

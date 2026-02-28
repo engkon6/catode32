@@ -25,13 +25,23 @@ class SulkingBehavior(BaseBehavior):
     BUBBLE_DURATION = 3.5
 
     COMPLETION_BONUS = {
+        # Rapid changers
         "comfort": 2,
-        "independence": 5,
-        "curiosity": 0.5,
-        "courage": -0.2,
+
+        # Medium changers
+        "independence": -0.05,
+        "curiosity": 0.05,
         "affection": -1,
         "maturity": -0.2,
+        "sociability": -0.2,
+        "resilience": -0.05,
+
+        # Slow changers
+        "loyalty": -0.05,
+
+        # Extra slow changers
         "dignity": -0.05,
+        "courage": -0.2,
     }
 
     @classmethod

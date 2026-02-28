@@ -21,14 +21,22 @@ class MischiefBehavior(BaseBehavior):
     NAME = "mischief"
 
     COMPLETION_BONUS = {
-        "focus": -1,
-        "maturity": -1.5,
-        "loyalty": -0.2,
+        # Rapid changers
+        "energy": -2,
+        "focus": -2,
         "playfulness": -2,
-        "energy": -4,
-        "mischievousness": 0.05,
-        "grace": -1,
+
+        # Medium changers
+        "maturity": -1.5,
+        "grace": -0.5,
+        "sociability": -0.2,
+        "independence": -0.15,
+        "resilience": -0.05,
+
+        # Extra slow changers
         "dignity": -0.05,
+        "mischievousness": 0.05,
+        "loyalty": -0.2,
     }
 
     @classmethod

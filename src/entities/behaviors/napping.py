@@ -33,10 +33,15 @@ class NappingBehavior(BaseBehavior):
         return random.uniform(10, max(10, context.energy * 2))
 
     COMPLETION_BONUS = {
+        # Rapid changers
         "energy": 30,
         "focus": 8,
         "playfulness": 3,
-        "curiosity": 0.5,
+
+        # Medium changers
+        "curiosity": 0.1,
+
+        # Slow changers
         "fitness": -0.05,
     }
 

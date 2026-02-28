@@ -28,14 +28,22 @@ class PacingBehavior(BaseBehavior):
     NAME = "pacing"
 
     COMPLETION_BONUS = {
+        # Rapid changers
+        "comfort": 0.5,
+
+        # Medium changers
         "cleanliness": -0.5,
         "fulfillment": -0.1,
-        "comfort": 0.5,
-        "charisma": -0.5,
-        "mischievousness": 0.05,
-        "patience": 1,
         "affection": -1,
-        "fitness": 0.2,
+
+        # Slow changers
+        "charisma": -0.25,
+        "patience": 0.5,
+        "fitness": 0.1,
+        "resilience": -0.1,
+
+        # Extra slow changers
+        "mischievousness": 0.05,
         "dignity": -0.05,
     }
 

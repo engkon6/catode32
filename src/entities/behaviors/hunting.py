@@ -1,5 +1,6 @@
 """Hunting behavior - pet locks onto prey and pounces."""
 
+import math
 import random
 from entities.behaviors.base import BaseBehavior
 
@@ -23,21 +24,28 @@ class HuntingBehavior(BaseBehavior):
     NAME = "hunting"
 
     COMPLETION_BONUS = {
+        # Rapid changers
         "fullness": -2,
-        "fulfillment": 1,
-        "independence": 0.5,
+        "energy": -5,
+        "comfort": -1,
+        "playfulness": -2,
+
+        # Medium changers
+        "fulfillment": 0.25,
+        "independence": 0.15,
         "intelligence": 0.5,
         "resilience": 0.5,
-        "fitness": 0.3,
-        "craftiness": 0.2,
-        "mischievousness": 0.07,
-        "energy": -5,
         "cleanliness": -2,
-        "comfort": -2,
-        "playfulness": -2,
-        "charisma": -0.2,
-        "serenity": -0.2,
-        "patience": -0.5,
+
+        # Slow changers
+        "fitness": 0.1,
+        "craftiness": 0.2,
+        "serenity": -0.1,
+        "patience": -0.05,
+        "charisma": -0.05,
+
+        # Extra slow changers
+        "mischievousness": 0.07,
     }
 
     @classmethod
@@ -46,22 +54,23 @@ class HuntingBehavior(BaseBehavior):
         if context.fullness < 15 and context.energy > 20:
             return True
 
-        trigger = context.energy > 20 and context.playfulness > 40 and context.curiosity > 40
+        trigger = context.energy > 20 and context.playfulness > 20
 
         if not trigger:
             failures = []
             if context.energy <= 20:
                 failures.append("Energy: %6.4f" % context.energy)
-            if context.playfulness <= 40:
+            if context.playfulness <= 20:
                 failures.append("Playfulness: %6.4f" % context.playfulness)
-            if context.curiosity <= 40:
-                failures.append("Curiosity: %6.4f" % context.curiosity)
             print("Skipping hunting. " + ", ".join(failures))
 
         return trigger
     
     @classmethod
     def get_priority(cls, context):
+        # Survival instinct: starvation overrides normal priority calculation
+        if context.fullness < 15 and context.energy > 20:
+            return random.uniform(5, 15)
         upper = max(20, (100 - context.energy) * 0.7 + (100 - context.playfulness) * 0.5)
         hunger_bonus = (100 - context.fullness) * 0.3
         return random.uniform(10, max(10, upper - hunger_bonus * 0.5))
@@ -73,8 +82,8 @@ class HuntingBehavior(BaseBehavior):
         self.catch_duration = 2.0
 
     def next(self, context):
-        # Eating chance scales from 0.5 (full) to 0.9 (starving)
-        eating_chance = 0.5 + (100 - context.fullness) * 0.004
+        # Sigmoid centered at fullness=50: near-zero above 60, rapid rise through 60-50
+        eating_chance = 0.9 / (1 + math.exp(0.2 * (context.fullness - 50)))
         roll = random.random()
         if roll < eating_chance:
             from entities.behaviors.eating import EatingBehavior

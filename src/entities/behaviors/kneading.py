@@ -19,10 +19,15 @@ class KneadingBehavior(BaseBehavior):
     NAME = "kneading"
 
     COMPLETION_BONUS = {
-        "focus": -1,
+        # Rapid changers
         "comfort": 2,
-        "serenity": 0.3,
+        "focus": -1,
+
+        # Medium changers
         "cleanliness": -1,
+
+        # Slow changers
+        "serenity": 0.3,
     }
 
     @classmethod

@@ -19,13 +19,18 @@ class ZoomiesBehavior(BaseBehavior):
     NAME = "zoomies"
 
     COMPLETION_BONUS = {
+        # Rapid changers
         "energy": -5,
         "fullness": -1,
         "playfulness": -3,
-        "fitness": 0.2,
-        "cleanliness": -1,
+
+        # Medium changers
+        "cleanliness": -1.5,
         "grace": -0.5,
         "maturity": -0.1,
+
+        # Slow changers
+        "fitness": 0.15,
     }
 
     @classmethod

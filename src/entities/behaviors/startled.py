@@ -39,12 +39,18 @@ class StartledBehavior(BaseBehavior):
         return random.uniform(20, max(20, (context.courage + context.resilience) * 0.6))
 
     COMPLETION_BONUS = {
-        "curiosity": 2,
-        "comfort": -5,
+        # Rapid changers
         "energy": -2,
-        "courage": -0.2,
+        "comfort": -5,
+
+        # Medium changers
+        "curiosity": 1,
         "grace": -1,
+
+        # Extra slow changers
         "dignity": -0.05,
+        "courage": -0.2,
+
     }
 
     def __init__(self, character):

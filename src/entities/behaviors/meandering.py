@@ -8,8 +8,11 @@ class MeanderingBehavior(BaseBehavior):
     NAME = "meandering"
 
     COMPLETION_BONUS = {
+        # Rapid changers
         "energy": -0.5,
         "fullness": -1,
+
+        # Slow changers
         "fitness": 0.1
     }
 
