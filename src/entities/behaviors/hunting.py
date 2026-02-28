@@ -26,7 +26,7 @@ class HuntingBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         # Rapid changers
         "fullness": -2,
-        "energy": -5,
+        "energy": -3,
         "comfort": -1,
         "playfulness": -2,
 

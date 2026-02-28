@@ -25,7 +25,7 @@ class VocalizingBehavior(BaseBehavior):
 
     COMPLETION_BONUS = {
         # Rapid changers
-        "energy": -2,
+        "energy": -1,
 
         # Medium changers
         "independence": -0.05,

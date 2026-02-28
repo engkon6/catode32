@@ -30,7 +30,7 @@ class IdleBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         # Rapid changers
         "fullness": -0.15,
-        "energy": -0.3,
+        "energy": -0.2,
         "comfort": -0.3,
         "playfulness": 0.2,
         "focus": -0.6,
