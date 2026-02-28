@@ -4,7 +4,6 @@ import gc
 import sys
 import config
 from menu import Menu, MenuItem
-from settings import Settings, SettingItem
 from transitions import TransitionManager
 from ui import OverlayManager
 from assets.icons import WRENCH_ICON, SUN_ICON, HOUSE_ICON, STATS_ICON, MINIGAME_ICONS, MINIGAMES_ICON, CAT_ICON
@@ -29,7 +28,6 @@ class SceneManager:
         # Overlay management (menus, settings, dialogs)
         self.overlays = OverlayManager()
         self.big_menu = Menu(renderer, input_handler)
-        self.settings = Settings(renderer, input_handler)
 
         # Scene registry: name -> (module_path, class_name)
         # Scenes are lazy-loaded when first accessed
@@ -61,6 +59,8 @@ class SceneManager:
             'debug_poses': ('scenes.debug_poses', 'DebugPosesScene'),
             'debug_behaviors': ('scenes.debug_behaviors', 'DebugBehaviorsScene'),
             'debug_stats': ('scenes.debug_stats', 'DebugStatsScene'),
+            'environment_settings': ('scenes.environment_settings', 'EnvironmentSettingsScene'),
+            'time_settings': ('scenes.time_settings', 'TimeSettingsScene'),
         }
 
     def _get_scene_class(self, name):
@@ -232,16 +232,6 @@ class SceneManager:
             return
         self._handle_big_menu_action(result)
 
-    def _on_settings_result(self, result, metadata):
-        """Handle settings overlay result."""
-        settings_type = metadata.get('settings_type')
-        if settings_type == 'environment':
-            self.context.environment = result
-        elif settings_type == 'time_speed':
-            self.context.time_speed = result.get('time_speed', 1.0)
-        # Return to big menu after settings
-        self._open_big_menu()
-
     def _build_big_menu_items(self):
         """Build the big menu items"""
         items = []
@@ -265,11 +255,11 @@ class SceneManager:
         
         # Debug submenu
         debug_items = []
-        debug_items.append(MenuItem("Environment", icon=SUN_ICON, action=('settings', 'environment')))
+        debug_items.append(MenuItem("Environment", icon=SUN_ICON, action=('scene', 'environment_settings')))
         debug_items.append(MenuItem("Poses", icon=CAT_ICON, action=('scene', 'debug_poses')))
         debug_items.append(MenuItem("Behaviors", icon=CAT_ICON, action=('scene', 'debug_behaviors')))
         debug_items.append(MenuItem("Stats", icon=CAT_ICON, action=('scene', 'debug_stats')))
-        debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('settings', 'time_speed')))
+        debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('scene', 'time_settings')))
         debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
         debug_items.append(MenuItem("Context", icon=WRENCH_ICON, action=('scene', 'debug_context')))
         
@@ -289,68 +279,6 @@ class SceneManager:
             scene_class = self._get_scene_class(scene_name)
             if scene_class:
                 self.change_scene(scene_class)
-
-        elif action_type == 'settings':
-            settings_name = action[1]
-            if settings_name == 'environment':
-                self._open_environment_settings()
-            elif settings_name == 'time_speed':
-                self._open_time_settings()
-    
-    def _open_environment_settings(self):
-        """Open the environment settings screen"""
-        # Get current values from context, with defaults
-        env = getattr(self.context, 'environment', {})
-
-        items = [
-            SettingItem(
-                "Time", "time_of_day",
-                options=["Dawn", "Morning", "Noon", "Afternoon", "Dusk", "Evening", "Night", "Late Night"],
-                value=env.get('time_of_day', "Noon")
-            ),
-            SettingItem(
-                "Season", "season",
-                options=["Spring", "Summer", "Fall", "Winter"],
-                value=env.get('season', "Summer")
-            ),
-            SettingItem(
-                "Moon", "moon_phase",
-                options=["New", "Wax Cres", "1st Qtr", "Wax Gib",
-                         "Full", "Wan Gib", "3rd Qtr", "Wan Cres"],
-                value=env.get('moon_phase', "Full")
-            ),
-            SettingItem(
-                "Weather", "weather",
-                options=["Clear", "Cloudy", "Overcast", "Rain", "Storm", "Snow", "Windy"],
-                value=env.get('weather', "Clear")
-            ),
-        ]
-
-        self.settings.open(items, transition=False)
-        self.overlays.push(
-            self.settings,
-            on_result=self._on_settings_result,
-            metadata={'settings_type': 'environment'}
-        )
-
-    def _open_time_settings(self):
-        """Open the time speed settings screen"""
-        items = [
-            SettingItem(
-                "Speed", "time_speed",
-                min_val=0.5,
-                max_val=20.0,
-                step=0.5,
-                value=getattr(self.context, 'time_speed', 1.0)
-            ),
-        ]
-
-        self.settings.open(items, transition=False)
-        self.overlays.push(
-            self.settings,
-            on_result=self._on_settings_result,
-            metadata={'settings_type': 'time_speed'}
-        )
 
     def unload_all(self):
         """Unload all cached scenes - call this on shutdown"""
