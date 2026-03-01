@@ -85,7 +85,7 @@ class ZoomiesBehavior(BaseBehavior):
         self._dir_change_interval = random.uniform(1.0, 3.0)
         self.zoom_duration = random.randint(20, 45)
         self._apply_direction()
-        self._character.set_pose("sitting.side.happy")
+        self._character.set_pose("leaning_forward.side.crazy")
 
     def update(self, dt):
         if not self._active:
@@ -97,7 +97,7 @@ class ZoomiesBehavior(BaseBehavior):
             if self._phase_timer >= self.windup_duration:
                 self._phase = "zooming"
                 self._phase_timer = 0.0
-                self._character.set_pose("running.side.neutral")
+                self._character.set_pose("running.side.crazy")
 
         elif self._phase == "zooming":
             context = self._character.context

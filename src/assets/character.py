@@ -1146,6 +1146,23 @@ CHAR_EYES_FRONT_YELL = {
     ]
 }
 
+CHAR_EYES_SIDE_HUGE = {
+    "width": 11,
+    "height": 7,
+    "anchor_x": 6,
+    "anchor_y": 3,
+    "speed": 8,
+    "extra_frames": 24,
+    "frames": [
+        bytearray([0x60, 0x00, 0x91, 0xc0, 0x92, 0x20, 0x92, 0x20, 0x92, 0x20, 0x62, 0x20, 0x01, 0xc0, ]),
+        bytearray([0x00, 0x00, 0x60, 0x00, 0x91, 0xc0, 0x92, 0x20, 0x92, 0x20, 0x62, 0x20, 0x01, 0xc0, ]),
+        bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x00, 0x91, 0xc0, 0x62, 0x20, 0x01, 0xc0, ]),
+        bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x70, 0x20, 0x03, 0xc0, ]),
+        bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x00, 0x91, 0xc0, 0x62, 0x20, 0x01, 0xc0, ]),
+    ]
+}
+
+
 
 #
 # Tails
@@ -1621,6 +1638,12 @@ POSES = {
                 "body": CHAR_BODY_SIDE_STANDING,
                 "eyes": CHAR_EYES_SIDE_DOWN,
                 "tail": CHAR_TAIL_NEUTRAL
+            },
+            "crazy": {
+                "head": CHAR_HEAD_SIDE_NEUTRAL,
+                "body": CHAR_BODY_SIDE_STANDING,
+                "eyes": CHAR_EYES_SIDE_HUGE,
+                "tail": CHAR_TAIL_NEUTRAL,
             }
         },
     },
@@ -1653,6 +1676,13 @@ POSES = {
                 "eyes": CHAR_EYES_SIDE_ANGRY,
                 "tail": CHAR_TAIL_UP_NEUTRAL,
                 "head_first": True,
+            },
+            "crazy": {
+                "head": CHAR_HEAD_SIDE_AIRPLANE2,
+                "body": CHAR_BODY_SIDE_LEANING,
+                "eyes": CHAR_EYES_SIDE_HUGE,
+                "tail": CHAR_TAIL_UP_NEUTRAL,
+                "head_first": True,   
             }
         }
     },
@@ -1713,6 +1743,12 @@ POSES = {
                 "eyes": CHAR_EYES_SIDE_ANGRY,
                 "tail": CHAR_TAIL_ANNOYED,
                 "head_first": True,
+            },
+            "crazy": {
+                "head": CHAR_HEAD_SIDE_NEUTRAL2,
+                "body": CHAR_BODY_SIDE_RUNNING,
+                "eyes": CHAR_EYES_SIDE_HUGE,
+                "tail": CHAR_TAIL_ANNOYED,
             }
         }
     },
