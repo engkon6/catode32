@@ -43,8 +43,8 @@ class ObservingBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
 
-        self.notice_duration = 1.0
-        self.watch_duration = 8.0
+        self.notice_duration = 4.0
+        self.watch_duration = 18.0
         self.lose_interest_duration = 1.5
 
     def next(self, context):
@@ -63,7 +63,7 @@ class ObservingBehavior(BaseBehavior):
             return
         super().start(on_complete)
         self._phase = "noticing"
-        self._character.set_pose("sitting.side.aloof")
+        self._character.set_pose("sitting.side.looking_down")
 
     def update(self, dt):
         if not self._active:
@@ -75,14 +75,14 @@ class ObservingBehavior(BaseBehavior):
             if self._phase_timer >= self.notice_duration:
                 self._phase = "watching"
                 self._phase_timer = 0.0
-                self._character.set_pose("sitting.forward.aloof")
+                self._character.set_pose("leaning_forward.side.angry")
 
         elif self._phase == "watching":
             self._progress = min(1.0, self._phase_timer / self.watch_duration)
             if self._phase_timer >= self.watch_duration:
                 self._phase = "losing_interest"
                 self._phase_timer = 0.0
-                self._character.set_pose("sitting.side.neutral")
+                self._character.set_pose("sitting_silly.side.neutral")
 
         elif self._phase == "losing_interest":
             if self._phase_timer >= self.lose_interest_duration:
