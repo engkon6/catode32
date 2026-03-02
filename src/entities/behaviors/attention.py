@@ -2,21 +2,24 @@
 
 import random
 from entities.behaviors.base import BaseBehavior
+from assets.icons import EXCLAIM
 from ui import draw_bubble
+
+
+_PHASE1_DURATION = 1.5  # question mark
+_PHASE2_DURATION = 1.5  # exclamation mark
+_PHASE3_DURATION = 2.0  # happy
+
+_EXCLAIM_RISE_DURATION = 1.0  # seconds for exclaim to rise
+_EXCLAIM_RISE_AMOUNT = 15     # pixels risen at peak
 
 
 # Variant configurations
 VARIANTS = {
     "psst": {
-        "pose": "sitting.forward.aloof",
-        "bubble": "question",
-        "duration": 4.5,
         "stats": {"curiosity": 2},
     },
     "point_bird": {
-        "pose": "sitting.side.aloof",
-        "bubble": "exclaim",
-        "duration": 5.0,
         "stats": {"curiosity": 3},
     },
 }
@@ -25,7 +28,10 @@ VARIANTS = {
 class AttentionBehavior(BaseBehavior):
     """Handles psst and point_bird interactions.
 
-    Single "reacting" phase that displays a bubble and reverts pose on completion.
+    Phases:
+    1. noticing  - Question mark bubble, sitting_silly.side.neutral
+    2. realizing - Exclamation mark rises, sitting_silly.side.aloof
+    3. happy     - No bubble, sitting_silly.side.happy
     """
 
     NAME = "attention"
@@ -41,8 +47,6 @@ class AttentionBehavior(BaseBehavior):
             character: The CharacterEntity this behavior belongs to.
         """
         super().__init__(character)
-        self._bubble = None
-        self._duration = 2.0
         self._variant = "psst"
 
     def get_completion_bonus(self, context):
@@ -60,14 +64,9 @@ class AttentionBehavior(BaseBehavior):
         if self._active:
             return
         self._variant = variant if variant in VARIANTS else "psst"
-        config = VARIANTS[self._variant]
         super().start(on_complete)
-        self._phase = "reacting"
-        self._bubble = config["bubble"]
-        self._duration = config["duration"]
-
-        # Set reaction pose
-        self._character.set_pose(config["pose"])
+        self._phase = "noticing"
+        self._character.set_pose("sitting_silly.side.neutral")
 
     def update(self, dt):
         """Update the reaction.
@@ -79,18 +78,28 @@ class AttentionBehavior(BaseBehavior):
             return
 
         self._phase_timer += dt
-        self._progress = min(1.0, self._phase_timer / self._duration)
 
-        if self._phase_timer >= self._duration:
-            self.stop(completed=True)
+        if self._phase == "noticing":
+            self._progress = min(1.0, self._phase_timer / _PHASE1_DURATION)
+            if self._phase_timer >= _PHASE1_DURATION:
+                self._phase = "realizing"
+                self._phase_timer = 0.0
+                self._progress = 0.0
+                self._character.set_pose("sitting_silly.side.aloof")
 
-    def stop(self, completed=True):
-        """End the reaction."""
-        self._bubble = None
-        super().stop(completed=completed)
+        elif self._phase == "realizing":
+            self._progress = min(1.0, self._phase_timer / _PHASE2_DURATION)
+            if self._phase_timer >= _PHASE2_DURATION:
+                self._phase = "happy"
+                self._phase_timer = 0.0
+                self._character.set_pose("sitting_silly.side.happy")
+
+        elif self._phase == "happy":
+            if self._phase_timer >= _PHASE3_DURATION:
+                self.stop(completed=True)
 
     def draw(self, renderer, char_x, char_y, mirror=False):
-        """Draw the speech bubble.
+        """Draw the speech bubble or exclamation mark.
 
         Args:
             renderer: The renderer to draw with.
@@ -98,5 +107,20 @@ class AttentionBehavior(BaseBehavior):
             char_y: Character's y position.
             mirror: If True, character is facing right.
         """
-        if self._active and self._bubble:
-            draw_bubble(renderer, self._bubble, char_x, char_y, self._progress, mirror)
+        if not self._active:
+            return
+
+        if self._phase == "noticing":
+            draw_bubble(renderer, "question", char_x, char_y, self._progress, mirror)
+
+        elif self._phase == "realizing":
+            rise_t = min(1.0, self._phase_timer / _EXCLAIM_RISE_DURATION)
+            rise_offset = int(rise_t * _EXCLAIM_RISE_AMOUNT)
+            exclaim_y = char_y - 40 - rise_offset
+
+            if mirror:
+                exclaim_x = char_x + 16
+            else:
+                exclaim_x = char_x - EXCLAIM["width"] - 16
+
+            renderer.draw_sprite_obj(EXCLAIM, exclaim_x, exclaim_y)
