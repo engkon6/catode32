@@ -170,9 +170,9 @@ class OutsideScene(Scene):
         ]
 
         toy_items = [
-            MenuItem(toy, icon=TOY_ICONS.get(toy), action=("toy", toy))
+            MenuItem(toy["name"], icon=TOY_ICONS.get(toy["name"]), action=("toy", toy))
             for toy in self.context.inventory.get("toys", [])
-            if toy in ["Feather", "Laser"]
+            if toy["name"] in ["Feather", "Laser"]
         ]
         if toy_items:
             items.append(MenuItem("Play with toy", icon=TOYS_ICON, submenu=toy_items))
@@ -191,7 +191,7 @@ class OutsideScene(Scene):
         elif action_type == "point_bird":
             self.character.trigger(AttentionBehavior, variant="point_bird")
         elif action_type == "throw_stick":
-            self.character.trigger(PlayingBehavior, trigger="throw_stick")
+            self.character.trigger(PlayingBehavior, variant="throw_stick")
         elif action_type == "treat":
             self.character.trigger(EatingBehavior, TREAT_PILE, "treat")
         elif action_type == "groom":
@@ -199,4 +199,4 @@ class OutsideScene(Scene):
         elif action_type == "train":
             self.character.trigger(TrainingBehavior)
         elif action_type == "toy":
-            self.character.trigger(PlayingBehavior, trigger="toy")
+            self.character.trigger(PlayingBehavior, variant=action[1]["variant"])

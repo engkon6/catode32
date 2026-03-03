@@ -154,8 +154,8 @@ class NormalScene(Scene):
             MenuItem("Fish", icon=FISH_ICON, action=("meal", "fish")),
         ]
         snack_items = [
-            MenuItem("Treat", icon=SNACK_ICONS.get("Treat"), action=("snack", "treat")),
-            MenuItem("Kibble", icon=SNACK_ICONS.get("Kibble"), action=("snack", "kibble")),
+            MenuItem(snack["name"], icon=SNACK_ICONS.get(snack["name"]), action=("snack", snack))
+            for snack in self.context.inventory.get("snacks", [])
         ]
         feed_items = [
             MenuItem("Meals", icon=MEAL_ICON, submenu=meal_items),
@@ -164,7 +164,7 @@ class NormalScene(Scene):
 
         # Toys submenu
         toy_items = [
-            MenuItem(toy, icon=TOY_ICONS.get(toy), action=("toy", toy))
+            MenuItem(toy["name"], icon=TOY_ICONS.get(toy["name"]), action=("toy", toy))
             for toy in self.context.inventory.get("toys", [])
         ]
 
@@ -207,7 +207,7 @@ class NormalScene(Scene):
         elif action_type == "snack":
             self.character.trigger(EatingBehavior, TREAT_PILE, "treat")
         elif action_type == "toy":
-            self.character.trigger(PlayingBehavior, trigger="toy")
+            self.character.trigger(PlayingBehavior, variant=action[1]["variant"])
         elif action_type == "groom":
             self.character.trigger(BeingGroomedBehavior)
         elif action_type == "train":

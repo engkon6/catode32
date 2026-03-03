@@ -37,8 +37,15 @@ class GameContext:
 
         # Inventory for menu testing
         self.inventory = {
-            "toys": ["Feather", "Yarn ball", "Laser"],
-            "snacks": ["Treat", "Kibble"],
+            "toys": [
+                {"name": "Feather", "variant": "toy"},
+                {"name": "Yarn ball", "variant": "ball"},
+                {"name": "Laser", "variant": "toy"},
+            ],
+            "snacks": [
+                {"name": "Treat"},
+                {"name": "Kibble"},
+            ],
         }
 
         # Minigame high scores
