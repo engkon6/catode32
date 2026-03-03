@@ -101,18 +101,20 @@ class Environment:
                 if screen_x + sprite["width"] < 0 or screen_x >= config.DISPLAY_WIDTH:
                     continue
 
-                # Build draw kwargs from object
-                draw_kwargs = {
-                    k: v for k, v in obj.items()
-                    if k not in ("sprite", "x", "y")
-                }
-
-                renderer.draw_sprite_obj(
-                    sprite,
-                    screen_x,
-                    int(obj["y"]),
-                    **draw_kwargs
-                )
+                # Most objects have only sprite/x/y — skip kwargs dict entirely
+                if len(obj) == 3:
+                    renderer.draw_sprite_obj(sprite, screen_x, int(obj["y"]))
+                else:
+                    draw_kwargs = {
+                        k: v for k, v in obj.items()
+                        if k not in ("sprite", "x", "y")
+                    }
+                    renderer.draw_sprite_obj(
+                        sprite,
+                        screen_x,
+                        int(obj["y"]),
+                        **draw_kwargs
+                    )
 
         # Draw entities (with foreground parallax)
         camera_offset = int(self.camera_x * PARALLAX_FACTORS[LAYER_FOREGROUND])
