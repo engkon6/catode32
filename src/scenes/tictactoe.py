@@ -12,6 +12,8 @@ from ui import Popup
 class TicTacToeScene(Scene):
     """Tic-tac-toe minigame against the pet"""
 
+    ASSETS_TO_KEEP = ['assets.minigame_assets']
+
     # Board layout
     CELL_SIZE = 19
     BOARD_OFFSET_X = 2

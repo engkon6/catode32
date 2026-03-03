@@ -13,6 +13,8 @@ from ui import Popup
 class ZoomiesScene(Scene):
     """Endless runner minigame inspired by Chrome dino"""
 
+    ASSETS_TO_KEEP = ['assets.minigame_character', 'assets.nature']
+
     # Game constants
     GROUND_Y = 54  # Y position of the ground line
     PLAYER_X = 4  # Fixed X position of player

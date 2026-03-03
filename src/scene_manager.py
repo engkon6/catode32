@@ -12,6 +12,15 @@ from assets.icons import WRENCH_ICON, SUN_ICON, HOUSE_ICON, STATS_ICON, MINIGAME
 class SceneManager:
     """Manages scene loading, unloading, and transitions"""
 
+    # Asset modules always kept in memory regardless of which scenes are active.
+    # These are imported by core modules (ui, scene_manager, entity behaviors).
+    _GLOBAL_ASSETS_TO_KEEP = {
+        'assets.icons',
+        'assets.effects',
+        'assets.character',
+        'assets.items',
+    }
+
     def __init__(self, context, renderer, input_handler):
         self.context = context
         self.renderer = renderer
@@ -152,6 +161,7 @@ class SceneManager:
         
     def _manage_cache(self):
         """Remove old scenes if cache is too large"""
+        evicted = False
         while len(self.scene_cache) > self.max_cached_scenes:
             # Remove the least recently used scene (first in access order)
             oldest_class_name = self.scene_access_order.pop(0)
@@ -165,6 +175,26 @@ class SceneManager:
                 if class_name == oldest_class_name:
                     self._unload_scene_module(reg_name)
                     break
+            evicted = True
+
+        if evicted:
+            self._purge_unused_asset_modules()
+
+    def _purge_unused_asset_modules(self):
+        """Remove asset modules from sys.modules not needed by any cached scene."""
+        keep = set(self._GLOBAL_ASSETS_TO_KEEP)
+        for scene in self.scene_cache.values():
+            keep.update(type(scene).ASSETS_TO_KEEP)
+
+        to_remove = [
+            mod for mod in sys.modules
+            if mod.startswith('assets.') and mod not in keep
+        ]
+        for mod_name in to_remove:
+            print(f"Purging asset module: {mod_name}")
+            del sys.modules[mod_name]
+        if to_remove:
+            gc.collect()
     
     def _handle_scene_change(self, scene_ref):
         """Handle a scene change request. scene_ref can be a name (str) or class."""

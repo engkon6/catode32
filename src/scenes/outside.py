@@ -19,6 +19,8 @@ from sky import SkyRenderer
 class OutsideScene(Scene):
     """Outside scene with parallax scrolling environment"""
 
+    ASSETS_TO_KEEP = ['assets.nature']
+
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
         self.menu_active = False
