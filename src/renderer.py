@@ -9,6 +9,15 @@ import framebuf
 import math
 from sprite_transform import mirror_sprite_h, mirror_sprite_v, rotate_sprite, skew_sprite
 
+_FILL_PATTERNS = {
+    'solid':        lambda x, y: True,
+    'checkerboard': lambda x, y: (x + y) % 2 == 0,
+    'horizontal':   lambda x, y: y % 2 == 0,
+    'vertical':     lambda x, y: x % 2 == 0,
+    'diagonal':     lambda x, y: (x + y) % 3 == 0,
+    'dots':         lambda x, y: x % 2 == 0 and y % 2 == 0,
+}
+
 class Renderer:
     """Handles all display rendering operations"""
     
@@ -154,23 +163,13 @@ class Renderer:
         if len(points) < 3:
             return
 
-        # Built-in patterns
-        patterns = {
-            'solid': lambda x, y: True,
-            'checkerboard': lambda x, y: (x + y) % 2 == 0,
-            'horizontal': lambda x, y: y % 2 == 0,
-            'vertical': lambda x, y: x % 2 == 0,
-            'diagonal': lambda x, y: (x + y) % 3 == 0,
-            'dots': lambda x, y: x % 2 == 0 and y % 2 == 0,
-        }
-
         # Resolve pattern
         if pattern is None or pattern == 'solid':
             pattern_fn = None  # Solid fill, skip pattern check for speed
         elif callable(pattern):
             pattern_fn = pattern
-        elif pattern in patterns:
-            pattern_fn = patterns[pattern]
+        elif pattern in _FILL_PATTERNS:
+            pattern_fn = _FILL_PATTERNS[pattern]
         else:
             pattern_fn = None
 
