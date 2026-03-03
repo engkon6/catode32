@@ -67,6 +67,9 @@ BTN_B = _CONFIG['BTN_B']
 BTN_MENU1 = _CONFIG['BTN_MENU1']
 BTN_MENU2 = _CONFIG['BTN_MENU2']
 
+# Free the raw config dicts — all values have been extracted above
+del _ESP32_C6_CONFIG, _ESP32_C3_CONFIG, _CONFIG
+
 # Game Constants
 FPS = 12  # Target frames per second
 FRAME_TIME_MS = 1000 // FPS  # Milliseconds per frame
