@@ -15,7 +15,7 @@ class IdleBehavior(BaseBehavior):
     """
 
     NAME = "idle"
-    POSES = {
+    POSES = (
         "sitting.side.neutral",
         "sitting.side.happy",
         "sitting.side.aloof",
@@ -24,7 +24,7 @@ class IdleBehavior(BaseBehavior):
         "sitting.forward.aloof",
         "standing.side.neutral",
         "standing.side.happy",
-    }
+    )
 
     COMPLETION_BONUS = {
         # Rapid changers
