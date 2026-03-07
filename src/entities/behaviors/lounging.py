@@ -32,7 +32,6 @@ class LoungeingBehavior(BaseBehavior):
 
         # Slow changers
         "fitness": -0.05,
-        "patience": 0.2,
     }
 
     @classmethod

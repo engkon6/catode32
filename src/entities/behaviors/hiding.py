@@ -8,8 +8,8 @@ class HidingBehavior(BaseBehavior):
     """Pet disappears to a safe spot to recover.
 
     Triggered from pacing or mischief when the pet is scared, depleted,
-    and out of energy to keep acting out. Time alone rebuilds comfort
-    and patience. Returns to idle when ready to rejoin the world.
+    and out of energy to keep acting out. Time alone rebuilds comfort.
+    Returns to idle when ready to rejoin the world.
 
     Phases:
     1. finding_spot  - Pet looks around and retreats
@@ -26,9 +26,6 @@ class HidingBehavior(BaseBehavior):
         # Medium changers
         "sociability": -0.2,
         "affection": -0.5,
-
-        # Slow changers
-        "patience": 0.05,
 
         # Extra slow changers
         "courage": -0.3,

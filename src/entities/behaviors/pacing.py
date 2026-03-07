@@ -8,7 +8,7 @@ class PacingBehavior(BaseBehavior):
     """Pet burns off restless anxiety by pacing.
 
     Triggered when at least one core emotional need is low (comfort,
-    fulfillment, or affection) and the pet lacks the patience and serenity
+    fulfillment, or affection) and the pet lacks and serenity
     to sit with it. Provides mild comfort relief and channels unspent energy
     into mischievousness.
 
@@ -35,7 +35,6 @@ class PacingBehavior(BaseBehavior):
         "comfort": -1.5,
 
         # Slow changers
-        "patience": 0.1,
         "fitness": 0.05,
         "loyalty": -0.03,
 
@@ -45,14 +44,13 @@ class PacingBehavior(BaseBehavior):
 
     @classmethod
     def can_trigger(cls, context):
-        trigger = context.comfort < 65 and (context.patience < 60 or context.serenity < 60)
+        trigger = context.comfort < 65 and context.serenity < 60
 
         if not trigger:
             failures = []
             if context.comfort >= 65:
                 failures.append("Comfort: %6.4f" % context.comfort)
-            if context.patience >= 60 and context.serenity >= 60:
-                failures.append("Patience: %6.4f" % context.patience)
+            if context.serenity >= 60:
                 failures.append("Serenity: %6.4f" % context.serenity)
             print("Skipping pacing. " + ", ".join(failures))
 
@@ -60,7 +58,7 @@ class PacingBehavior(BaseBehavior):
 
     @classmethod
     def get_priority(cls, context):
-        worst = min(context.comfort, context.patience, context.serenity)
+        worst = min(context.comfort, context.serenity)
         return random.uniform(10, max(10, 100 - (100 - worst) * 0.8))
 
     def __init__(self, character):

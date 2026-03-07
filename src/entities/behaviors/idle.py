@@ -43,7 +43,6 @@ class IdleBehavior(BaseBehavior):
         # Slow changers
         "fitness": -0.05,
         "serenity": 0.01,
-        "patience": -0.04,
     }
 
     def __init__(self, character):

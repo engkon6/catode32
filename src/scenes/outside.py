@@ -194,7 +194,6 @@ class OutsideScene(Scene):
         train_items = [
             MenuItem("Intelligence", icon=HAND_ICON, action=("train",)),
             MenuItem("Behavior", icon=HAND_ICON, action=("train",)),
-            MenuItem("Patience", icon=HAND_ICON, action=("train",)),
             MenuItem("Fitness", icon=HAND_ICON, action=("train",)),
             MenuItem("Sociability", icon=HAND_ICON, action=("train",)),
         ]

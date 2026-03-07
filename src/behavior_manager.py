@@ -269,13 +269,12 @@ class BehaviorManager:
         return trigger
 
     def can_trigger_pacing(self, ctx):
-        trigger = ctx.comfort < 70 and (ctx.patience < 65 or ctx.serenity < 65)
+        trigger = ctx.comfort < 70 and ctx.serenity < 65
         if not trigger:
             failures = []
             if ctx.comfort >= 70:
                 failures.append("Comfort: %6.4f" % ctx.comfort)
-            if ctx.patience >= 65 and ctx.serenity >= 65:
-                failures.append("Patience: %6.4f" % ctx.patience)
+            if ctx.serenity >= 65:
                 failures.append("Serenity: %6.4f" % ctx.serenity)
             print("Skipping pacing. " + ", ".join(failures))
         return trigger
@@ -372,7 +371,7 @@ class BehaviorManager:
         return random.uniform(10, max(10, ctx.comfort))
 
     def priority_pacing(self, ctx):
-        worst = min(ctx.comfort, ctx.patience, ctx.serenity)
+        worst = min(ctx.comfort, ctx.serenity)
         return random.uniform(10, max(10, 100 - (100 - worst) * 0.8))
 
     def priority_sulking(self, ctx):

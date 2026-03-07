@@ -17,7 +17,6 @@ STATS = [
     ("Maturity",      "maturity"),
     ("Affection",     "affection"),
     ("Fitness",       "fitness"),
-    ("Patience",      "patience"),
     ("Serenity",      "serenity"),
     ("Courage",       "courage"),
     ("Loyalty",       "loyalty"),

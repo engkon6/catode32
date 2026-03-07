@@ -32,7 +32,6 @@ class TrainingBehavior(BaseBehavior):
 
         # Slow changers
         "fitness": 0.5,
-        "patience": 0.5,
 
         # Extra slow changers
         "loyalty": 0.7,

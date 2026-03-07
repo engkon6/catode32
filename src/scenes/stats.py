@@ -43,8 +43,6 @@ STATS_CONFIG = [
      "desc": "Life satisfaction. A happy, varied routine improves this."},
     {"type": "stat", "name": "Serenity", "key": "serenity",
      "desc": "Inner peace and calm. A low-stress routine keeps this steady over time."},
-    {"type": "stat", "name": "Patience", "key": "patience",
-     "desc": "Tolerance for calm activities and waiting. Develops gradually through consistent care."},
 
     # Social
     {"type": "header", "text": ""},

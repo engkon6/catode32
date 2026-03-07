@@ -19,7 +19,6 @@ class GameContext:
 
         # Even slower changing stats (change on more of a monthly basis)
         self.fitness = 50           # Athleticism
-        self.patience = 50          # Tolerance for waiting, being groomed
         self.serenity = 50          # Inner peace. Makes them less likely to be stressed
 
         # Slowest changing stats (basically traits with little or no change)
@@ -63,7 +62,7 @@ class GameContext:
         print("Curiosity:    %6.4f, Sociability:  %6.4f" % (self.curiosity, self.sociability))
         print("Intelligence: %6.4f, Maturity:     %6.4f, Affection:       %6.4f" % (self.intelligence, self.maturity, self.affection))
         print("----------------------------------------------------------------")
-        print("Fitness:      %6.4f, Patience:     %6.4f, Serenity:        %6.4f" % (self.fitness, self.patience, self.serenity))
+        print("Fitness:      %6.4f, Serenity:     %6.4f" % (self.fitness, self.serenity))
         print("----------------------------------------------------------------")
         print("Courage:      %6.4f, Loyalty:      %6.4f, Mischievousness: %6.4f" % (self.courage, self.loyalty, self.mischievousness))
         print("----------------------------------------------------------------")
