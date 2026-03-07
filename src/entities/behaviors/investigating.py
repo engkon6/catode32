@@ -33,6 +33,8 @@ class InvestigatingBehavior(BaseBehavior):
         # Rapid changers
         "focus": -0.4,
         "comfort": -0.3,
+        "playfulness": -0.5,
+        "serenity": -0.25,
 
         # Medium changers
         "curiosity": -0.05,
