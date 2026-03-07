@@ -154,6 +154,9 @@ class BehaviorManager:
             ('self_grooming', self.can_trigger_self_grooming, self.priority_self_grooming),
             ('stretching',    self.can_trigger_stretching,    self.priority_stretching),
             ('pacing',        self.can_trigger_pacing,        self.priority_pacing),
+            ('sulking',       self.can_trigger_sulking,       self.priority_sulking),
+            ('mischief',      self.can_trigger_mischief,      self.priority_mischief),
+            ('hiding',        self.can_trigger_hiding,        self.priority_hiding),
             ('lounging',      self.can_trigger_lounging,      self.priority_lounging),
             ('startled',      self.can_trigger_startled,      self.priority_startled),
         ]
@@ -164,7 +167,7 @@ class BehaviorManager:
             return None, {}
 
         priority_fns = {name: p_fn for name, _, p_fn in check_fns}
-        priorities = {name: priority_fns[name](context) for name in candidates}
+        priorities = {name: max(0, priority_fns[name](context)) for name in candidates}
 
         for name in sorted(candidates, key=lambda n: priorities[n]):
             print(f">> {name}: priority={priorities[name]}")
@@ -266,15 +269,34 @@ class BehaviorManager:
         return trigger
 
     def can_trigger_pacing(self, ctx):
-        trigger = ctx.comfort < 65 and (ctx.patience < 60 or ctx.serenity < 60)
+        trigger = ctx.comfort < 70 and (ctx.patience < 65 or ctx.serenity < 65)
         if not trigger:
             failures = []
-            if ctx.comfort >= 65:
+            if ctx.comfort >= 70:
                 failures.append("Comfort: %6.4f" % ctx.comfort)
-            if ctx.patience >= 60 and ctx.serenity >= 60:
+            if ctx.patience >= 65 and ctx.serenity >= 65:
                 failures.append("Patience: %6.4f" % ctx.patience)
                 failures.append("Serenity: %6.4f" % ctx.serenity)
             print("Skipping pacing. " + ", ".join(failures))
+        return trigger
+
+    def can_trigger_sulking(self, ctx):
+        trigger = ctx.fulfillment < 50 or ctx.affection < 50
+        if not trigger:
+            print("Skipping sulking. Fulfillment: %6.4f, Affection: %6.4f" % (ctx.fulfillment, ctx.affection))
+        return trigger
+
+    def can_trigger_mischief(self, ctx):
+        trigger = (ctx.mischievousness > 25 and ctx.maturity < 55
+                   and ctx.playfulness > 50 and ctx.energy > 40)
+        if not trigger:
+            print("Skipping mischief. Mischievousness: %6.4f, Maturity: %6.4f" % (ctx.mischievousness, ctx.maturity))
+        return trigger
+
+    def can_trigger_hiding(self, ctx):
+        trigger = ctx.courage < 65 and (ctx.affection < 55 or ctx.energy < 55)
+        if not trigger:
+            print("Skipping hiding. Courage: %6.4f" % ctx.courage)
         return trigger
 
     def can_trigger_lounging(self, ctx):
@@ -289,7 +311,7 @@ class BehaviorManager:
         return trigger
 
     def can_trigger_startled(self, ctx):
-        p = 0.15 * (1 - ctx.courage / 100)
+        p = 0.35 * (1 - ctx.courage / 100)
         trigger = random.random() < p
         if not trigger:
             print("Skipping startled. p=%.3f, Courage %6.4f" % (p, ctx.courage))
@@ -353,8 +375,17 @@ class BehaviorManager:
         worst = min(ctx.comfort, ctx.patience, ctx.serenity)
         return random.uniform(10, max(10, 100 - (100 - worst) * 0.8))
 
+    def priority_sulking(self, ctx):
+        return random.uniform(10, max(20, (ctx.fulfillment + ctx.affection) * 0.45))
+
+    def priority_mischief(self, ctx):
+        return random.uniform(20, max(20, (200 - ctx.mischievousness - ctx.playfulness) * 0.5))
+
+    def priority_hiding(self, ctx):
+        return random.uniform(15, max(15, ctx.courage))
+
     def priority_lounging(self, ctx):
-        return 100 - random.uniform(ctx.serenity, ctx.serenity * 2.0)
+        return 100 - random.uniform(ctx.serenity * 0.5, ctx.serenity * 1.5)
 
     def priority_startled(self, ctx):
         return random.uniform(20, max(20, ctx.courage * 1.2))

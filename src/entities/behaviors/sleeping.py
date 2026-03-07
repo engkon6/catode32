@@ -32,9 +32,9 @@ class SleepingBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         # Rapid changers
         "energy": 45,
-        "focus": 10,
-        "comfort": 7,
-        "playfulness": 27,
+        "focus": 4,
+        "comfort": 10,
+        "playfulness": 15,
         "fullness": -5,
 
         # Medium changers
@@ -55,10 +55,19 @@ class SleepingBehavior(BaseBehavior):
     def next(self, context):
         return 'stretching'
 
+
     def get_completion_bonus(self, context):
         bonus = dict(super().get_completion_bonus(context))
         if context.fullness > 60:
-            bonus["energy"] = bonus.get("energy", 0) + 10
+            bonus["energy"] = bonus.get("energy", 0) + 12
+
+        if context.playfulness > 75:
+            bonus["playfulness"] = bonus.get("playfulness", 0) / 2
+        
+        if context.focus > 75:
+            bonus["focus"] = bonus.get("focus", 0) / 2
+        elif context.focus < 30:
+            bonus["focus"] = bonus.get("focus", 0) * 3.0
         return bonus
 
     def __init__(self, character):

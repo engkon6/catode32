@@ -30,11 +30,14 @@ class InvestigatingBehavior(BaseBehavior):
         return random.uniform(10, max(10, 100 - context.curiosity))
 
     COMPLETION_BONUS = {
+        # Rapid changers
+        "focus": -0.4,
+        "comfort": -0.3,
+
         # Medium changers
         "curiosity": -0.05,
         "maturity": 0.3,
         "fulfillment": 0.05,
-
     }
 
     def __init__(self, character):

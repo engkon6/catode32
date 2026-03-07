@@ -19,6 +19,9 @@ class ChatteringBehavior(BaseBehavior):
     NAME = "chattering"
 
     COMPLETION_BONUS = {
+        # Rapid changers
+        "focus": -0.5,
+
         # Medium changers
         "curiosity": -0.1,
         "intelligence": -0.02,

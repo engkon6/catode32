@@ -208,33 +208,35 @@ class BaseBehavior:
     def apply_completion_bonus(self, context, progress=1.0):
         """Apply completion bonus stats, scaled by how much was completed.
 
-        Stats near 0 or 100 resist changes that push them further toward the
-        extreme (soft clamping).  Changes that move a stat back toward center
-        are allowed to fully apply and get a small boost near the extremes.
+        Changes are asymptotically damped near extremes: a stat already near
+        100 resists further increases, and one near 0 resists further
+        decreases.  The curve is smooth across the full range rather than
+        only kicking in near the edges, so stats exhibit sharp initial
+        movement from center but slow to a crawl near the floor/ceiling.
+
+        Scale at representative values (EXP=0.7):
+          stat=5:  +delta 0.96,  -delta 0.11
+          stat=20: +delta 0.86,  -delta 0.32
+          stat=50: +delta 0.62,  -delta 0.62
+          stat=80: +delta 0.32,  -delta 0.86
+          stat=95: +delta 0.11,  -delta 0.96
 
         Args:
             context: The GameContext to modify.
             progress: How much of the behavior was completed (0.0 to 1.0).
         """
-        SOFT_ZONE = 20.0   # stat range near each extreme where damping kicks in
-        BOOST     = 0.30   # extra multiplier for toward-center changes at extreme
+        EXP = 0.7  # Curve shape: lower = gentler slope in the mid-range.
 
         for stat, bonus in self.get_completion_bonus(context).items():
             current = getattr(context, stat, 0)
             delta = bonus * progress
 
-            if current < SOFT_ZONE:
-                t = current / SOFT_ZONE            # 0 at stat=0, 1.0 at stat=20
-                if delta < 0:
-                    delta *= t                     # dampen: barely moves when near 0
-                else:
-                    delta *= 1.0 + BOOST * (1 - t) # boost: a little extra when low
-            elif current > (100 - SOFT_ZONE):
-                t = (100 - current) / SOFT_ZONE    # 0 at stat=100, 1.0 at stat=80
-                if delta > 0:
-                    delta *= t                     # dampen: barely moves when near 100
-                else:
-                    delta *= 1.0 + BOOST * (1 - t) # boost: a little extra when high
+            if delta > 0:
+                room = (100.0 - current) / 100.0   # 1.0 when empty, 0 when full
+                delta *= room ** EXP
+            elif delta < 0:
+                room = current / 100.0              # 1.0 when full, 0 when empty
+                delta *= room ** EXP
 
             new_value = max(0, min(100, current + delta))
             setattr(context, stat, new_value)

@@ -35,9 +35,13 @@ class ObservingBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         # Rapid changers
         "focus": -0.6,
-
+        "playfulness": -0.4,
+    
         # Medium changers
         "curiosity": -0.25,
+
+        # Slow changes
+        "serenity": -0.2,
     }
 
     def __init__(self, character):
@@ -52,7 +56,7 @@ class ObservingBehavior(BaseBehavior):
         if context and getattr(context, 'playfulness', 0) > 60:
             if random.random() < 0.4:
                 return 'chattering'
-        if random.random() < 0.3:
+        if context and getattr(context, 'focus', 50) > 55 and random.random() < 0.3:
             return 'investigating'
         return None
 
