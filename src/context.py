@@ -115,7 +115,9 @@ class GameContext:
             with open(_SAVE_PATH, 'w') as f:
                 ujson.dump(data, f)
             self.last_save_time = time.ticks_ms()
-            print("[Context] Saved to " + _SAVE_PATH)
+            print("[Context] Saved to " + _SAVE_PATH + ", rebooting...")
+            import machine
+            machine.soft_reset()
         except Exception as e:
             print("[Context] Save failed: " + str(e))
 

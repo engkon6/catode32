@@ -304,7 +304,7 @@ class SceneManager:
 
         context_save_items = []
         context_save_items.append(MenuItem("Context", icon=WRENCH_ICON, action=('scene', 'debug_context')))
-        context_save_items.append(MenuItem("Save now", icon=WRENCH_ICON, action=('context', 'save'), confirm="Save pet stats to flash?"))
+        context_save_items.append(MenuItem("Save now", icon=WRENCH_ICON, action=('context', 'save'), confirm="Save and reboot?"))
         context_save_items.append(MenuItem("Reset stats", icon=WRENCH_ICON, action=('context', 'reset'), confirm="Reset all stats to defaults?"))
         debug_items.append(MenuItem("Context", icon=WRENCH_ICON, submenu=context_save_items))
 
