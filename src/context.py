@@ -115,9 +115,15 @@ class GameContext:
             with open(_SAVE_PATH, 'w') as f:
                 ujson.dump(data, f)
             self.last_save_time = time.ticks_ms()
-            print("[Context] Saved to " + _SAVE_PATH + ", rebooting...")
-            import machine
-            machine.soft_reset()
+            import sys
+            if '/remote' in sys.path:
+                # Running under mpremote mount (dev mode) — soft reset would
+                # kill the mount and crash mpremote, so skip it.
+                print("[Context] Saved to " + _SAVE_PATH + " (dev mode, no reboot)")
+            else:
+                print("[Context] Saved to " + _SAVE_PATH + ", rebooting...")
+                import machine
+                machine.soft_reset()
         except Exception as e:
             print("[Context] Save failed: " + str(e))
 
@@ -132,6 +138,8 @@ class GameContext:
                     setattr(self, key, data[key])
             self.environment = data.get('env', {})
             self.recompute_health()
+            import time
+            self.last_save_time = time.ticks_ms()
             print("[Context] Loaded from " + _SAVE_PATH)
             return True
         except Exception as e:

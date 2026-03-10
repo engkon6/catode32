@@ -53,8 +53,17 @@ if mp fs ls / > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Connected to device${NC}"
 else
     echo -e "${RED}✗ Failed to connect to device${NC}"
+    echo ""
+    echo "  If boot.py is installed, hold A+B while running this script"
+    echo "  to stay in REPL mode during the initial connection."
     exit 1
 fi
+
+# Remove boot.py immediately so subsequent mpremote reconnects don't trigger
+# a game start (no boot.py = device falls to REPL on any soft reset).
+# It will be re-uploaded at the end of this script.
+mp fs rm /boot.py 2>/dev/null || true
+echo "  (boot.py removed - will be restored at end)"
 
 echo ""
 echo "Step 2: Installing dependencies..."
@@ -139,12 +148,7 @@ find $BUILD_DIR -type f -name "*.mpy" | while read -r file; do
 done
 
 echo ""
-echo "Step 6: Uploading boot.py..."
-mp fs cp boot.py :boot.py
-echo -e "${GREEN}✓ boot.py uploaded${NC}"
-
-echo ""
-echo "Step 7: Verifying upload..."
+echo "Step 6: Verifying upload..."
 echo "Root files:"
 mp fs ls /
 echo ""
@@ -152,6 +156,11 @@ if mp fs ls /scenes > /dev/null 2>&1; then
     echo "Scenes directory:"
     mp fs ls /scenes
 fi
+
+echo ""
+echo "Step 7: Uploading boot.py..."
+mp fs cp boot.py :boot.py
+echo -e "${GREEN}✓ boot.py uploaded${NC}"
 
 echo ""
 echo -e "${GREEN}=== Upload Complete! ===${NC}"

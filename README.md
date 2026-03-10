@@ -199,6 +199,28 @@ Or, to remove the `boot.py` file so that it doesn't activate:
 
 Now `./dev.sh` should work again.
 
+### Monitoring serial output without interrupting the game
+
+To watch `print()` output from a running game without sending Ctrl+C or triggering a reset:
+
+**macOS:**
+```bash
+screen /dev/cu.usbmodem* 115200
+```
+
+**Linux:**
+```bash
+screen /dev/ttyACM0 115200
+```
+
+If the glob doesn't match (or you have multiple devices), find the exact port first:
+- macOS: `ls /dev/cu.*`
+- Linux: `ls /dev/ttyACM*` or `ls /dev/ttyUSB*`
+
+Press **Ctrl+A then K** to exit `screen`.
+
+This is useful after a reboot (e.g. from a context save) breaks an mpremote session — the game is still running and its output is still on the serial port.
+
 ## Controls
 
 - **D-pad**: Navigate / Move character

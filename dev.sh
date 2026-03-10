@@ -60,4 +60,10 @@ echo -e "${GREEN}=== Compilation complete ===${NC}"
 echo ""
 echo -e "${YELLOW}=== Mounting and running ===${NC}"
 echo "(If boot.py is installed, hold A+B or wait for the 1s interrupt window)"
-mpremote mount "$BUILD_DIR" exec "import main; main.main()"
+if ! mpremote mount "$BUILD_DIR" exec "import main; main.main()"; then
+    echo ""
+    echo -e "${RED}✗ Failed to connect${NC}"
+    echo "  If boot.py is installed, hold A+B while running this script"
+    echo "  to stay in REPL mode during the 1s startup window."
+    exit 1
+fi
