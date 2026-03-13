@@ -2,10 +2,16 @@
 Breakout scene - Brick breaker minigame
 """
 import random
+import math
 import config
 from scene import Scene
 from assets.minigame_character import CAT_AVATAR1
 from assets.minigame_assets import PAW_SMALL1
+
+# Brick type constants (int for fast comparison)
+BRICK_EMPTY = 0
+BRICK_NORMAL = 1
+BRICK_SPECIAL = 2
 
 
 class BreakoutScene(Scene):
@@ -78,52 +84,55 @@ class BreakoutScene(Scene):
         self.ball_vy = 0.0
         self._position_ball_on_paddle()
 
-        # Bricks: 2D list, None = destroyed, 'normal' = filled, 'special' = unfilled
-        self.bricks = self._create_bricks()
+        # Bricks: flat list of int (BRICK_EMPTY/NORMAL/SPECIAL), row-major order
+        self.bricks, self.bricks_remaining = self._create_bricks()
 
-        # Falling paws: list of {"x": float, "y": float}
+        # Precomputed brick pixel positions: list of (x, y) per cell, row-major
+        self._brick_positions = [
+            (self.BRICK_START_X + col * (self.BRICK_WIDTH + self.BRICK_GAP),
+             self.BRICK_START_Y + row * (self.BRICK_HEIGHT + self.BRICK_GAP))
+            for row in range(self.BRICK_ROWS)
+            for col in range(self.BRICK_COLS)
+        ]
+
+        # Falling paws: list of [x, y] (list for fast index access)
         self.falling_paws = []
+
+        # Cache static cat rect (never changes)
+        self._cat_x = self.CAT_X
+        self._cat_y = self.CAT_Y
+        self._cat_w = CAT_AVATAR1["width"]
+        self._cat_h = CAT_AVATAR1["height"]
+        self._cat_right = self._cat_x + self._cat_w
+        self._cat_bottom = self._cat_y + self._cat_h
 
         # Score - only reset if requested
         if reset_score:
             self.score = 0
 
     def _create_bricks(self):
-        """Create the brick grid with randomly placed special bricks"""
-        # Start with all normal bricks
-        bricks = [['normal' for _ in range(self.BRICK_COLS)]
-                  for _ in range(self.BRICK_ROWS)]
+        """Create the brick grid with randomly placed special bricks.
+        Returns (flat_list, count) where flat_list is row-major BRICK_* ints."""
+        total = self.BRICK_ROWS * self.BRICK_COLS
+        bricks = [BRICK_NORMAL] * total
 
-        # Randomly select positions for special bricks
-        total_bricks = self.BRICK_ROWS * self.BRICK_COLS
-        special_count = min(self.SPECIAL_BRICK_COUNT, total_bricks)
-
-        # Create list of all positions
-        positions = [(r, c) for r in range(self.BRICK_ROWS)
-                     for c in range(self.BRICK_COLS)]
-
-        # Randomly pick positions without using shuffle (not in MicroPython)
+        special_count = min(self.SPECIAL_BRICK_COUNT, total)
+        indices = list(range(total))
         for _ in range(special_count):
-            idx = random.randint(0, len(positions) - 1)
-            row, col = positions.pop(idx)
-            bricks[row][col] = 'special'
+            idx = random.randint(0, len(indices) - 1)
+            bricks[indices.pop(idx)] = BRICK_SPECIAL
 
-        return bricks
+        return bricks, total
 
     def _position_ball_on_paddle(self):
         """Position ball centered on top of paddle"""
         self.ball_x = float(self.paddle_x + self.PADDLE_WIDTH // 2 - self.BALL_SIZE // 2)
         self.ball_y = float(self.PADDLE_Y - self.BALL_SIZE)
 
-    def _get_brick_rect(self, row, col):
-        """Get the rectangle (x, y, w, h) for a brick at given row/col"""
-        x = self.BRICK_START_X + col * (self.BRICK_WIDTH + self.BRICK_GAP)
-        y = self.BRICK_START_Y + row * (self.BRICK_HEIGHT + self.BRICK_GAP)
+    def _get_brick_rect(self, idx):
+        """Get the rectangle (x, y, w, h) for a brick at flat index"""
+        x, y = self._brick_positions[idx]
         return (x, y, self.BRICK_WIDTH, self.BRICK_HEIGHT)
-
-    def _get_cat_rect(self):
-        """Get the cat avatar collision rectangle"""
-        return (self.CAT_X, self.CAT_Y, CAT_AVATAR1["width"], CAT_AVATAR1["height"])
 
     def load(self):
         super().load()
@@ -165,9 +174,6 @@ class BreakoutScene(Scene):
         if self.ball_y > config.DISPLAY_HEIGHT:
             self.state = self.STATE_LOSE
 
-        # Check win condition
-        if self._all_bricks_destroyed():
-            self.state = self.STATE_WIN
 
     def _update_paddle(self, dt):
         """Update paddle position based on velocity"""
@@ -192,39 +198,39 @@ class BreakoutScene(Scene):
 
     def _update_falling_paws(self, dt):
         """Update falling paws - move down, check paddle/cat catch, remove if off-screen"""
-        paws_to_remove = []
-        cat_x, cat_y, cat_w, cat_h = self._get_cat_rect()
+        paw_w = PAW_SMALL1["width"]
+        paw_h = PAW_SMALL1["height"]
+        fall = self.PAW_FALL_SPEED * dt
+        paddle_x = self.paddle_x
+        paddle_right = paddle_x + self.PADDLE_WIDTH
+        paddle_top = self.PADDLE_Y
+        paddle_bottom = paddle_top + self.PADDLE_HEIGHT
+        cat_x = self._cat_x
+        cat_y = self._cat_y
+        cat_right = self._cat_right
+        cat_bottom = self._cat_bottom
+        screen_h = config.DISPLAY_HEIGHT
+        keep = []
+        score = self.score
 
-        for i, paw in enumerate(self.falling_paws):
-            # Move paw down
-            paw["y"] += self.PAW_FALL_SPEED * dt
+        for paw in self.falling_paws:
+            paw[1] += fall
+            py = paw[1]
+            px = paw[0]
+            pr = px + paw_w
+            pb = py + paw_h
 
-            paw_right = paw["x"] + PAW_SMALL1["width"]
-            paw_bottom = paw["y"] + PAW_SMALL1["height"]
+            if (pb >= paddle_top and py < paddle_bottom and
+                    pr > paddle_x and px < paddle_right):
+                score += 1
+            elif (pb >= cat_y and py < cat_bottom and
+                    pr > cat_x and px < cat_right):
+                score += 1
+            elif py <= screen_h:
+                keep.append(paw)
 
-            # Check if caught by paddle
-            if (paw_bottom >= self.PADDLE_Y and
-                    paw["y"] < self.PADDLE_Y + self.PADDLE_HEIGHT and
-                    paw_right > self.paddle_x and
-                    paw["x"] < self.paddle_x + self.PADDLE_WIDTH):
-                # Caught by paddle! Add score
-                self.score += 1
-                paws_to_remove.append(i)
-            # Check if caught by cat avatar (paddle can't reach there)
-            elif (paw_bottom >= cat_y and
-                    paw["y"] < cat_y + cat_h and
-                    paw_right > cat_x and
-                    paw["x"] < cat_x + cat_w):
-                # Caught by cat! Add score
-                self.score += 1
-                paws_to_remove.append(i)
-            elif paw["y"] > config.DISPLAY_HEIGHT:
-                # Off screen, remove
-                paws_to_remove.append(i)
-
-        # Remove paws in reverse order to maintain indices
-        for i in reversed(paws_to_remove):
-            self.falling_paws.pop(i)
+        self.score = score
+        self.falling_paws = keep
 
     def _handle_wall_collisions(self):
         """Handle ball bouncing off walls"""
@@ -245,34 +251,35 @@ class BreakoutScene(Scene):
 
     def _handle_cat_collision(self):
         """Handle ball bouncing off cat avatar"""
-        cat_x, cat_y, cat_w, cat_h = self._get_cat_rect()
+        cat_x = self._cat_x
+        cat_y = self._cat_y
+        cat_right = self._cat_right
+        cat_bottom = self._cat_bottom
+        ball_size = self.BALL_SIZE
 
-        # Check if ball overlaps with cat
-        ball_right = self.ball_x + self.BALL_SIZE
-        ball_bottom = self.ball_y + self.BALL_SIZE
+        ball_right = self.ball_x + ball_size
+        ball_bottom = self.ball_y + ball_size
 
-        if (self.ball_x < cat_x + cat_w and ball_right > cat_x and
-                self.ball_y < cat_y + cat_h and ball_bottom > cat_y):
-            # Calculate how far the ball penetrated from each side
-            overlap_left = ball_right - cat_x      # Ball entered from left
-            overlap_right = (cat_x + cat_w) - self.ball_x  # Ball entered from right
-            overlap_top = ball_bottom - cat_y      # Ball entered from top
-            overlap_bottom = (cat_y + cat_h) - self.ball_y  # Ball entered from bottom
+        if (self.ball_x < cat_right and ball_right > cat_x and
+                self.ball_y < cat_bottom and ball_bottom > cat_y):
+            overlap_left = ball_right - cat_x
+            overlap_right = cat_right - self.ball_x
+            overlap_top = ball_bottom - cat_y
+            overlap_bottom = cat_bottom - self.ball_y
 
             min_overlap = min(overlap_left, overlap_right, overlap_top, overlap_bottom)
 
-            # Push ball out and reverse velocity based on smallest penetration
             if min_overlap == overlap_left:
-                self.ball_x = cat_x - self.BALL_SIZE
+                self.ball_x = cat_x - ball_size
                 self.ball_vx = -abs(self.ball_vx)
             elif min_overlap == overlap_right:
-                self.ball_x = cat_x + cat_w
+                self.ball_x = cat_right
                 self.ball_vx = abs(self.ball_vx)
             elif min_overlap == overlap_top:
-                self.ball_y = cat_y - self.BALL_SIZE
+                self.ball_y = cat_y - ball_size
                 self.ball_vy = -abs(self.ball_vy)
-            else:  # overlap_bottom
-                self.ball_y = cat_y + cat_h
+            else:
+                self.ball_y = cat_bottom
                 self.ball_vy = abs(self.ball_vy)
 
     def _handle_paddle_collision(self):
@@ -300,7 +307,6 @@ class BreakoutScene(Scene):
             hit_position = (hit_position - 0.5) * 2  # Convert to -1 to 1 range
 
             # Angle varies from -60 to +60 degrees based on hit position
-            import math
             max_angle = math.pi / 3  # 60 degrees
             angle = hit_position * max_angle
 
@@ -310,53 +316,49 @@ class BreakoutScene(Scene):
 
     def _handle_brick_collisions(self):
         """Handle ball hitting bricks"""
-        for row in range(self.BRICK_ROWS):
-            for col in range(self.BRICK_COLS):
-                brick_type = self.bricks[row][col]
-                if brick_type is None:
-                    continue
+        bricks = self.bricks
+        positions = self._brick_positions
+        ball_x = self.ball_x
+        ball_y = self.ball_y
+        ball_size = self.BALL_SIZE
+        ball_right = ball_x + ball_size
+        ball_bottom = ball_y + ball_size
+        bw = self.BRICK_WIDTH
+        bh = self.BRICK_HEIGHT
 
-                bx, by, bw, bh = self._get_brick_rect(row, col)
+        for idx in range(len(bricks)):
+            if bricks[idx] == BRICK_EMPTY:
+                continue
 
-                # Check if ball overlaps brick
-                if (self.ball_x < bx + bw and
-                        self.ball_x + self.BALL_SIZE > bx and
-                        self.ball_y < by + bh and
-                        self.ball_y + self.BALL_SIZE > by):
+            bx, by = positions[idx]
+            bx_right = bx + bw
+            by_bottom = by + bh
 
-                    # Spawn falling paw if special brick
-                    if brick_type == 'special':
-                        paw_x = bx + bw / 2 - PAW_SMALL1["width"] / 2
-                        paw_y = by + bh
-                        self.falling_paws.append({"x": paw_x, "y": paw_y})
+            if (ball_x < bx_right and ball_right > bx and
+                    ball_y < by_bottom and ball_bottom > by):
 
-                    # Destroy brick
-                    self.bricks[row][col] = None
+                if bricks[idx] == BRICK_SPECIAL:
+                    paw_x = bx + bw // 2 - PAW_SMALL1["width"] // 2
+                    self.falling_paws.append([float(paw_x), float(by_bottom)])
 
-                    # Calculate which side was hit for bounce direction
-                    # Find the closest edge
-                    dx_left = abs(self.ball_x + self.BALL_SIZE - bx)
-                    dx_right = abs(self.ball_x - (bx + bw))
-                    dy_top = abs(self.ball_y + self.BALL_SIZE - by)
-                    dy_bottom = abs(self.ball_y - (by + bh))
-
-                    min_d = min(dx_left, dx_right, dy_top, dy_bottom)
-
-                    if min_d == dx_left or min_d == dx_right:
-                        self.ball_vx = -self.ball_vx
-                    else:
-                        self.ball_vy = -self.ball_vy
-
-                    # Only handle one brick collision per frame
+                bricks[idx] = BRICK_EMPTY
+                self.bricks_remaining -= 1
+                if self.bricks_remaining == 0:
+                    self.state = self.STATE_WIN
                     return
 
-    def _all_bricks_destroyed(self):
-        """Check if all bricks are destroyed"""
-        for row in self.bricks:
-            for brick in row:
-                if brick is not None:
-                    return False
-        return True
+                dx_left = ball_right - bx
+                dx_right = bx_right - ball_x
+                dy_top = ball_bottom - by
+                dy_bottom = by_bottom - ball_y
+
+                min_d = min(dx_left, dx_right, dy_top, dy_bottom)
+                if min_d == dy_top or min_d == dy_bottom:
+                    self.ball_vy = -self.ball_vy
+                else:
+                    self.ball_vx = -self.ball_vx
+
+                return
 
     def draw(self):
         self.renderer.clear()
@@ -384,7 +386,7 @@ class BreakoutScene(Scene):
         # Draw falling paws
         for paw in self.falling_paws:
             self.renderer.draw_sprite_obj(
-                PAW_SMALL1, int(paw["x"]), int(paw["y"]), transparent=True
+                PAW_SMALL1, int(paw[0]), int(paw[1]), transparent=True
             )
 
         # Draw score above cat avatar
@@ -405,20 +407,18 @@ class BreakoutScene(Scene):
 
     def _draw_bricks(self):
         """Draw all bricks"""
-        for row in range(self.BRICK_ROWS):
-            for col in range(self.BRICK_COLS):
-                brick_type = self.bricks[row][col]
-                if brick_type is None:
-                    continue
+        bricks = self.bricks
+        positions = self._brick_positions
+        bw = self.BRICK_WIDTH
+        bh = self.BRICK_HEIGHT
+        draw_rect = self.renderer.draw_rect
 
-                x, y, w, h = self._get_brick_rect(row, col)
-
-                if brick_type == 'normal':
-                    # Filled brick
-                    self.renderer.draw_rect(x, y, w, h, filled=True)
-                else:
-                    # Unfilled brick (special)
-                    self.renderer.draw_rect(x, y, w, h, filled=False)
+        for idx in range(len(bricks)):
+            bt = bricks[idx]
+            if bt == BRICK_EMPTY:
+                continue
+            x, y = positions[idx]
+            draw_rect(x, y, bw, bh, filled=(bt == BRICK_NORMAL))
 
     def handle_input(self):
         # Handle game state transitions
@@ -455,7 +455,6 @@ class BreakoutScene(Scene):
 
     def _launch_ball(self):
         """Launch the ball from the paddle"""
-        import math
         # Launch at a slight angle (not straight up)
         angle = math.pi / 6  # 30 degrees from vertical
         self.ball_vx = self.BALL_SPEED * math.sin(angle)
