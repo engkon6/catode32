@@ -72,6 +72,7 @@ class SceneManager:
             'debug_memory': ('scenes.debug_memory', 'DebugMemoryScene'),
             'debug_poses': ('scenes.debug_poses', 'DebugPosesScene'),
             'debug_behaviors': ('scenes.debug_behaviors', 'DebugBehaviorsScene'),
+            'debug_led': ('scenes.debug_led', 'DebugLedScene'),
             'debug_stats': ('scenes.debug_stats', 'DebugStatsScene'),
             'environment_settings': ('scenes.environment_settings', 'EnvironmentSettingsScene'),
             'time_settings': ('scenes.time_settings', 'TimeSettingsScene'),
@@ -301,6 +302,7 @@ class SceneManager:
         debug_items.append(MenuItem("Stats", icon=CAT_ICON, action=('scene', 'debug_stats')))
         debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('scene', 'time_settings')))
         debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
+        debug_items.append(MenuItem("RGB LED", icon=WRENCH_ICON, action=('scene', 'debug_led')))
 
         context_save_items = []
         context_save_items.append(MenuItem("Context", icon=WRENCH_ICON, action=('scene', 'debug_context')))
