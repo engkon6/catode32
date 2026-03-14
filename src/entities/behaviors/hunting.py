@@ -48,12 +48,12 @@ class HuntingBehavior(BaseBehavior):
 
     def __init__(self, character):
         super().__init__(character)
-        self.stalk_duration = 3.0
-        self.dart_speed = 55          # pixels per second
-        self.pounce_slide_speed = 28  # pixels per second during forward slide
-        self.pounce_slide_duration = 0.9
-        self.miss_pause_duration = 1.2
-        self.catch_duration = 2.0
+        self.stalk_duration = random.uniform(3.0, 8.0)
+        self.dart_speed = random.randint(50, 60)          # pixels per second
+        self.pounce_slide_speed = random.randint(20, 32)  # pixels per second during forward slide
+        self.pounce_slide_duration = random.uniform(0.5, 1.1)
+        self.miss_pause_duration = random.uniform(1.0, 2.0)
+        self.catch_duration = random.uniform(2.0, 4.0)
 
         self._prey_x = 0.0
         self._dart_target_x = 0.0

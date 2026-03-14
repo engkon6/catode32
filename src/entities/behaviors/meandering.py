@@ -23,14 +23,14 @@ class MeanderingBehavior(BaseBehavior):
 
     def __init__(self, character):
         super().__init__(character)
-        self.start_duration = 1.0
-        self.pace_duration = 45
-        self.stop_duration = 1.5
-        self.pace_speed = 8  # pixels per second
+        self.start_duration = random.uniform(1.0, 5.0)
+        self.pace_duration = random.randint(20, 60)
+        self.stop_duration = random.uniform(1.0, 5.0)
+        self.pace_speed = random.randint(6, 9)  # pixels per second
 
         self._pace_direction = 1
         self._dir_change_timer = 0.0
-        self._dir_change_interval = 8.0
+        self._dir_change_interval = random.uniform(3.0, 20.0)
 
     def _apply_direction(self):
         """Sync character mirror state with current pace direction."""
@@ -43,8 +43,6 @@ class MeanderingBehavior(BaseBehavior):
         self._phase = "starting"
         self._pace_direction = random.choice([-1, 1])
         self._dir_change_timer = 0.0
-        self._dir_change_interval = random.uniform(3.0, 20.0)
-        self.pace_duration = random.randint(20, 45)
         self._apply_direction()
         self._character.set_pose("sitting.side.neutral")
 

@@ -37,10 +37,10 @@ class ZoomiesBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
 
-        self.windup_duration = 1.0
-        self.zoom_duration = 8.0
-        self.collapse_duration = 2.0
-        self.zoom_speed = 50  # pixels per second
+        self.windup_duration = random.uniform(1.0, 5.0)
+        self.zoom_duration = random.uniform(15.0, 50.0)
+        self.collapse_duration = random.uniform(1.0, 5.0)
+        self.zoom_speed = random.randint(40, 60)  # pixels per second
 
         self._zoom_direction = 1
         self._dir_change_timer = 0.0

@@ -42,9 +42,9 @@ class SulkingBehavior(BaseBehavior):
 
     def __init__(self, character):
         super().__init__(character)
-        self.settle_duration = 1.0
-        self.sulk_duration = 20.0
-        self.emerge_duration = 1.5
+        self.settle_duration = random.uniform(1.0, 5.0)
+        self.sulk_duration = random.uniform(20.0, 45.0)
+        self.emerge_duration = random.uniform(1.0, 5.0)
         self._bubble_trigger_time = 0.0
         self._bubble_timer = None
 

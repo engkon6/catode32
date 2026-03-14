@@ -39,8 +39,8 @@ class StartledBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
 
-        self.startled_duration = random.uniform(5.0, 10.0)
-        self.recover_duration = 1.0
+        self.startled_duration = random.uniform(5.0, 15.0)
+        self.recover_duration = random.uniform(1.0, 3.0)
         self._exclaim_wobble_timer = 0.0
         self._exclaim_angle = 0
 

@@ -33,8 +33,8 @@ class KneadingBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
 
-        self.knead_duration = 16.0
-        self.settle_duration = 1.5
+        self.knead_duration = random.uniform(10.0, 45.0)
+        self.settle_duration = random.uniform(1.0, 4.0)
 
     def next(self, context):
         if random.random() < 0.5:
@@ -47,8 +47,6 @@ class KneadingBehavior(BaseBehavior):
         super().start(on_complete)
         self._phase = "kneading"
         self._character.set_pose("kneading.side.neutral")
-        self.knead_duration = self.knead_duration * random.uniform(1.0, 2.0)
-        self.settle_duration = self.settle_duration * random.uniform(1.0, 2.0)
 
     def update(self, dt):
         if not self._active:

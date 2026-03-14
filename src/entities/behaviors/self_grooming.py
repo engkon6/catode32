@@ -1,5 +1,6 @@
 """Self grooming behavior - pet cleans itself with focused attention."""
 
+import random
 from entities.behaviors.base import BaseBehavior
 
 
@@ -27,9 +28,9 @@ class SelfGroomingBehavior(BaseBehavior):
 
     def __init__(self, character):
         super().__init__(character)
-        self.prepare_duration = 1.0
-        self.groom_duration = 12.0
-        self.finish_duration = 1.5
+        self.prepare_duration = random.uniform(1.0, 3.0)
+        self.groom_duration = random.uniform(10.0, 45.0)
+        self.finish_duration = random.uniform(1.0, 3.0)
 
     def next(self, context):
         return None  # -> idle

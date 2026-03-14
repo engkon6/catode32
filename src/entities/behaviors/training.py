@@ -48,9 +48,9 @@ class TrainingBehavior(BaseBehavior):
 
     def __init__(self, character):
         super().__init__(character)
-        self.warmup_duration = 2.0
-        self.train_duration = 12.0
-        self.cooldown_duration = 5.0
+        self.warmup_duration = random.uniform(1.0, 5.0)
+        self.train_duration = random.uniform(10.0, 30.0)
+        self.cooldown_duration = random.uniform(1.0, 5.0)
         self._begging_pair = []
         self._begging_index = 0
         self._pose_timer = 0.0

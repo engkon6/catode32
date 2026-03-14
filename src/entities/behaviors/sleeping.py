@@ -67,10 +67,10 @@ class SleepingBehavior(BaseBehavior):
         super().__init__(character)
 
         # Phase durations
-        self.considering_duration = 1.0
-        self.settle_duration = 2.5
-        self.sleep_duration = 45.0
-        self.wake_duration = 5.0
+        self.considering_duration = random.uniform(1.0, 4.0)
+        self.settle_duration = random.uniform(1.0, 10.0)
+        self.sleep_duration = random.randint(120, 360)
+        self.wake_duration = random.uniform(1.0, 10.0)
 
         self._sleep_pose = None
 
@@ -79,7 +79,6 @@ class SleepingBehavior(BaseBehavior):
             return
         super().start(on_complete)
         self._sleep_pose = random.choice(self.SLEEP_POSES)
-        self.sleep_duration = random.randint(40, 100)
         self._phase = "considering"
         self._character.set_pose("sitting.side.looking_down")
 

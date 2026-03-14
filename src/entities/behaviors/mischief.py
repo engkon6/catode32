@@ -45,7 +45,7 @@ class MischiefBehavior(BaseBehavior):
 
         self._zoom_direction = 1
         self._dir_change_timer = 0.0
-        self._dir_change_interval = 1.5
+        self._dir_change_interval = random.uniform(1.0, 2.5)
         self._mischief_sub = "running"
         self._sub_timer = 0.0
         self._sub_duration = 0.0
@@ -70,7 +70,6 @@ class MischiefBehavior(BaseBehavior):
         self._phase = "plotting"
         self._zoom_direction = random.choice([-1, 1])
         self._dir_change_timer = 0.0
-        self._dir_change_interval = random.uniform(1.0, 2.5)
         self._mischief_sub = "running"
         self._sub_timer = 0.0
         self._sub_duration = 0.0

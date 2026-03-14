@@ -44,14 +44,14 @@ class PacingBehavior(BaseBehavior):
 
     def __init__(self, character):
         super().__init__(character)
-        self.start_duration = 1.0
-        self.pace_duration = 10.0
-        self.stop_duration = 1.5
-        self.pace_speed = 20  # pixels per second
+        self.start_duration = random.uniform(1.0, 3.0)
+        self.pace_duration = random.randint(10, 45)
+        self.stop_duration = random.uniform(1.0, 3.0)
+        self.pace_speed = random.randint(15, 25) # pixels per second
 
         self._pace_direction = 1
         self._dir_change_timer = 0.0
-        self._dir_change_interval = 4.0
+        self._dir_change_interval = random.uniform(2.0, 7.0)
 
     def next(self, context):
         maturity = getattr(context, 'maturity', 50) / 100.0
@@ -94,8 +94,6 @@ class PacingBehavior(BaseBehavior):
         self._phase = "starting"
         self._pace_direction = random.choice([-1, 1])
         self._dir_change_timer = 0.0
-        self._dir_change_interval = random.uniform(3.0, 6.0)
-        self.pace_duration = random.randint(10, 45)
         self._apply_direction()
         self._character.set_pose("sitting.side.neutral")
 

@@ -33,9 +33,9 @@ class StretchingBehavior(BaseBehavior):
         super().__init__(character)
 
         # Phase durations
-        self.prepare_duration = 0.5
-        self.stretch_duration = 3.0
-        self.relax_duration = 1.0
+        self.prepare_duration = random.uniform(0.5, 2.0)
+        self.stretch_duration = random.uniform(3.0, 12.0)
+        self.relax_duration = random.uniform(5.0, 15.0)
 
     def start(self, on_complete=None):
         if self._active:

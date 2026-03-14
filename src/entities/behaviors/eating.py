@@ -21,7 +21,7 @@ class EatingBehavior(BaseBehavior):
         "chicken":       {"stats": {"fullness": 55, "energy": 5}, "eating_speed": 0.3},
         "fish":          {"stats": {"fullness": 45, "energy": 2, "affection": 3}, "eating_speed": 0.35},
         "caught_snack":  {"stats": {"fullness": 20}, "eating_speed": 0.4},
-        "treat":         {"stats": {"fullness": 5, "affection": 1}, "eating_speed": 1.5},
+        "treat":         {"stats": {"fullness": 5, "affection": 1}, "eating_speed": 1.25},
     }
     DEFAULT_FOOD_CONFIG = {"stats": {"fullness": 8}, "eating_speed": 0.4}
 

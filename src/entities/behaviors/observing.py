@@ -35,9 +35,9 @@ class ObservingBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
 
-        self.notice_duration = 4.0
-        self.watch_duration = 18.0
-        self.lose_interest_duration = 1.5
+        self.notice_duration = random.uniform(2.0, 6.0)
+        self.watch_duration = random.uniform(15.0, 30.0)
+        self.lose_interest_duration = random.uniform(2.0, 6.0)
 
     def next(self, context):
         # Chatter if playful enough — stat-gated and probabilistic

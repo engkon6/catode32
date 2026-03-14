@@ -61,9 +61,6 @@ class InvestigatingBehavior(BaseBehavior):
         super().start(on_complete)
         self._phase = "approaching"
         self._character.set_pose("sitting.side.looking_down")
-        self.approach_duration = self.approach_duration * random.uniform(1.0, 2.0)
-        self.sniff_duration = self.sniff_duration * random.uniform(1.0, 2.0)
-        self.react_duration = self.react_duration * random.uniform(1.0, 2.0)
 
     def update(self, dt):
         """Update investigation phases.

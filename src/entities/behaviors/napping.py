@@ -58,9 +58,9 @@ class NappingBehavior(BaseBehavior):
     def __init__(self, character):
         super().__init__(character)
 
-        self.settle_duration = 1.5
-        self.nap_duration = 12.0
-        self.wake_duration = 2.0
+        self.settle_duration = random.uniform(1.0, 5.0)
+        self.nap_duration = random.uniform(30.0, 120.0)
+        self.wake_duration = random.uniform(1.0, 5.0)
 
         self._nap_pose = None
 

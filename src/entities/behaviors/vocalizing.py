@@ -51,9 +51,9 @@ class VocalizingBehavior(BaseBehavior):
 
     def __init__(self, character):
         super().__init__(character)
-        self.windup_duration = 1.0
-        self.vocalize_duration = 6.0
-        self.settle_duration = 1.5
+        self.windup_duration = random.uniform(1.0, 2.0)
+        self.vocalize_duration = random.uniform(6.0, 24.0)
+        self.settle_duration = random.uniform(1.0, 3.0)
         self._vocalize_icon = "exclaim"
 
     def next(self, context):

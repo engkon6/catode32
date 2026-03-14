@@ -92,9 +92,9 @@ class PlayingBehavior(BaseBehavior):
         super().__init__(character)
 
         # Default variant timing
-        self.excited_duration = 1.0
-        self.play_duration = 5.0
-        self.tired_duration = 1.0
+        self.excited_duration = random.uniform(1.0, 3.0)
+        self.play_duration = random.uniform(5.0, 20.0)
+        self.tired_duration = random.uniform(1.0, 10.0)
 
         # Active variant
         self._variant = "toy"

@@ -1,7 +1,8 @@
+import random
 from entities.entity import Entity
 from assets.character import POSES
 from sprite_transform import mirror_sprite_h
-
+from assets.effects import BURST1
 
 def get_pose(pose_name):
     """Get a pose by dot-notation name (e.g., 'sitting.side.neutral').
@@ -121,8 +122,6 @@ class CharacterEntity(Entity):
             count: Number of bursts to spawn.
             sprite: Sprite dict to use (defaults to BURST1).
         """
-        import random
-        from assets.effects import BURST1
         self._burst_sprite = sprite if sprite is not None else BURST1
         self._burst_timer = 0.0
         self._bursts = [
