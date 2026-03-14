@@ -195,13 +195,17 @@ class BehaviorManager:
     # ------------------------------------------------------------------
 
     def can_trigger_sleeping(self, ctx):
-        trigger = ctx.energy < 40
+        h = ctx.environment.get('time_hours', 12)
+        threshold = 70 if (h >= 21 or h < 6) else 40
+        trigger = ctx.energy < threshold
         if not trigger:
             print("Skipping sleeping. Energy: %6.4f" % ctx.energy)
         return trigger
 
     def can_trigger_napping(self, ctx):
-        trigger = ctx.energy < 60
+        h = ctx.environment.get('time_hours', 12)
+        threshold = 85 if (h >= 21 or h < 6) else 60
+        trigger = ctx.energy < threshold
         if not trigger:
             print("Skipping napping. Energy: %6.4f" % ctx.energy)
         return trigger
@@ -320,7 +324,7 @@ class BehaviorManager:
         return trigger
 
     def can_trigger_startled(self, ctx):
-        p = 0.35 * (1 - ctx.courage / 100)
+        p = 0.45 * (1 - ctx.courage / 100)
         trigger = random.random() < p
         if not trigger:
             print("Skipping startled. p=%.3f, Courage %6.4f" % (p, ctx.courage))
@@ -339,14 +343,14 @@ class BehaviorManager:
     def priority_sleeping(self, ctx):
         base = random.uniform(ctx.energy * 0.25, max(ctx.energy * 0.25, ctx.energy * 2))
         h = ctx.environment.get('time_hours', 12)
-        if h >= 21 or h < 6:
+        if h >= 19 or h < 6:
             base *= 0.4
         return base
 
     def priority_napping(self, ctx):
         base = random.uniform(ctx.energy * 0.3, max(ctx.energy * 0.5, ctx.energy * 2.5))
         h = ctx.environment.get('time_hours', 12)
-        if h >= 21 or h < 6:
+        if h >= 19 or h < 6:
             base *= 0.5
         return base
 

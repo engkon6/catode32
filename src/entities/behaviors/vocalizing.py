@@ -40,9 +40,13 @@ class VocalizingBehavior(BaseBehavior):
             (context.fulfillment, "bored"),
             (context.affection, "lonely"),
         ]
+        for stat, icon in needs:
+            print("  %-12s %.2f" % (icon + ":", stat))
         worst_stat, worst_icon = min(needs, key=lambda x: x[0])
         if worst_stat < cls.NEED_THRESHOLD:
+            print("[vocalizing] dominant need: %s (%.2f)" % (worst_icon, worst_stat))
             return worst_icon
+        print("[vocalizing] no unmet need — exclaim")
         return "exclaim"
 
     def __init__(self, character):
