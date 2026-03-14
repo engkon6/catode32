@@ -337,10 +337,18 @@ class BehaviorManager:
     # ------------------------------------------------------------------
 
     def priority_sleeping(self, ctx):
-        return random.uniform(ctx.energy * 0.25, max(ctx.energy * 0.25, ctx.energy * 2))
+        base = random.uniform(ctx.energy * 0.25, max(ctx.energy * 0.25, ctx.energy * 2))
+        h = ctx.environment.get('time_hours', 12)
+        if h >= 21 or h < 6:
+            base *= 0.4
+        return base
 
     def priority_napping(self, ctx):
-        return random.uniform(ctx.energy * 0.3, max(ctx.energy * 0.5, ctx.energy * 2.5))
+        base = random.uniform(ctx.energy * 0.3, max(ctx.energy * 0.5, ctx.energy * 2.5))
+        h = ctx.environment.get('time_hours', 12)
+        if h >= 21 or h < 6:
+            base *= 0.5
+        return base
 
     def priority_zoomies(self, ctx):
         return random.uniform(100 - ctx.playfulness * 1.5, ctx.playfulness * 1.5)

@@ -117,6 +117,8 @@ class GameContext:
         try:
             with open(_SAVE_PATH, 'w') as f:
                 ujson.dump(data, f)
+            import uos
+            uos.sync()
             self.last_save_time = time.ticks_ms()
             import sys
             if '/remote' in sys.path:
