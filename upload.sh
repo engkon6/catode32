@@ -110,7 +110,7 @@ clean_device() {
                 fi
             else
                 # It's a file
-                if [[ "$name" != "boot.py" ]] && [[ "$name" != "webrepl_cfg.py" ]]; then
+                if [[ "$name" != "boot.py" ]] && [[ "$name" != "webrepl_cfg.py" ]] && [[ "$name" != "save.json" ]]; then
                     echo "    Removing file: /$name"
                     mp fs rm "/$name" 2>/dev/null || true
                 fi
