@@ -1,34 +1,22 @@
 import config
-from scene import Scene
+from scenes.main_scene import MainScene
 from environment import Environment, LAYER_BACKGROUND, LAYER_MIDGROUND, LAYER_FOREGROUND
 from entities.character import CharacterEntity
 from entities.butterfly import ButterflyEntity
-from menu import Menu, MenuItem
-from assets.icons import TOYS_ICON, HEART_ICON, HEART_BUBBLE_ICON, HAND_ICON, KIBBLE_ICON, TOY_ICONS, SNACK_ICONS, FISH_ICON, CHICKEN_ICON, MEAL_ICON
-from assets.items import FISH1, BOX_SMALL_1, PLANTER_SMALL_1, FOOD_BOWL, TREAT_PILE
 from assets.nature import PLANT1, PLANTER1, PLANT2
 from sky import SkyRenderer
 
 
-class OutsideScene(Scene):
-    """Outside scene with parallax scrolling environment"""
-
+class OutsideScene(MainScene):
+    SCENE_NAME = 'outside'
     MODULES_TO_KEEP = ['assets.nature', 'sky', 'entities.butterfly']
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
-        self.menu_active = False
-        self.environment = None
-        self.character = None
-
-        # Sky renderer handles celestial body, stars, clouds
         self.sky = SkyRenderer()
         self._last_weather = None
 
-    def load(self):
-        super().load()
-
-        # Create environment with wider world for panning
+    def setup_scene(self):
         self.environment = Environment(world_width=256)
 
         # Add plants to foreground
@@ -61,35 +49,17 @@ class OutsideScene(Scene):
         self.context.scene_x_min = 10
         self.context.scene_x_max = 246
 
-        # Create character with context for behavior management
         self.character = CharacterEntity(64, 64, context=self.context)
+
         butterfly1 = ButterflyEntity(110, 20)
         butterfly2 = ButterflyEntity(50, 30)
         butterfly2.anim_speed = 10
         butterfly1.bounds_right = 200
         butterfly2.bounds_right = 200
-
         self.environment.add_entity(butterfly1)
         self.environment.add_entity(butterfly2)
 
-        self.menu = Menu(self.renderer, self.input)
-
-    def _draw_grass(self, renderer, camera_x, parallax):
-        """Draw procedural grass tufts"""
-        camera_offset = int(camera_x * parallax)
-        for world_x in [10, 35, 80, 110, 150, 190, 230]:
-            screen_x = world_x - camera_offset
-            if screen_x < -5 or screen_x > config.DISPLAY_WIDTH + 5:
-                continue
-            renderer.draw_line(screen_x, 64, screen_x - 2, 60)
-            renderer.draw_line(screen_x, 64, screen_x, 60)
-            renderer.draw_line(screen_x, 64, screen_x + 2, 60)
-
-    def unload(self):
-        super().unload()
-
-    def enter(self):
-        self.context.last_main_scene = 'outside'
+    def on_enter(self):
         # Re-add all custom draws fresh (cleared on exit to prevent accumulation)
         self.environment.add_custom_draw(LAYER_FOREGROUND, self._draw_grass)
 
@@ -102,20 +72,11 @@ class OutsideScene(Scene):
         self.environment.add_custom_draw(LAYER_MIDGROUND, self.sky.make_precipitation_drawer(0.6, 1))
         self.environment.add_custom_draw(LAYER_FOREGROUND, self.sky.make_precipitation_drawer(1.0, 2))
 
-        # Restart prior behavior (or idle) if behavior was stopped when scene was cached
-        if self.character and not self.character.current_behavior.active:
-            self.character.behavior_manager.resume_prior_behavior()
-
-    def exit(self):
-        # Stop active behavior so its module is unloaded while scene is cached
-        if self.character:
-            self.character.behavior_manager.stop_current()
-        # Clear all custom draws so closures don't accumulate across re-entries
-        self.environment.custom_draws.clear()
+    def on_exit(self):
         # Remove sky objects (celestial body, clouds) from environment layers
         self.sky.remove_from_environment(self.environment, LAYER_BACKGROUND)
 
-    def update(self, dt):
+    def on_update(self, dt):
         env = self.context.environment
         self.sky.set_time(env.get('time_hours', 12), env.get('time_minutes', 0))
 
@@ -126,134 +87,22 @@ class OutsideScene(Scene):
             self.enter()
 
         self.sky.update(dt)
-
-        # Update character
-        prev_x = self.character.x
         self.character.update(dt)
-
-        # Auto-pan only when pet moved and d-pad isn't held
-        if not (self.input.is_pressed('left') or self.input.is_pressed('right')):
-            if int(prev_x) != int(self.character.x):
-                margin = 32
-                screen_x = int(self.character.x) - int(self.environment.camera_x)
-                if screen_x < margin:
-                    self.environment.set_camera(int(self.character.x) - margin)
-                elif screen_x > config.DISPLAY_WIDTH - margin:
-                    self.environment.set_camera(int(self.character.x) - (config.DISPLAY_WIDTH - margin))
 
         # Update environment entities (butterflies)
         self.environment.update(dt)
 
-    def draw(self):
-        """Draw the scene"""
-        if self.menu_active:
-            self.menu.draw()
-            return
-
-        self.renderer.clear()
-
-        # Draw environment with all layers and parallax
-        self.environment.draw(self.renderer)
-
-        camera_offset = int(self.environment.camera_x)
-        self.character.draw(self.renderer, mirror=self.character.mirror, camera_offset=camera_offset)
-
+    def on_post_draw(self):
         # Apply lightning inversion (hardware-level, affects display after show())
         self.renderer.invert(self.sky.get_lightning_invert_state())
 
-    def handle_input(self):
-        """Process input"""
-        if self.menu_active:
-            result = self.menu.handle_input()
-            if result == 'closed':
-                self.menu_active = False
-            elif result is not None:
-                self.menu_active = False
-                self._handle_menu_action(result)
-            return None
-
-        if self.input.was_just_pressed('menu2'):
-            self.menu_active = True
-            self.menu.open(self._build_menu_items())
-            return None
-
-        dx, dy = self.input.get_direction()
-        if dx != 0:
-            self.environment.pan(dx * config.PAN_SPEED)
-
-        return None
-
-    def _build_menu_items(self):
-        """Build context-aware menu items"""
-
-        # Affection submenu
-        affection_items = [
-            MenuItem("Pets", icon=HAND_ICON, action=("pets",)),
-            MenuItem("Kiss", icon=HEART_ICON, action=("kiss",)),
-            MenuItem("Psst psst", icon=HEART_BUBBLE_ICON, action=("psst",)),
-            MenuItem("Groom", icon=HAND_ICON, action=("groom",))
-        ]
-
-        # Feed submenu
-        meal_items = [
-            MenuItem("Chicken", icon=CHICKEN_ICON, action=("meal", "chicken")),
-            MenuItem("Fish", icon=FISH_ICON, action=("meal", "fish")),
-        ]
-        snack_items = [
-            MenuItem(snack["name"], icon=SNACK_ICONS.get(snack["name"]), action=("snack", snack))
-            for snack in self.context.inventory.get("snacks", [])
-        ]
-        feed_items = [
-            MenuItem("Meals", icon=MEAL_ICON, submenu=meal_items),
-            MenuItem("Snacks", icon=KIBBLE_ICON, submenu=snack_items),
-        ]
-
-        # Toys submenu
-        toy_items = [
-            MenuItem(toy["name"], icon=TOY_ICONS.get(toy["name"]), action=("toy", toy))
-            for toy in self.context.inventory.get("toys", [])
-        ]
-
-        # Train submenu
-        train_items = [
-            MenuItem("Intelligence", icon=HAND_ICON, action=("train",)),
-            MenuItem("Behavior", icon=HAND_ICON, action=("train",)),
-            MenuItem("Fitness", icon=HAND_ICON, action=("train",)),
-            MenuItem("Sociability", icon=HAND_ICON, action=("train",)),
-        ]
-
-        # Build parent menu
-        items = [
-            MenuItem("Affection", icon=HEART_ICON, submenu=affection_items),
-            MenuItem("Train", icon=HAND_ICON, submenu=train_items),
-            MenuItem("Feed", icon=MEAL_ICON, submenu=feed_items),
-        ]
-        
-        if toy_items:
-            items.append(MenuItem("Play", icon=TOYS_ICON, submenu=toy_items))
-
-        return items
-
-    def _handle_menu_action(self, action):
-        """Handle menu selection"""
-        if not action:
-            return
-
-        action_type = action[0]
-
-        if action_type == "meal":
-            self.character.trigger('eating', food_sprite=FOOD_BOWL, food_type=action[1])
-        elif action_type == "kiss":
-            self.character.trigger('affection', variant='kiss')
-        elif action_type == "pets":
-            self.character.trigger('affection', variant='pets')
-        elif action_type == "psst":
-            self.character.trigger('attention', variant='psst')
-        elif action_type == "snack":
-            self.character.trigger('eating', food_sprite=TREAT_PILE, food_type='treat')
-        elif action_type == "toy":
-            self.character.trigger('playing', variant=action[1]['variant'])
-        elif action_type == "groom":
-            self.character.trigger('being_groomed')
-        elif action_type == "train":
-            self.character.trigger('training')
+    def _draw_grass(self, renderer, camera_x, parallax):
+        """Draw procedural grass tufts"""
+        camera_offset = int(camera_x * parallax)
+        for world_x in [10, 35, 80, 110, 150, 190, 230]:
+            screen_x = world_x - camera_offset
+            if screen_x < -5 or screen_x > config.DISPLAY_WIDTH + 5:
+                continue
+            renderer.draw_line(screen_x, 64, screen_x - 2, 60)
+            renderer.draw_line(screen_x, 64, screen_x, 60)
+            renderer.draw_line(screen_x, 64, screen_x + 2, 60)
