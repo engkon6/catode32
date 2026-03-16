@@ -73,6 +73,7 @@ class SceneManager:
             'tictactoe': ('scenes.tictactoe', 'TicTacToeScene'),
             'snake': ('scenes.snake', 'SnakeScene'),
             'memory': ('scenes.memory', 'MemoryScene'),
+            'hanjie': ('scenes.hanjie', 'HanjieScene'),
             'debug_context': ('scenes.debug_context', 'DebugContextScene'),
             'debug_memory': ('scenes.debug_memory', 'DebugMemoryScene'),
             'debug_poses': ('scenes.debug_poses', 'DebugPosesScene'),
@@ -317,6 +318,7 @@ class SceneManager:
         minigame_items.append(MenuItem("Memory", icon=MINIGAME_ICONS.get("Memory"), action=('scene', 'memory')))
         minigame_items.append(MenuItem("Maze", icon=MINIGAME_ICONS.get("Maze"), action=('scene', 'maze')))
         minigame_items.append(MenuItem("TicTacToe", icon=MINIGAME_ICONS.get("TicTacToe"), action=('scene', 'tictactoe')))
+        minigame_items.append(MenuItem("Hanjie", icon=MINIGAME_ICONS.get("Hanjie"), action=('scene', 'hanjie')))
         items.append(MenuItem("Minigames", icon=MINIGAMES_ICON, submenu=minigame_items))
         
         # Debug submenu

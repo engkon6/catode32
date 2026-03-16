@@ -1,0 +1,349 @@
+"""
+Hanjie (Nonogram) minigame - fill the grid using row/column clues.
+
+Layout (128x64 screen):
+  x=0..23   row clue area (right-aligned, up to "111" = 3 chars, no spaces)
+  x=24..79  7-column grid  (7 cols * 8px)
+  x=80..99  timer / spare
+  x=100..127 cat
+
+  y=0..15   column clue area (2 rows of 8px for up to 2 groups)
+  y=16..63  6-row grid  (6 rows * 8px)
+
+Row clues omit spaces between digits (all single-digit since max = COLS).
+"""
+import random
+from scene import Scene
+from entities.character import CharacterEntity
+from ui import Popup
+
+COLS = 7
+ROWS = 6
+CELL = 8
+
+GRID_X = 24   # left pixel of column 0
+ROW_CLUE_PITCH = 7  # pixels between digit starts in row clues (digits drawn individually)
+GRID_Y = 16   # top pixel of row 0
+
+# Cell states
+UNKNOWN = 0
+FILLED  = 1
+CROSSED = 2   # known-empty mark (backslash)
+
+# Game states
+STATE_PLAYING = 0
+STATE_WIN     = 1
+
+WIN_RESET_DELAY = 2.5
+
+
+# ---------------------------------------------------------------------------
+# Puzzle generation
+# ---------------------------------------------------------------------------
+
+def _run_lengths(cells, length):
+    """Return run-length groups for a slice of `cells` (list/bytearray of 0/1)."""
+    groups = []
+    count = 0
+    for i in range(length):
+        if cells[i]:
+            count += 1
+        elif count:
+            groups.append(count)
+            count = 0
+    if count:
+        groups.append(count)
+    return groups if groups else [0]
+
+
+def _compute_clues(sol):
+    """Compute row and column clues from a solution bytearray."""
+    row_clues = []
+    for r in range(ROWS):
+        row_clues.append(_run_lengths(
+            [sol[r * COLS + c] for c in range(COLS)], COLS))
+
+    col_clues = []
+    for c in range(COLS):
+        col_clues.append(_run_lengths(
+            [sol[r * COLS + c] for r in range(ROWS)], ROWS))
+
+    return row_clues, col_clues
+
+
+def _generate_puzzle():
+    """Generate a random solution + clues satisfying display constraints:
+       - each column has at most 2 clue groups
+       - each row has at most 3 clue groups
+       - at least 5 cells filled (non-trivial)
+    """
+    for _ in range(200):
+        sol = bytearray(COLS * ROWS)
+        for i in range(COLS * ROWS):
+            sol[i] = 1 if random.randint(0, 1) else 0
+
+        filled = sum(sol)
+        if filled < 5 or filled > COLS * ROWS - 3:
+            continue
+
+        row_clues, col_clues = _compute_clues(sol)
+
+        if (all(len(r) <= 3 for r in row_clues) and
+                all(len(c) <= 2 for c in col_clues)):
+            return sol, row_clues, col_clues
+
+    # Fallback: guaranteed-valid checkerboard-ish puzzle
+    sol = bytearray(COLS * ROWS)
+    for r in range(ROWS):
+        for c in range(COLS):
+            sol[r * COLS + c] = 1 if (r + c) % 2 == 0 else 0
+    row_clues, col_clues = _compute_clues(sol)
+    return sol, row_clues, col_clues
+
+
+# ---------------------------------------------------------------------------
+# Win checking
+# ---------------------------------------------------------------------------
+
+def _check_win(board, row_clues, col_clues):
+    """Return True if the board's filled cells match all clues."""
+    for r in range(ROWS):
+        groups = _run_lengths(
+            [1 if board[r * COLS + c] == FILLED else 0 for c in range(COLS)],
+            COLS)
+        if groups != row_clues[r]:
+            return False
+
+    for c in range(COLS):
+        groups = _run_lengths(
+            [1 if board[r * COLS + c] == FILLED else 0 for r in range(ROWS)],
+            ROWS)
+        if groups != col_clues[c]:
+            return False
+
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _format_time(secs):
+    s = int(secs)
+    m = s // 60
+    s = s % 60
+    if m:
+        return str(m) + ":" + ("0" if s < 10 else "") + str(s)
+    return str(s) + "s"
+
+
+# ---------------------------------------------------------------------------
+# Scene
+# ---------------------------------------------------------------------------
+
+class HanjieScene(Scene):
+    MODULES_TO_KEEP = []
+
+    def __init__(self, context, renderer, input_handler):
+        super().__init__(context, renderer, input_handler)
+        self.character = None
+        self.solution = None
+        self.board = None
+        self.row_clues = None
+        self.col_clues = None
+        self.cursor = 0
+        self.state = STATE_PLAYING
+        self.elapsed = 0.0
+        self.win_timer = 0.0
+        self.win_popup = None
+
+    def load(self):
+        super().load()
+        self.character = CharacterEntity(100, 63)
+        self.character.set_pose("sitting.side.neutral")
+        self.win_popup = Popup(self.renderer, x=10, y=14, width=108, height=36)
+
+    def unload(self):
+        super().unload()
+
+    def enter(self):
+        self._init_game()
+
+    def _init_game(self):
+        self.solution, self.row_clues, self.col_clues = _generate_puzzle()
+        self.board = bytearray(COLS * ROWS)  # all UNKNOWN
+        self.cursor = 0
+        self.state = STATE_PLAYING
+        self.elapsed = 0.0
+        self.win_timer = 0.0
+        if self.character:
+            self.character.set_pose("sitting.side.neutral")
+
+    # ------------------------------------------------------------------
+    # Input
+    # ------------------------------------------------------------------
+
+    def handle_input(self):
+        inp = self.input
+
+        if self.state == STATE_WIN:
+            if inp.was_just_pressed('a'):
+                self._init_game()
+            return
+
+        col = self.cursor % COLS
+        row = self.cursor // COLS
+
+        if inp.was_just_pressed('up') and row > 0:
+            self.cursor -= COLS
+        elif inp.was_just_pressed('down') and row < ROWS - 1:
+            self.cursor += COLS
+        elif inp.was_just_pressed('left') and col > 0:
+            self.cursor -= 1
+        elif inp.was_just_pressed('right') and col < COLS - 1:
+            self.cursor += 1
+
+        if inp.was_just_pressed('a'):
+            cur = self.board[self.cursor]
+            if cur == FILLED:
+                self.board[self.cursor] = UNKNOWN
+            else:
+                self.board[self.cursor] = FILLED
+                self._check_win_state()
+
+        elif inp.was_just_pressed('b'):
+            cur = self.board[self.cursor]
+            if cur == CROSSED:
+                self.board[self.cursor] = UNKNOWN
+            else:
+                self.board[self.cursor] = CROSSED
+
+    def _check_win_state(self):
+        if not _check_win(self.board, self.row_clues, self.col_clues):
+            return
+
+        self.state = STATE_WIN
+        self.win_timer = 0.0
+
+        time_str = _format_time(self.elapsed)
+        best = self.context.hanjie_best_time
+        if best < 0 or self.elapsed < best:
+            self.context.hanjie_best_time = self.elapsed
+            best = self.elapsed
+        best_str = _format_time(best)
+
+        self.win_popup.set_text(
+            "Well done!\nTime: " + time_str + "\nBest: " + best_str,
+            wrap=False, center=True)
+
+        if self.character:
+            self.character.set_pose("sitting.side.happy")
+
+    # ------------------------------------------------------------------
+    # Update
+    # ------------------------------------------------------------------
+
+    def update(self, dt):
+        if self.character:
+            self.character.update(dt)
+
+        if self.state == STATE_PLAYING:
+            self.elapsed += dt
+        elif self.state == STATE_WIN:
+            self.win_timer += dt
+            if self.win_timer >= WIN_RESET_DELAY:
+                self._init_game()
+
+    # ------------------------------------------------------------------
+    # Draw
+    # ------------------------------------------------------------------
+
+    def draw(self):
+        r = self.renderer
+        self._draw_col_clues(r)
+        self._draw_row_clues(r)
+        if self.state == STATE_PLAYING and self.input.is_pressed('menu2'):
+            self._draw_solution(r)
+        else:
+            self._draw_grid(r)
+        self._draw_timer(r)
+        if self.character:
+            self.character.draw(r)
+        if self.state == STATE_WIN:
+            self.win_popup.draw(show_scroll_indicators=False)
+        r.show()
+
+    def _draw_col_clues(self, r):
+        """Draw column clues above the grid (y=0..15)."""
+        for c in range(COLS):
+            cx = GRID_X + c * CELL
+            clue = self.col_clues[c]
+            if len(clue) == 2:
+                r.draw_text(str(clue[0]), cx, 0)
+                r.draw_text(str(clue[1]), cx, 8)
+            else:
+                # Single group: bottom-align so it sits just above the grid
+                r.draw_text(str(clue[0]), cx, 8)
+
+    def _draw_row_clues(self, r):
+        """Draw row clues to the left of the grid, right-aligned.
+
+        Each digit is placed individually at ROW_CLUE_PITCH intervals (6px),
+        which is narrower than the 8px font width, giving compact but readable
+        spacing without ambiguity (all values are single-digit).
+        """
+        for row in range(ROWS):
+            ry = GRID_Y + row * CELL
+            clue = self.row_clues[row]
+            n = len(clue)
+            # Right-align: last digit ends flush with GRID_X
+            x0 = GRID_X - n * ROW_CLUE_PITCH
+            for j, g in enumerate(clue):
+                r.draw_text(str(g), x0 + j * ROW_CLUE_PITCH, ry)
+
+    def _draw_grid(self, r):
+        """Draw all cells with cursor highlight."""
+        for i in range(COLS * ROWS):
+            col = i % COLS
+            row = i // COLS
+            cx = GRID_X + col * CELL
+            cy = GRID_Y + row * CELL
+            state = self.board[i]
+            is_cursor = (i == self.cursor)
+
+            if state == FILLED:
+                # Filled square (1px inset so grid lines show)
+                r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=True)
+                if is_cursor:
+                    # Small black dot in centre to mark cursor position
+                    r.draw_rect(cx + 3, cy + 3, 2, 2, filled=True, color=0)
+
+            elif state == CROSSED:
+                r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=False)
+                # Backslash mark
+                r.draw_line(cx + 2, cy + 2, cx + CELL - 3, cy + CELL - 3)
+                if is_cursor:
+                    r.draw_rect(cx, cy, CELL, CELL, filled=False)
+
+            else:  # UNKNOWN
+                if is_cursor:
+                    # Filled inner square = cursor indicator on empty cell
+                    r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=True)
+                else:
+                    r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=False)
+
+    def _draw_solution(self, r):
+        """Draw the hidden solution (hold menu2 to peek)."""
+        for i in range(COLS * ROWS):
+            col = i % COLS
+            row = i // COLS
+            cx = GRID_X + col * CELL
+            cy = GRID_Y + row * CELL
+            if self.solution[i]:
+                r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=True)
+            else:
+                r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=False)
+
+    def _draw_timer(self, r):
+        if self.state == STATE_PLAYING:
+            r.draw_text(_format_time(self.elapsed), 82, 2)
