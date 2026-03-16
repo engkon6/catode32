@@ -23,7 +23,7 @@ class ZoomiesScene(Scene):
     # Game constants
     GROUND_Y = 54  # Y position of the ground line
     PLAYER_X = 4  # Fixed X position of player
-    GRAVITY = 260  # Pixels per second squared
+    GRAVITY = 250  # Pixels per second squared
     JUMP_VELOCITY = -140  # Initial jump velocity (negative = up)
     BASE_SPEED = 48  # Starting speed (pixels per second)
     MAX_SPEED = 120  # Maximum speed
@@ -141,7 +141,8 @@ class ZoomiesScene(Scene):
 
         # Update player physics
         if self.is_jumping:
-            self.player_vy += self.GRAVITY * dt
+            gravity_mult = 1.0 if (self.input.is_pressed('a') or self.input.is_pressed('up')) else 1.5
+            self.player_vy += self.GRAVITY * gravity_mult * dt
             self.player_y += self.player_vy * dt
 
             # Check if landed
