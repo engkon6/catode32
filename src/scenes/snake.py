@@ -125,21 +125,18 @@ class SnakeScene(Scene):
         if self.state == STATE_READY:
             r.draw_text("SNAKE", 44, 12)
             r.draw_text("A: START", 32, 28)
-            r.show()
             return
 
         if self.state == STATE_WIN:
             r.draw_text("YOU WIN!", 32, 16)
             r.draw_text(f"SCORE:{self.score}", 28, 30)
             r.draw_text("A: RETRY", 32, 44)
-            r.show()
             return
 
         if self.state == STATE_LOSE:
             r.draw_text("GAME OVER", 28, 16)
             r.draw_text(f"SCORE:{self.score}", 28, 30)
             r.draw_text("A: RETRY", 32, 44)
-            r.show()
             return
 
         # Food
@@ -179,5 +176,3 @@ class SnakeScene(Scene):
             hy * CELL + dy * prog + oy,
             mirror_h=mh, mirror_v=mv,
         )
-
-        r.show()

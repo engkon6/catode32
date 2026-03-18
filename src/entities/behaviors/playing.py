@@ -224,6 +224,7 @@ class PlayingBehavior(BaseBehavior):
 
         elif self._phase == "tired":
             if self._phase_timer >= self.tired_duration:
+                self._character.play_bursts()
                 self.stop(completed=True)
 
     # --- Ball variant ---
@@ -236,6 +237,7 @@ class PlayingBehavior(BaseBehavior):
         elif self._phase == "catching":
             if self._phase_timer >= BALL_CATCH_DURATION:
                 self._progress = 1.0
+                self._character.play_bursts()
                 self.stop(completed=True)
 
     def _update_ball_rolling(self, dt):
@@ -285,6 +287,7 @@ class PlayingBehavior(BaseBehavior):
         elif self._phase == "catching":
             if self._phase_timer >= LASER_CATCH_DURATION:
                 self._progress = 1.0
+                self._character.play_bursts()
                 self.stop(completed=True)
 
     def _update_laser_rolling(self, dt):

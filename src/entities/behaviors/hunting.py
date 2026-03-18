@@ -68,6 +68,7 @@ class HuntingBehavior(BaseBehavior):
 
     def apply_location_bonus(self, context, bonus):
         if context.last_main_scene in ('outside', 'treehouse'):
+            self._character.play_bursts()
             bonus['fitness'] = bonus.get('fitness', 0) * 1.5
             bonus['fulfillment'] = bonus.get('fulfillment', 0) + 0.05
         return bonus

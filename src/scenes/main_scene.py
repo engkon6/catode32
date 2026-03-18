@@ -136,6 +136,7 @@ class MainScene(Scene):
         meal_items = [
             MenuItem("Chicken", icon=CHICKEN_ICON, action=("meal", "chicken")),
             MenuItem("Fish", icon=FISH_ICON, action=("meal", "fish")),
+            MenuItem("Kibble", icon=KIBBLE_ICON, action=("meal", "kibble")),
         ]
         snack_items = [
             MenuItem(snack["name"], icon=SNACK_ICONS.get(snack["name"]), action=("snack", snack))

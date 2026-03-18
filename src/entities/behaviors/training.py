@@ -106,5 +106,6 @@ class TrainingBehavior(BaseBehavior):
 
         elif self._phase == "cooling_down":
             if self._phase_timer >= self.cooldown_duration:
+                self._character.play_bursts()
                 self.stop(completed=True)
 

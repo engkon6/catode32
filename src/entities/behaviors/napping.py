@@ -61,6 +61,7 @@ class NappingBehavior(BaseBehavior):
         if scene == 'bedroom':
             bonus['energy'] = bonus.get('energy', 0) * 1.2
             bonus['comfort'] = bonus.get('comfort', 0) * 1.2
+            self._character.play_bursts()
         if scene in ('outside', 'treehouse') and weather in ('Rain', 'Storm', 'Snow'):
             bonus['comfort'] = bonus.get('comfort', 0) - 7
         return bonus

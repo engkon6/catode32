@@ -103,6 +103,7 @@ class AttentionBehavior(BaseBehavior):
 
         elif self._phase == "happy":
             if self._phase_timer >= _PHASE3_DURATION:
+                self._character.play_bursts()
                 self.stop(completed=True)
 
     def draw(self, renderer, char_x, char_y, mirror=False):

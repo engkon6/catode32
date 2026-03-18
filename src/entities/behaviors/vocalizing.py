@@ -21,7 +21,7 @@ class VocalizingBehavior(BaseBehavior):
 
     NAME = "vocalizing"
 
-    NEED_THRESHOLD = 35
+    NEED_THRESHOLD = 60
 
     COMPLETION_BONUS = {
         # Rapid changers

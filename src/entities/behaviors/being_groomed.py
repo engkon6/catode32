@@ -85,6 +85,7 @@ class BeingGroomedBehavior(BaseBehavior):
 
         elif self._phase == "satisfied":
             if self._phase_timer >= self.satisfy_duration:
+                self._character.play_bursts()
                 self.stop(completed=True)
 
     def draw(self, renderer, char_x, char_y, mirror=False):

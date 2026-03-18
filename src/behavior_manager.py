@@ -324,7 +324,7 @@ class BehaviorManager:
         return trigger
 
     def can_trigger_vocalizing(self, ctx):
-        _NEED = 40
+        _NEED = 60
         happy = ctx.energy > 35 and ctx.playfulness > 40
         needs_unmet = (ctx.fullness < _NEED or ctx.comfort < _NEED
                        or ctx.fulfillment < _NEED or ctx.affection < _NEED

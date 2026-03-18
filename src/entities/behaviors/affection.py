@@ -11,7 +11,7 @@ VARIANTS = {
     "kiss": {
         "pose": "sitting.side.happy",
         "bubble": "heart",
-        "duration": 6.5,
+        "duration": 2.5,
         "stats": {
             "affection": 8,
             "fulfillment": 2.5,
@@ -30,7 +30,7 @@ VARIANTS = {
     "pets": {
         "pose": "sitting_silly.side.happy",
         "bubble": "heart",
-        "duration": 6.0,
+        "duration": 5.0,
         "stats": {
             "affection": 4,
             "fulfillment": 1.5,
@@ -97,6 +97,7 @@ class AffectionBehavior(BaseBehavior):
         self._progress = min(1.0, self._phase_timer / self._duration)
 
         if self._phase_timer >= self._duration:
+            self._character.play_bursts()
             self.stop(completed=True)
 
     def stop(self, completed=True):
@@ -117,7 +118,7 @@ class AffectionBehavior(BaseBehavior):
             draw_bubble(renderer, self._bubble, char_x, char_y, self._progress, mirror)
 
         if self._active and self._variant == "pets":
-            sweep_speed = 0.6
+            sweep_speed = 1.2
             raw = (self._phase_timer * sweep_speed) % 2.0
             t = raw if raw <= 1.0 else 2.0 - raw  # 0 -> 1 -> 0
 
