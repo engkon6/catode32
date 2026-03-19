@@ -348,12 +348,14 @@ class BehaviorManager:
     def can_trigger_hunting(self, ctx):
         if ctx.fullness < 15 and ctx.energy > 20:
             return True
-        trigger = ctx.energy > 20 and ctx.playfulness > 20
+        outdoors = getattr(ctx, 'last_main_scene', None) in ('outside', 'treehouse')
+        threshold = 15 if outdoors else 20
+        trigger = ctx.energy > threshold and ctx.playfulness > threshold
         if not trigger:
             failures = []
-            if ctx.energy <= 20:
+            if ctx.energy <= threshold:
                 failures.append("Energy: %6.4f" % ctx.energy)
-            if ctx.playfulness <= 20:
+            if ctx.playfulness <= threshold:
                 failures.append("Playfulness: %6.4f" % ctx.playfulness)
             print("Skipping hunting. " + ", ".join(failures))
         return trigger
@@ -494,7 +496,10 @@ class BehaviorManager:
         # raises the floor so vocalizing can still win first when needs are unmet.
         ceiling = max(25, 85 - play_pull * 0.5 - hunger_pull * 0.3)
         floor = max(10, 25 + hunger_pull * 0.15 - play_pull * 0.1)
-        return random.uniform(floor, max(floor + 5, ceiling))
+        base = random.uniform(floor, max(floor + 5, ceiling))
+        if getattr(ctx, 'last_main_scene', None) in ('outside', 'treehouse'):
+            base *= 0.75
+        return base
 
     def priority_playing(self, ctx):
         return random.uniform(100 - ctx.playfulness * 1.5, ctx.playfulness * 1.5)
