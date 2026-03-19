@@ -223,38 +223,15 @@ class BaseBehavior:
     def apply_completion_bonus(self, context, progress=1.0):
         """Apply completion bonus stats, scaled by how much was completed.
 
-        Changes are asymptotically damped near extremes: a stat already near
-        100 resists further increases, and one near 0 resists further
-        decreases.  The curve is smooth across the full range rather than
-        only kicking in near the edges, so stats exhibit sharp initial
-        movement from center but slow to a crawl near the floor/ceiling.
-
-        Scale at representative values (EXP=0.7):
-          stat=5:  +delta 0.96,  -delta 0.11
-          stat=20: +delta 0.86,  -delta 0.32
-          stat=50: +delta 0.62,  -delta 0.62
-          stat=80: +delta 0.32,  -delta 0.86
-          stat=95: +delta 0.11,  -delta 0.96
+        Delegates to context.apply_stat_changes() for the asymptotic damping
+        curve so the behaviour is identical to minigame stat rewards.
 
         Args:
             context: The GameContext to modify.
             progress: How much of the behavior was completed (0.0 to 1.0).
         """
-        EXP = 0.7  # Curve shape: lower = gentler slope in the mid-range.
-
-        for stat, bonus in self.get_completion_bonus(context).items():
-            current = getattr(context, stat, 0)
-            delta = bonus * progress
-
-            if delta > 0:
-                room = (100.0 - current) / 100.0   # 1.0 when empty, 0 when full
-                delta *= room ** EXP
-            elif delta < 0:
-                room = current / 100.0              # 1.0 when full, 0 when empty
-                delta *= room ** EXP
-
-            new_value = max(0, min(100, current + delta))
-            setattr(context, stat, new_value)
-
-        context.recompute_health()
+        bonus = self.get_completion_bonus(context)
+        if not bonus:
+            return
+        context.apply_stat_changes({stat: val * progress for stat, val in bonus.items()})
 

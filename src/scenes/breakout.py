@@ -62,6 +62,9 @@ class BreakoutScene(Scene):
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
+        self._session_bricks = 0
+        self._session_paws = 0
+        self._session_won = False
         self.reset_game()
 
     def reset_game(self, reset_score=True):
@@ -144,7 +147,23 @@ class BreakoutScene(Scene):
         self.reset_game()
 
     def exit(self):
-        pass
+        total_bricks = self.BRICK_ROWS * self.BRICK_COLS
+        brick_reward = (self._session_bricks / 144.0) ** 0.5
+        paw_reward = (self._session_paws / 20.0) ** 0.5
+        print(f"Brick reward {brick_reward}")
+        print(f"Paw reward {paw_reward}")
+        if self._session_bricks > 0 or self._session_paws > 0:
+            changes = {
+                'playfulness': 5 * brick_reward,
+                'focus':       3 * brick_reward + 4 * paw_reward,
+                'fitness':      3 * brick_reward,
+                'sociability':  3 * paw_reward,
+            }
+            if self._session_won:
+                changes['fulfillment'] = 4 * brick_reward
+            else:
+                changes['fulfillment'] = 2 * brick_reward
+            self.context.apply_stat_changes(changes)
 
     def update(self, dt):
         # Update paddle physics (runs in all states for smooth feel)
@@ -212,6 +231,7 @@ class BreakoutScene(Scene):
         screen_h = config.DISPLAY_HEIGHT
         keep = []
         score = self.score
+        paws_caught = 0
 
         for paw in self.falling_paws:
             paw[1] += fall
@@ -223,13 +243,16 @@ class BreakoutScene(Scene):
             if (pb >= paddle_top and py < paddle_bottom and
                     pr > paddle_x and px < paddle_right):
                 score += 1
+                paws_caught += 1
             elif (pb >= cat_y and py < cat_bottom and
                     pr > cat_x and px < cat_right):
                 score += 1
+                paws_caught += 1
             elif py <= screen_h:
                 keep.append(paw)
 
         self.score = score
+        self._session_paws += paws_caught
         self.falling_paws = keep
 
     def _handle_wall_collisions(self):
@@ -343,8 +366,10 @@ class BreakoutScene(Scene):
 
                 bricks[idx] = BRICK_EMPTY
                 self.bricks_remaining -= 1
+                self._session_bricks += 1
                 if self.bricks_remaining == 0:
                     self.state = self.STATE_WIN
+                    self._session_won = True
                     return
 
                 dx_left = ball_right - bx

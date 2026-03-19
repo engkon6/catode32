@@ -67,6 +67,13 @@ class KitchenScene(MainScene):
         self.environment.add_custom_draw(LAYER_MIDGROUND, self._draw_counter)
         self.environment.add_custom_draw(LAYER_MIDGROUND, self.clock.draw)
 
+    def on_update(self, dt):
+        super().on_update(dt)
+        env = self.context.environment
+        hours = env.get('time_hours', 12)
+        minutes = env.get('time_minutes', 0)
+        self.clock.set_time(hours, minutes)
+
     def _draw_counter(self, renderer, camera_x, parallax):
         """Draw a kitchen counter running most of the world width."""
         offset = int(camera_x * parallax)

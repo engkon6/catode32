@@ -40,6 +40,8 @@ class ZoomiesScene(Scene):
         # Popups - centered on screen
         self.hit_popup = Popup(renderer, x=14, y=10, width=100, height=24)
         self.start_popup = Popup(renderer, x=14, y=10, width=100, height=24)
+        self._session_score = 0
+        self.score = 0
         self.reset_game()
 
     def reset_game(self):
@@ -121,7 +123,20 @@ class ZoomiesScene(Scene):
         self.reset_game()
 
     def exit(self):
-        pass
+        # Include score from any in-progress run at exit time
+        session = self._session_score + self.score
+        print(f"Applying zoomies changes with a session score of: {self._session_score}")
+        if session > 0:
+            progress = (session / 1000.0) ** 0.5  # asymptotic: 1000pts≈1x, 5000pts≈2.2x, 10000pts≈3.2x
+            print(f"Reward scale: {progress}")
+            self.context.apply_stat_changes({
+                'energy':      -5 * progress,
+                'fitness':      4 * progress,
+                'fulfillment':  3 * progress,
+                'fullness':    -3 * progress,
+                'playfulness':  3 * progress,
+                'sociability':   3 * progress,
+            })
 
     def update(self, dt):
         if not self.game_started or self.is_hit:
@@ -252,6 +267,9 @@ class ZoomiesScene(Scene):
                     player_bottom > obs_top and
                     player_top < obs_bottom):
                 self.is_hit = True
+                # Accumulate score from the run
+                self._session_score += self.score
+
                 if self.score > self.context.zoomies_high_score:
                     self.context.zoomies_high_score = self.score
                     self.is_new_best = True

@@ -75,6 +75,7 @@ class MemoryScene(Scene):
         self.second_flipped = -1
         self.score = 0
         self.solved_count = 0
+        self.total_solved = 0
         self.state = STATE_PLAYING
         self.mismatch_timer = 0.0
         self.match_show_timer = 0.0
@@ -94,7 +95,18 @@ class MemoryScene(Scene):
     def enter(self):
         self._init_game()
 
+    def exit(self):
+        total_solved = self.total_solved + self.solved_count
+        if total_solved > 0:
+            progress = (total_solved / (PAIRS * 2)) ** 0.5
+            self.context.apply_stat_changes({
+                'intelligence': 5 * progress,
+                'focus':        4 * progress,
+                'sociability':  3 * progress + 0.5,
+            })
+
     def _init_game(self):
+        self.total_solved += self.solved_count
         self.icons = _generate_icons(PAIRS)
 
         # Two copies of each icon index, shuffled

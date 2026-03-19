@@ -33,7 +33,25 @@ class SnakeScene(Scene):
     def enter(self):
         self._init_game()
 
+    def unload(self):
+        super().unload()
+
+    def exit(self):
+        session = getattr(self, '_session_score', 0) + getattr(self, 'score', 0)
+        if session > 0:
+            progress = (session / 50.0) ** 0.5
+            print(f"Reward progress: {progress}")
+            self.context.apply_stat_changes({
+                'focus':       5 * progress,
+                'playfulness': 4 * progress,
+                'fitness':      3 * progress,
+                'sociability':  3 * progress + 0.5,
+            })
+
     def _init_game(self):
+        # Accumulate score from the run that just ended before resetting
+        self._session_score = getattr(self, '_session_score', 0) + getattr(self, 'score', 0)
+
         mid_x = GRID_W // 2
         mid_y = GRID_H // 2
         self.snake = [[mid_x, mid_y], [mid_x - 1, mid_y], [mid_x - 2, mid_y]]

@@ -48,6 +48,13 @@ class MazeScene(Scene):
 
     def reset_game(self):
         """Reset all game state for a new maze"""
+        # Accumulate completion stats before resetting state
+        if getattr(self, 'state', self.STATE_PLAYING) == self.STATE_WIN:
+            self._session_completions = getattr(self, '_session_completions', 0) + 1
+            t = getattr(self, 'elapsed_time', 0.0)
+            prev_best = getattr(self, '_session_best_time', 0.0)
+            self._session_best_time = t if prev_best == 0.0 else min(prev_best, t)
+
         # Generate maze with reserved open areas for sprites
         self.maze = self.generate_maze()
 
@@ -229,7 +236,19 @@ class MazeScene(Scene):
         self.reset_game()
 
     def exit(self):
-        pass
+        completions = getattr(self, '_session_completions', 0)
+        if completions > 0:
+            scale = (completions / 2.0) ** 0.5
+            best_time = getattr(self, '_session_best_time', 0.0)
+            time_bonus = max(0.0, 1.0 - best_time / 30.0) if best_time > 0.0 else 0.0
+            print(f"Reward scale: {scale}")
+            print(f"Time bonus: {time_bonus}")
+            self.context.apply_stat_changes({
+                'intelligence': 3 * scale + 2 * time_bonus,
+                'curiosity':    3 * scale,
+                'focus':        3 * scale,
+                'sociability':   2,
+            })
 
     def update(self, dt):
         if self.state == self.STATE_PLAYING:

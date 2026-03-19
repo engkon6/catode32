@@ -85,6 +85,36 @@ class GameContext:
         # Requested scene change from a behavior (e.g. go_to on arrival). Cleared by scene_manager.
         self.pending_scene = None
     
+    def apply_stat_changes(self, changes):
+        """Apply a dict of stat changes with asymptotic damping near extremes.
+
+        Uses the same curve as BaseBehavior.apply_completion_bonus so minigame
+        rewards feel consistent with behavior rewards. Stats near their ceiling
+        resist further increases; stats near the floor resist further decreases.
+
+        Args:
+            changes: Dict mapping stat name to delta value (positive or negative).
+        """
+        EXP = 0.7
+        for stat, delta in changes.items():
+            if delta == 0:
+                continue
+            current = getattr(self, stat, None)
+            if current is None or not isinstance(current, (int, float)):
+                continue
+            current = float(current)
+            if delta > 0:
+                room = (100.0 - current) / 100.0
+                delta *= room ** EXP
+            else:
+                room = current / 100.0
+                delta *= room ** EXP
+            new_value = max(0.0, min(100.0, current + delta))
+            color = "\033[32m" if delta > 0 else "\033[31m"
+            print(f"[\033[36mStat\033[0m] {stat}: {current:.1f} {color}{delta:+.2f}\033[0m -> {new_value:.1f}")
+            setattr(self, stat, new_value)
+        self.recompute_health()
+
     def recompute_health(self):
         """Recompute health as a weighted average of contributing stats.
 

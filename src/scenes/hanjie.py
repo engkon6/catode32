@@ -169,7 +169,29 @@ class HanjieScene(Scene):
     def enter(self):
         self._init_game()
 
+    def exit(self):
+        completions = getattr(self, '_session_completions', 0)
+        if completions > 0:
+            reward = (completions / 3.0) ** 0.5
+            best_time = getattr(self, '_session_best_time', 0.0)
+            time_bonus = max(0.0, 1.0 - best_time / 180.0) if best_time > 0.0 else 0.0
+            print(f"Reward: {reward}")
+            print(f"Time bonus: {time_bonus}")
+            self.context.apply_stat_changes({
+                'intelligence': 4 * reward + 2 * time_bonus,
+                'focus':        3 * reward,
+                'serenity':     3 * reward,
+                'sociability':  2,
+            })
+
     def _init_game(self):
+        # Accumulate completion stats before resetting state
+        if getattr(self, 'state', STATE_PLAYING) == STATE_WIN:
+            self._session_completions = getattr(self, '_session_completions', 0) + 1
+            t = getattr(self, 'elapsed', 0.0)
+            prev_best = getattr(self, '_session_best_time', 0.0)
+            self._session_best_time = t if prev_best == 0.0 else min(prev_best, t)
+
         self.solution, self.row_clues, self.col_clues = _generate_puzzle()
         self.board = bytearray(COLS * ROWS)  # all UNKNOWN
         self.cursor = 0

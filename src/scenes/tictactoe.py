@@ -86,7 +86,17 @@ class TicTacToeScene(Scene):
         self.reset_game()
 
     def exit(self):
-        pass
+        current_ended = self.state in (self.STATE_PLAYER_WIN, self.STATE_PET_WIN, self.STATE_DRAW)
+        total_rounds = self.round_number + (1 if current_ended else 0)
+        if total_rounds > 0:
+            scale = (total_rounds / 8.0) ** 0.5
+            print(f"Reward scaling {scale}")
+            self.context.apply_stat_changes({
+                'sociability':   3 * scale,
+                'intelligence':  4 * scale,
+                'focus':         3 * scale,
+                'fulfillment':   3 * scale,
+            })
 
     def update(self, dt):
         self.character.update(dt)
