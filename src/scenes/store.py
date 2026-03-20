@@ -94,7 +94,7 @@ class StoreScene(Scene):
     def _food_item(self, name, key, cost):
         label = f"{name}"
         if self.context.coins >= cost:
-            return MenuItem(label, action=("buy_food", key, cost),
+            return MenuItem(label, action=("buy_food", name, key, cost),
                             confirm=f"{name}({_FOOD_USES}): {cost}c")
         return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
 
@@ -199,12 +199,12 @@ class StoreScene(Scene):
             return ('change_scene', self.context.last_main_scene)
 
         elif kind == "buy_food":
-            _, key, cost = action
+            _, name, key, cost = action
             if self.context.coins >= cost:
                 self.context.coins -= cost
                 self.context.food_stock[key] = self.context.food_stock.get(key, 0) + _FOOD_USES
                 print(f"[Store] Bought {key} for {cost}c (+{_FOOD_USES} uses)")
-                self._purchase_msg = f"{key[0].upper() + key[1:]} purchased!"
+                self._purchase_msg = f"{name} purchased!"
                 self._popup.set_text(self._purchase_msg, center=True)
             else:
                 self.menu.open(self._build_menu())

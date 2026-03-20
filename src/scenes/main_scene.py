@@ -140,7 +140,15 @@ class MainScene(Scene):
             ("Salmon",   "salmon",   FISH_ICON),
             ("Tuna",     "tuna",     FISH_ICON),
             ("Shrimp",   "shrimp",   FISH_ICON),
+            ("Trout",    "trout",    FISH_ICON),
+            ("Herring",  "herring",  FISH_ICON),
+            ("Haddock",  "haddock",  FISH_ICON),
+            ("Cod",      "cod",      FISH_ICON),
             ("Mackerel", "mackerel", FISH_ICON),
+            ("Turkey",   "turkey",   CHICKEN_ICON),
+            ("Beef",     "beef",     MEAL_ICON),
+            ("Lamb",     "lamb",     MEAL_ICON),
+            ("Liver",    "liver",    MEAL_ICON),
             ("Kibble",   "kibble",   KIBBLE_ICON),
         )
         meal_items = [
@@ -149,11 +157,16 @@ class MainScene(Scene):
             if food_stock.get(key, 0) > 0
         ]
         _snack_defs = (
+            ("Treats",     "treats"),
             ("Chew Stick", "chew_stick"),
             ("Nugget",     "nugget"),
+            ("Puree",      "puree"),
             ("Cream",      "cream"),
             ("Milk",       "milk"),
             ("Fish Bite",  "fish_bite"),
+            ("Eggs",       "eggs"),
+            ("Pumpkin",    "pumpkin"),
+            ("Carrots",    "carrots"),
         )
         snack_items = [
             MenuItem(f"{name} ({food_stock.get(key, 0)})",
