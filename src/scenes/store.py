@@ -78,17 +78,17 @@ class StoreScene(Scene):
     # ------------------------------------------------------------------
 
     def _build_menu(self):
+        food_items  = [self._food_item(name, key, cost)
+                       for name, key, cost in _MEAL_ITEMS]
         snack_items = [self._food_item(name, key, cost)
                        for name, key, cost in _SNACK_ITEMS]
-        food_items = [self._food_item(name, key, cost)
-                      for name, key, cost in _MEAL_ITEMS]
-        food_items.append(MenuItem("Snacks", submenu=snack_items))
-        toy_items  = [self._toy_item(label, full_name, variant, cost)
-                      for label, full_name, variant, cost in _TOY_ITEMS]
+        toy_items   = [self._toy_item(label, full_name, variant, cost)
+                       for label, full_name, variant, cost in _TOY_ITEMS]
         return [
-            MenuItem("Food",  submenu=food_items),
-            MenuItem("Toys",  submenu=toy_items),
-            MenuItem("Exit",  action=("leave",)),
+            MenuItem("Food",   submenu=food_items),
+            MenuItem("Snacks", submenu=snack_items),
+            MenuItem("Toys",   submenu=toy_items),
+            MenuItem("Exit",   action=("leave",)),
         ]
 
     def _food_item(self, name, key, cost):
