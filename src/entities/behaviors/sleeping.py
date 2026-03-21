@@ -67,6 +67,11 @@ class SleepingBehavior(BaseBehavior):
             self._character.play_bursts()
         if scene in ('outside', 'treehouse') and weather in ('Rain', 'Storm', 'Snow'):
             bonus['comfort'] = bonus.get('comfort', 0) - 10
+        if getattr(context, 'in_familiar_location', False):
+            bonus['serenity'] = bonus.get('serenity', 0) + 3   # sleep deeper at home
+        else:
+            bonus['serenity'] = bonus.get('serenity', 0) - 2   # restless sleep away from home
+            bonus['comfort'] = bonus.get('comfort', 0) * 0.85  # less restorative
         return bonus
 
     def __init__(self, character):
@@ -115,19 +120,27 @@ class SleepingBehavior(BaseBehavior):
                 self._phase = "sleeping"
                 self._phase_timer = 0.0
                 self._character.set_pose(self._sleep_pose)
-                if self._character.context:
-                    self._character.context.save_if_needed()
 
         elif self._phase == "sleeping":
             # Update progress
             self._progress = min(1.0, self._phase_timer / self.sleep_duration)
 
             if self._phase_timer >= self.sleep_duration:
+                # Scan while the pet is still asleep so any display freeze is invisible
+                try:
+                    import sys
+                    import wifi_tracker
+                    wifi_tracker.maybe_scan(self._character.context)
+                    del sys.modules['wifi_tracker']
+                except Exception:
+                    pass
                 self._phase = "waking"
                 self._phase_timer = 0.0
                 # Stay in sleep pose briefly while "waking"
 
         elif self._phase == "waking":
+            if self._character.context:
+                self._character.context.save_if_needed()
             if self._phase_timer >= self.wake_duration:
                 self.stop(completed=True)
 

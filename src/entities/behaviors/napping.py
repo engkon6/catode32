@@ -64,6 +64,11 @@ class NappingBehavior(BaseBehavior):
             self._character.play_bursts()
         if scene in ('outside', 'treehouse') and weather in ('Rain', 'Storm', 'Snow'):
             bonus['comfort'] = bonus.get('comfort', 0) - 7
+        if getattr(context, 'in_familiar_location', False):
+            bonus['serenity'] = bonus.get('serenity', 0) + 2
+        else:
+            bonus['serenity'] = bonus.get('serenity', 0) - 1
+            bonus['comfort'] = bonus.get('comfort', 0) * 0.9
         return bonus
     
     def __init__(self, character):

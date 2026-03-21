@@ -49,6 +49,18 @@ class BeingGroomedBehavior(BaseBehavior):
         self.enjoy_duration = 16.0
         self.satisfy_duration = 1.5
 
+    def get_completion_bonus(self, context):
+        bonus = dict(super().get_completion_bonus(context))
+        return self.apply_location_bonus(context, bonus)
+
+    def apply_location_bonus(self, context, bonus):
+        if getattr(context, 'in_familiar_location', False):
+            bonus['affection'] = bonus.get('affection', 0) * 1.2
+            bonus['serenity'] = bonus.get('serenity', 0) + 0.5   # fully relaxed into grooming at home
+        else:
+            bonus['serenity'] = bonus.get('serenity', 0) * 0.7   # on-edge, can't melt into it
+        return bonus
+
     def next(self, context):
         # Inline self-grooming trigger: cleanliness < 57 and energy > 30
         if context.cleanliness < 70 and context.energy > 30 and random.random() < 0.4:

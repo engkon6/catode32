@@ -469,7 +469,10 @@ class BehaviorManager:
         return base
 
     def priority_zoomies(self, ctx):
-        return random.uniform(100 - ctx.playfulness * 1.5, ctx.playfulness * 1.5)
+        base = random.uniform(100 - ctx.playfulness * 1.5, ctx.playfulness * 1.5)
+        if getattr(ctx, 'in_familiar_location', False):
+            base *= 0.85  # more likely to zoom in a safe, familiar place
+        return base
 
     def priority_vocalizing(self, ctx):
         # How urgently each need demands communication
@@ -502,10 +505,16 @@ class BehaviorManager:
         return base
 
     def priority_playing(self, ctx):
-        return random.uniform(100 - ctx.playfulness * 1.5, ctx.playfulness * 1.5)
+        base = random.uniform(100 - ctx.playfulness * 1.5, ctx.playfulness * 1.5)
+        if getattr(ctx, 'in_familiar_location', False):
+            base *= 0.85  # more playful in familiar surroundings
+        return base
 
     def priority_investigating(self, ctx):
-        return random.uniform(10, max(10, 100 - ctx.curiosity))
+        base = random.uniform(10, max(10, 100 - ctx.curiosity))
+        if not getattr(ctx, 'in_familiar_location', False):
+            base *= 0.8  # more curious/exploratory in unfamiliar places
+        return base
 
     def priority_observing(self, ctx):
         return random.uniform(10, max(10, 100 - ctx.curiosity))
@@ -518,19 +527,36 @@ class BehaviorManager:
 
     def priority_pacing(self, ctx):
         worst = min(ctx.comfort, ctx.serenity)
-        return random.uniform(10, max(10, 100 - (100 - worst) * 0.8))
+        base = random.uniform(10, max(10, 100 - (100 - worst) * 0.8))
+        if not getattr(ctx, 'in_familiar_location', False):
+            base *= 0.8  # more restless in unfamiliar places
+        return base
 
     def priority_sulking(self, ctx):
-        return random.uniform(10, max(20, (ctx.fulfillment + ctx.affection) * 0.45))
+        base = random.uniform(10, max(20, (ctx.fulfillment + ctx.affection) * 0.45))
+        if not getattr(ctx, 'in_familiar_location', False):
+            base *= 0.85  # slight mood dampening away from home
+        return base
 
     def priority_mischief(self, ctx):
         return random.uniform(20, max(20, (200 - ctx.mischievousness - ctx.playfulness) * 0.5))
 
     def priority_hiding(self, ctx):
-        return random.uniform(15, max(15, ctx.courage))
+        base = random.uniform(15, max(15, ctx.courage))
+        if getattr(ctx, 'in_familiar_location', False):
+            base *= 1.4   # unlikely to hide somewhere safe and familiar
+        else:
+            base *= 0.65  # anxious in unknown territory
+        return base
 
     def priority_lounging(self, ctx):
-        return 100 - random.uniform(ctx.serenity * 0.5, ctx.serenity * 1.5)
+        base = 100 - random.uniform(ctx.serenity * 0.5, ctx.serenity * 1.5)
+        if getattr(ctx, 'in_familiar_location', False):
+            base *= 0.8  # more likely to just relax at home
+        return base
 
     def priority_startled(self, ctx):
-        return random.uniform(20, max(20, ctx.courage * 1.2))
+        base = random.uniform(20, max(20, ctx.courage * 1.2))
+        if not getattr(ctx, 'in_familiar_location', False):
+            base *= 0.75  # on-edge in unknown territory
+        return base

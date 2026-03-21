@@ -32,6 +32,18 @@ class SelfGroomingBehavior(BaseBehavior):
         self.groom_duration = random.uniform(10.0, 45.0)
         self.finish_duration = random.uniform(1.0, 3.0)
 
+    def get_completion_bonus(self, context):
+        bonus = dict(super().get_completion_bonus(context))
+        return self.apply_location_bonus(context, bonus)
+
+    def apply_location_bonus(self, context, bonus):
+        if getattr(context, 'in_familiar_location', False):
+            bonus['cleanliness'] = bonus.get('cleanliness', 0) * 1.1  # focused grooming at home
+            bonus['serenity'] = bonus.get('serenity', 0) + 0.5
+        else:
+            bonus['cleanliness'] = bonus.get('cleanliness', 0) * 0.9  # distracted by surroundings
+        return bonus
+
     def next(self, context):
         return None  # -> idle
 

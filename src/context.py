@@ -125,7 +125,8 @@ class GameContext:
         """Serialize stats to flash storage."""
         import ujson
         import time
-        data = {'v': 1, 'env': self.environment, 'food_stock': self.food_stock, 'toys': self.inventory["toys"], 'pet_seed': self.pet_seed}
+        data = {'v': 1, 'env': self.environment, 'food_stock': self.food_stock, 'toys': self.inventory["toys"], 'pet_seed': self.pet_seed,
+                'wifi_familiar': self.wifi_familiar, 'wifi_recent': self.wifi_recent}
         for key in _STAT_KEYS:
             data[key] = getattr(self, key)
         try:
@@ -161,6 +162,8 @@ class GameContext:
                 self.food_stock.update(data['food_stock'])
             if 'toys' in data:
                 self.inventory['toys'] = data['toys']
+            self.wifi_familiar = data.get('wifi_familiar', [])
+            self.wifi_recent   = data.get('wifi_recent',   [])
             self.recompute_health()
             import time
             self.last_save_time = time.ticks_ms()
@@ -240,6 +243,12 @@ class GameContext:
 
         # Time of last save in ticks_ms; None = never saved this session
         self.last_save_time = None
+
+        # WiFi location tracking (lists persisted; last_wifi_scan_ms and flag are not)
+        self.wifi_familiar = []          # up to 16 well-known APs (persisted)
+        self.wifi_recent = []            # up to 8 candidate APs (persisted)
+        self.in_familiar_location = False  # updated each scan, not persisted
+        self.last_wifi_scan_ms = None    # ticks_ms of last scan, not persisted
 
         # Recent completed behavior names for loop prevention (most recent first, not persisted)
         self.recent_behaviors = []

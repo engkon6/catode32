@@ -1,4 +1,5 @@
 import gc
+import sys
 from scene import Scene
 from ui import Scrollbar
 
@@ -6,7 +7,7 @@ _AUTH_MODES = {0: 'Open', 1: 'WEP', 2: 'WPA', 3: 'WPA2', 4: 'WPA/2', 6: 'WPA3'}
 
 
 class DebugWifiScene(Scene):
-    """Debug scene that scans for nearby WiFi access points."""
+    """Debug scene showing familiar/recent AP lists and live scan results."""
 
     LINES_VISIBLE = 8
     LINE_HEIGHT = 8
@@ -16,6 +17,7 @@ class DebugWifiScene(Scene):
         self.scrollbar = Scrollbar(renderer)
         self.scroll_offset = 0
         self.lines = []
+        self._scan_countdown = None
 
     def load(self):
         super().load()
@@ -25,39 +27,102 @@ class DebugWifiScene(Scene):
 
     def enter(self):
         self.scroll_offset = 0
-        self._scan()
+        self.lines = ["Scanning WiFi..."]
+        self._scan_countdown = 0.1  # seconds before scan fires
 
     def exit(self):
         pass
 
     def _scan(self):
         self.lines = ["Scanning WiFi..."]
+        ctx = self.context
         try:
-            import network
-            wlan = network.WLAN(network.STA_IF)
-            was_active = wlan.active()
-            wlan.active(True)
-            aps = wlan.scan()
-            if not was_active:
-                wlan.active(False)
+            import wifi_tracker
+            raw_aps = wifi_tracker.scan_now(ctx)
+            del sys.modules['wifi_tracker']
+        except Exception as e:
+            self.lines = ["WiFi error:", " " + str(e)]
+            gc.collect()
+            return
 
-            aps_sorted = sorted(aps, key=lambda x: -x[3])
-            self.lines = [f"WiFi: {len(aps)} APs (A=rescan)"]
-            for ap in aps_sorted:
+        fam = ctx.wifi_familiar
+        rec = ctx.wifi_recent
+
+        # BSSIDs visible in this scan (for marking entries)
+        visible = set()
+        for ap in raw_aps:
+            try:
+                visible.add(':'.join('%02x' % b for b in ap[1]))
+            except Exception:
+                pass
+
+        fam_bssids = {e['b'] for e in fam}
+        rec_bssids = {e['b'] for e in rec}
+        loc = "Y" if ctx.in_familiar_location else "N"
+
+        lines = []
+
+        # --- Familiar ---
+        lines.append("Home? %s" % loc)
+        lines.append("")
+        lines.append("Familiar:%d/%d" % (len(fam), 16))
+        if fam:
+            for e in sorted(fam, key=lambda x: -x['n']):
+                vis = "*" if e['b'] in visible else " "
+                label = (e['s'] or e['b'])[:10]
+                lines.append("%s%-10s %4.1f" % (vis, label, e['n']))
+        else:
+            lines.append("(none yet)")
+
+        # --- Recent ---
+        lines.append("")
+        lines.append("Recent:%d/%d" % (len(rec), 8))
+        if rec:
+            for e in sorted(rec, key=lambda x: -x['n']):
+                vis = "*" if e['b'] in visible else " "
+                label = (e['s'] or e['b'])[:10]
+                lines.append("%s%-10s %4.1f" % (vis, label, e['n']))
+        else:
+            lines.append("(none yet)")
+
+        # --- Live scan ---
+        lines.append("")
+        lines.append("Scan: %d APs" % len(raw_aps))
+        for ap in sorted(raw_aps, key=lambda x: -x[3]):
+            try:
+                bssid = ':'.join('%02x' % b for b in ap[1])
                 try:
                     ssid = ap[0].decode('utf-8') if ap[0] else '(hidden)'
                 except Exception:
                     ssid = '(binary)'
-                channel = ap[2]
                 rssi = ap[3]
                 auth = _AUTH_MODES.get(ap[4], '?')
-                self.lines.append(f" {ssid[:18]}")
-                self.lines.append(f"  ch{channel} {rssi}dBm {auth}")
-        except Exception as e:
-            self.lines = ["WiFi error:", f" {e}"]
+                if bssid in fam_bssids:
+                    marker = "F"
+                elif bssid in rec_bssids:
+                    marker = "R"
+                else:
+                    marker = "."
+                lines.append("%s %-11s%4d %s" % (marker, ssid[:11], rssi, auth))
+            except Exception:
+                pass
+
+        self.lines = lines
+
+        # Mirror to terminal
+        print("[WiFi Debug] " + "=" * 38)
+        for line in lines:
+            print("[WiFi Debug] " + line)
+        print("[WiFi Debug] " + "=" * 38)
+
         gc.collect()
 
     def update(self, dt):
+        if self._scan_countdown is not None:
+            self._scan_countdown -= dt
+            if self._scan_countdown <= 0:
+                self._scan_countdown = None
+                self._scan()
         return None
 
     def draw(self):

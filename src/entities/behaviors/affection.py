@@ -88,7 +88,13 @@ class AffectionBehavior(BaseBehavior):
         self._variant = "pets"
 
     def get_completion_bonus(self, context):
-        return dict(VARIANTS[self._variant].get("stats", {}))
+        bonus = dict(VARIANTS[self._variant].get("stats", {}))
+        if getattr(context, 'in_familiar_location', False):
+            bonus['affection'] = bonus.get('affection', 0) * 1.2
+            bonus['serenity'] = bonus.get('serenity', 0) + 0.5  # more open to affection at home
+        else:
+            bonus['affection'] = bonus.get('affection', 0) * 0.85  # distracted away from home
+        return bonus
 
     def start(self, variant=None, on_complete=None):
         if self._active:

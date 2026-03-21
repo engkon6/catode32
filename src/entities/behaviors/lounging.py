@@ -62,6 +62,12 @@ class LoungeingBehavior(BaseBehavior):
             bonus['comfort'] = bonus.get('comfort', 0) * 1.3
         if scene in ('outside', 'treehouse') and weather in ('Rain', 'Storm', 'Snow'):
             bonus['comfort'] = bonus.get('comfort', 0) - 6
+        if getattr(context, 'in_familiar_location', False):
+            bonus['serenity'] = bonus.get('serenity', 0) + 1.5
+            bonus['comfort'] = bonus.get('comfort', 0) * 1.15  # truly settled at home
+        else:
+            bonus['serenity'] = bonus.get('serenity', 0) - 1
+            bonus['comfort'] = bonus.get('comfort', 0) * 0.9   # can't fully relax elsewhere
         return bonus
 
     def next(self, context):

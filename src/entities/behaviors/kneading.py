@@ -36,6 +36,18 @@ class KneadingBehavior(BaseBehavior):
         self.knead_duration = random.uniform(10.0, 45.0)
         self.settle_duration = random.uniform(1.0, 4.0)
 
+    def get_completion_bonus(self, context):
+        bonus = dict(super().get_completion_bonus(context))
+        return self.apply_location_bonus(context, bonus)
+
+    def apply_location_bonus(self, context, bonus):
+        if getattr(context, 'in_familiar_location', False):
+            bonus['comfort'] = bonus.get('comfort', 0) + 1
+            bonus['serenity'] = bonus.get('serenity', 0) + 0.15  # deep comfort in known territory
+        else:
+            bonus['comfort'] = bonus.get('comfort', 0) * 0.85    # can't fully settle elsewhere
+        return bonus
+
     def next(self, context):
         if random.random() < 0.5:
             return 'stretching'
