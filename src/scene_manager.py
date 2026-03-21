@@ -6,7 +6,7 @@ import config
 from menu import Menu, MenuItem
 from transitions import TransitionManager
 from ui import OverlayManager
-from assets.icons import WRENCH_ICON, SUN_ICON, HOUSE_ICON, STATS_ICON, MINIGAME_ICONS, MINIGAMES_ICON, CAT_ICON, TREES_ICON, MEAL_ICON, POWER_ICON, CREDITS_ICON, STORE_ICON
+from assets.icons import WRENCH_ICON, SUN_ICON, HOUSE_ICON, STATS_ICON, MINIGAME_ICONS, MINIGAMES_ICON, CAT_ICON, TREES_ICON, MEAL_ICON, POWER_ICON, CREDITS_ICON, STORE_ICON, WIFI_ICON
 
 
 class SceneManager:
@@ -81,6 +81,9 @@ class SceneManager:
             'debug_led': ('scenes.debug_led', 'DebugLedScene'),
             'debug_power': ('scenes.debug_power', 'DebugPowerScene'),
             'debug_stats': ('scenes.debug_stats', 'DebugStatsScene'),
+            'debug_wifi': ('scenes.debug_wifi', 'DebugWifiScene'),
+            'debug_bluetooth': ('scenes.debug_bluetooth', 'DebugBluetoothScene'),
+            'debug_espnow': ('scenes.debug_espnow', 'DebugEspnowScene'),
             'credits': ('scenes.credits', 'CreditsScene'),
             'environment_settings': ('scenes.environment_settings', 'EnvironmentSettingsScene'),
             'time_settings': ('scenes.time_settings', 'TimeSettingsScene'),
@@ -342,6 +345,11 @@ class SceneManager:
         context_save_items.append(MenuItem("Save now", icon=WRENCH_ICON, action=('context', 'save'), confirm="Save and reboot?"))
         context_save_items.append(MenuItem("Reset stats", icon=WRENCH_ICON, action=('context', 'reset'), confirm="Reset all stats to defaults?"))
         debug_items.append(MenuItem("Context", icon=WRENCH_ICON, submenu=context_save_items))
+
+        wireless_items = []
+        wireless_items.append(MenuItem("Wifi", icon=WIFI_ICON, action=('scene', 'debug_wifi')))
+        wireless_items.append(MenuItem("ESP-NOW", icon=WIFI_ICON, action=('scene', 'debug_espnow')))
+        debug_items.append(MenuItem("Wireless", icon=WIFI_ICON, submenu=wireless_items))
 
         debug_items.append(MenuItem("Credits", icon=CREDITS_ICON, action=('scene', 'credits')))
 
