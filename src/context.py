@@ -1,5 +1,47 @@
 _SAVE_PATH = '/save.json'
 
+
+def _generate_seed():
+    """Generate a 64-bit seed using hardware RNG (ESP32) or os.urandom fallback."""
+    try:
+        import os
+        b = os.urandom(8)
+        seed = 0
+        for byte in b:
+            seed = (seed << 8) | byte
+        return seed
+    except Exception:
+        import random
+        return random.getrandbits(32) | (random.getrandbits(32) << 32)
+
+
+def _xorshift32(x):
+    x ^= (x << 13) & 0xFFFFFFFF
+    x ^= (x >> 17)
+    x ^= (x << 5) & 0xFFFFFFFF
+    return x & 0xFFFFFFFF
+
+
+_PERSONALITY_TRAITS = ('courage', 'loyalty', 'mischievousness', 'curiosity', 'sociability')
+_TRAIT_MAGNITUDE = 10  # max offset in either direction
+
+
+def _derive_trait_offsets(seed):
+    """Derive balanced personality offsets from a 64-bit seed.
+
+    Generates an offset for each personality trait in [-_TRAIT_MAGNITUDE, +_TRAIT_MAGNITUDE].
+    The offsets are mean-centered so no seed produces a uniformly happier or sadder cat.
+    """
+    state = (seed ^ (seed >> 32)) & 0xFFFFFFFF or 1
+    span = 2 * _TRAIT_MAGNITUDE + 1  # 0 to 2*MAGNITUDE inclusive
+    raw = []
+    for _ in range(len(_PERSONALITY_TRAITS)):
+        state = _xorshift32(state)
+        raw.append(state % span)
+    mean = sum(raw) // len(raw)
+    return [v - mean for v in raw]
+
+
 _STAT_KEYS = (
     'fullness', 'energy', 'comfort', 'playfulness', 'focus',
     'fulfillment', 'cleanliness', 'curiosity', 'sociability',
@@ -13,81 +55,7 @@ _STAT_KEYS = (
 
 class GameContext:
     def __init__(self):
-        # Meta stat (computed from other stats)
-        self.health = 50
-        
-        # Rapidly changing stats (change on a daily basis)
-        self.fullness = 50          # Inverse of hunger. Feed to maintain.
-        self.energy = 50            # How rested the pet is
-        self.comfort = 50           # Physical comfort. Temperature, environment, etc...
-        self.playfulness = 50       # Mood to play
-        self.focus = 50             # Ability to concentrate on tasks/training
-
-        # Slower changing stats (change on more of a weekly basis)
-        self.fulfillment = 50       # Feeling like the pet has purpose and things to do
-        self.cleanliness = 50       # How clean the pet and its environment are
-        self.curiosity = 50         # Drive to explore/investigate
-        self.sociability = 50       # How interested the pet is in interacting
-        self.intelligence = 50      # Problem-solving, learning new skills/tricks
-        self.maturity = 50          # Behavioral sophistication
-        self.affection = 50         # How much the pet feels loved
-
-        # Even slower changing stats (change on more of a monthly basis)
-        self.fitness = 50           # Athleticism
-        self.serenity = 50          # Inner peace. Makes them less likely to be stressed
-
-        # Slowest changing stats (basically traits with little or no change)
-        self.courage = 50           # Reaction to new/scary situations
-        self.loyalty = 50           # Attachment strength
-        self.mischievousness = 50   # Tendency towards trouble
-
-        # Coins (earned from minigames and hunting, spent in the store)
-        self.coins = 50
-
-        # Quantities of food purchased from the store (uses per type)
-        self.food_stock = {
-            "chicken": 0, "salmon": 0, "tuna": 0, "shrimp": 0, "mackerel": 0, "kibble": 5,
-            "chew_stick": 0, "nugget": 3, "cream": 0, "milk": 0, "fish_bite": 0,
-        }
-
-        # Inventory of owned items
-        self.inventory = {
-            "toys": [
-                {"name": "Feather", "variant": "toy"},
-            ],
-        }
-
-        # Minigame high scores
-        self.zoomies_high_score = 0
-        self.maze_best_time = 0  # Best time in seconds (0 = not played)
-        self.snake_high_score = 0
-        self.memory_best_score = -1  # Fewest mismatches (-1 = not yet played)
-        self.hanjie_best_time = -1   # Fastest solve in seconds (-1 = not yet played)
-
-        # For storing time/weather/season/moon-phase type data
-        self.environment = {}
-
-        # Debug: time scale multiplier (1.0 = normal, 2.0 = 2x speed, 0.0 = paused)
-        self.time_speed = 1.0
-
-        # Scene bounds for character movement (world coordinates, set by each scene on load)
-        self.scene_x_min = 10
-        self.scene_x_max = 118
-
-        # Time of last save in ticks_ms; None = never saved this session
-        self.last_save_time = None
-
-        # Recent completed behavior names for loop prevention (most recent first, not persisted)
-        self.recent_behaviors = []
-
-        # Name of the most recently started behavior (not persisted, used to restore on scene re-entry)
-        self.current_behavior_name = None
-
-        # Last active "main" scene (inside/outside/etc) - used by secondary scenes to return home
-        self.last_main_scene = 'inside'
-
-        # Requested scene change from a behavior (e.g. go_to on arrival). Cleared by scene_manager.
-        self.pending_scene = None
+        self.reset(delete_save=False)
     
     def apply_stat_changes(self, changes):
         """Apply a dict of stat changes with asymptotic damping near extremes.
@@ -157,7 +125,7 @@ class GameContext:
         """Serialize stats to flash storage."""
         import ujson
         import time
-        data = {'v': 1, 'env': self.environment, 'food_stock': self.food_stock, 'toys': self.inventory["toys"]}
+        data = {'v': 1, 'env': self.environment, 'food_stock': self.food_stock, 'toys': self.inventory["toys"], 'pet_seed': self.pet_seed}
         for key in _STAT_KEYS:
             data[key] = getattr(self, key)
         try:
@@ -187,6 +155,7 @@ class GameContext:
             for key in _STAT_KEYS:
                 if key in data:
                     setattr(self, key, data[key])
+            self.pet_seed = data.get('pet_seed') or _generate_seed()
             self.environment = data.get('env', {})
             if 'food_stock' in data:
                 self.food_stock.update(data['food_stock'])
@@ -201,48 +170,96 @@ class GameContext:
             print("[Context] Load skipped: " + str(e))
             return False
 
-    def reset(self):
-        """Reset all stats to defaults and delete save file."""
+    def reset(self, delete_save=True):
+        """Reset all stats to defaults. Optionally delete the save file."""
+        # Unique 64-bit identity for this pet (survives between saves)
+        self.pet_seed = _generate_seed()
+
+        # Meta stat (computed from other stats)
         self.health = 50
-        self.fullness = 50
-        self.energy = 50
-        self.comfort = 50
-        self.playfulness = 50
-        self.focus = 50
-        self.fulfillment = 50
-        self.cleanliness = 50
-        self.curiosity = 50
-        self.sociability = 50
-        self.intelligence = 50
-        self.maturity = 50
-        self.affection = 50
-        self.fitness = 50
-        self.serenity = 50
-        self.courage = 50
-        self.loyalty = 50
-        self.mischievousness = 50
-        self.zoomies_high_score = 0
-        self.maze_best_time = 0
-        self.snake_high_score = 0
+
+        # Rapidly changing stats (change on a daily basis)
+        self.fullness = 50          # Inverse of hunger. Feed to maintain.
+        self.energy = 50            # How rested the pet is
+        self.comfort = 50           # Physical comfort. Temperature, environment, etc...
+        self.playfulness = 50       # Mood to play
+        self.focus = 50             # Ability to concentrate on tasks/training
+
+        # Slower changing stats (change on more of a weekly basis)
+        self.fulfillment = 50       # Feeling like the pet has purpose and things to do
+        self.cleanliness = 50       # How clean the pet and its environment are
+        self.intelligence = 50      # Problem-solving, learning new skills/tricks
+        self.maturity = 50          # Behavioral sophistication
+        self.affection = 50         # How much the pet feels loved
+
+        # Even slower changing stats (change on more of a monthly basis)
+        self.fitness = 50           # Athleticism
+        self.serenity = 50          # Inner peace. Makes them less likely to be stressed
+
+        # Slowest changing stats (basically traits with little or no change).
+        # Offset by a balanced, seed-derived personality so each pet feels distinct.
+        _offsets = _derive_trait_offsets(self.pet_seed)
+        self.courage =          50 + _offsets[0]
+        self.loyalty =          50 + _offsets[1]
+        self.mischievousness =  50 + _offsets[2]
+        self.curiosity =        50 + _offsets[3]
+        self.sociability =      50 + _offsets[4]
+
+        # Coins (earned from minigames and hunting, spent in the store)
         self.coins = 50
+
+        # Quantities of food purchased from the store (uses per type)
         self.food_stock = {
             "chicken": 0, "salmon": 0, "tuna": 0, "shrimp": 0, "mackerel": 0, "kibble": 5,
             "chew_stick": 0, "nugget": 3, "cream": 0, "milk": 0, "fish_bite": 0,
         }
-        self.inventory = {"toys": [{"name": "Feather", "variant": "toy"}]}
+
+        # Inventory of owned items
+        self.inventory = {
+            "toys": [
+                {"name": "Feather", "variant": "toy"},
+            ],
+        }
+
+        # Minigame high scores
+        self.zoomies_high_score = 0
+        self.maze_best_time = 0  # Best time in seconds (0 = not played)
+        self.snake_high_score = 0
+        self.memory_best_score = -1  # Fewest mismatches (-1 = not yet played)
+        self.hanjie_best_time = -1   # Fastest solve in seconds (-1 = not yet played)
+
+        # For storing time/weather/season/moon-phase type data
         self.environment = {}
+
+        # Debug: time scale multiplier (1.0 = normal, 2.0 = 2x speed, 0.0 = paused)
         self.time_speed = 1.0
+
+        # Scene bounds for character movement (world coordinates, set by each scene on load)
+        self.scene_x_min = 10
+        self.scene_x_max = 118
+
+        # Time of last save in ticks_ms; None = never saved this session
         self.last_save_time = None
+
+        # Recent completed behavior names for loop prevention (most recent first, not persisted)
         self.recent_behaviors = []
+
+        # Name of the most recently started behavior (not persisted, used to restore on scene re-entry)
         self.current_behavior_name = None
+
+        # Last active "main" scene (inside/outside/etc) - used by secondary scenes to return home
         self.last_main_scene = 'inside'
+
+        # Requested scene change from a behavior (e.g. go_to on arrival). Cleared by scene_manager.
         self.pending_scene = None
-        try:
-            import uos
-            uos.remove(_SAVE_PATH)
-            print("[Context] Save file deleted")
-        except:
-            pass
+
+        if delete_save:
+            try:
+                import uos
+                uos.remove(_SAVE_PATH)
+                print("[Context] Save file deleted")
+            except:
+                pass
         print("[Context] Reset to defaults")
 
     def record_behavior(self, name):

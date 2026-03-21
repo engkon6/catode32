@@ -33,6 +33,11 @@ class Game:
 
         self.weather_system = WeatherSystem()
 
+        if 'weather' not in self.context.environment:
+            self.weather_system.init_environment(
+                self.context.environment, self.context.pet_seed
+            )
+
         self._update_moon_phase()
 
         # Prepare to start rendering

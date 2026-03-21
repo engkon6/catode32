@@ -79,6 +79,22 @@ class WeatherSystem:
         forecast = ws.get_forecast(context.environment, hours=72)
     """
 
+    def init_environment(self, environment, pet_seed):
+        """
+        Seed a fresh environment dict for a new game using pet_seed.
+
+        Sets an initial weather_step offset so each pet's entire weather trajectory
+        is unique, then derives the starting weather and timer from that step.
+        The step range (0-16383) keeps us safely within the Markov chain's valid inputs.
+        """
+        # Use bits 8-21 of the seed as the starting step offset
+        step = (pet_seed >> 8) & 0x3FFF
+        season = environment.get('season', 'Summer')
+        weather, duration = _compute_transition(step, 'Clear', season)
+        environment['weather'] = weather
+        environment['weather_step'] = step + 1
+        environment['weather_timer'] = float(duration)
+
     def update(self, game_minutes, environment):
         """
         Advance the weather simulation by game_minutes in-game minutes.

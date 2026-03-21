@@ -141,15 +141,18 @@ _STAR_TWINKLE = 2
 _STAR_PHASE = 3
 
 
-def _generate_stars():
+def _generate_stars(seed=STAR_SEED):
     """
     Generate deterministic star positions using xorshift PRNG.
+
+    Args:
+        seed: 32-bit integer seed (defaults to STAR_SEED constant)
 
     Returns:
         List of star tuples: (x, y, twinkle, phase_offset)
     """
     stars = []
-    state = STAR_SEED
+    state = seed & 0xFFFFFFFF or STAR_SEED  # guard against zero state
     for _ in range(STAR_COUNT):
         state = _xorshift32(state)
         x = state % STAR_FIELD_WIDTH
@@ -389,7 +392,7 @@ class SkyRenderer:
             self.time_of_day = new_category
             self._update_star_visibility()
 
-    def configure(self, environment_settings, world_width=256, day_of_year=0):
+    def configure(self, environment_settings, world_width=256, day_of_year=0, seed=None):
         """
         Configure sky from environment settings dict.
 
@@ -397,6 +400,7 @@ class SkyRenderer:
             environment_settings: dict with time_of_day, season, moon_phase, weather
             world_width: Width of the world for cloud wrapping
             day_of_year: day number 0-365 for seasonal star drift
+            seed: Optional 64-bit pet_seed to derive unique star positions from
         """
         time_hours = environment_settings.get("time_hours", 12)
         time_minutes = environment_settings.get("time_minutes", 0)
@@ -407,6 +411,10 @@ class SkyRenderer:
         self.season = environment_settings.get("season", "Summer")
         self.world_width = world_width
         self.day_of_year = day_of_year
+
+        if seed is not None:
+            star_seed = (seed ^ (seed >> 32)) & 0xFFFFFFFF
+            self.stars = _generate_stars(star_seed)
 
         self._update_star_visibility()
         self._update_cloud_config()

@@ -51,9 +51,9 @@ VARIANTS = {
         "bubble": "heart",
         "duration": 6.0,
         "stats": {
-            "affection": 5,
+            "affection": 3,
             "fulfillment": 2.0,
-            "comfort": 2,
+            "comfort": 5,
             "focus": 0.5,
             "playfulness": 4.5,
             "curiosity": 1.5,

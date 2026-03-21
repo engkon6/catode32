@@ -81,7 +81,7 @@ class InsideScene(MainScene):
 
     def on_enter(self):
         env_settings = getattr(self.context, 'environment', {})
-        self.sky.configure(env_settings, world_width=self.environment.world_width)
+        self.sky.configure(env_settings, world_width=self.environment.world_width, seed=self.context.pet_seed)
         self.sky.add_to_environment(self.environment, LAYER_BACKGROUND)
         self._last_weather = env_settings.get('weather', 'Clear')
         self.environment.add_custom_draw(LAYER_MIDGROUND, self.sky.make_precipitation_drawer(0.3, 0))
