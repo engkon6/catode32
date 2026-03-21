@@ -334,24 +334,28 @@ class Popup:
     def _wrap_text(self, text):
         """Word-wrap text to fit within popup width.
 
+        Newlines in the input are treated as hard line breaks; each resulting
+        paragraph is then word-wrapped independently.
+
         Returns:
             List of wrapped lines.
         """
         chars_per_line = (self.width - self.padding * 2) // 8
-        words = text.split(' ')
         lines = []
-        current_line = ""
 
-        for word in words:
-            test_line = current_line + (" " if current_line else "") + word
-            if len(test_line) <= chars_per_line:
-                current_line = test_line
-            else:
-                if current_line:
-                    lines.append(current_line)
-                current_line = word
+        for paragraph in text.split('\n'):
+            words = paragraph.split(' ')
+            current_line = ""
 
-        if current_line:
+            for word in words:
+                test_line = current_line + (" " if current_line else "") + word
+                if len(test_line) <= chars_per_line:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+
             lines.append(current_line)
 
         return lines
