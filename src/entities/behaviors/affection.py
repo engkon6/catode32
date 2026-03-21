@@ -15,7 +15,7 @@ VARIANTS = {
         "stats": {
             "affection": 8,
             "fulfillment": 2.5,
-            "comfort": 4,
+            "comfort": 5,
             "focus": 3,
             "playfulness": 2,
             "curiosity": 2,
@@ -24,7 +24,7 @@ VARIANTS = {
             "maturity": 0.2,
             "loyalty": 0.5,
             "mischievousness": -0.1,
-            "courage": 0.15,
+            "courage": 0.3,
         },
     },
     "pets": {
@@ -34,7 +34,7 @@ VARIANTS = {
         "stats": {
             "affection": 4,
             "fulfillment": 1.5,
-            "comfort": 3,
+            "comfort": 5,
             "focus": 1,
             "playfulness": 3.5,
             "curiosity": 2,
@@ -43,7 +43,7 @@ VARIANTS = {
             "maturity": 0.2,
             "loyalty": 0.5,
             "mischievousness": -0.1,
-            "courage": 0.15,
+            "courage": 0.3,
         },
     },
     "scratching": {
@@ -53,7 +53,7 @@ VARIANTS = {
         "stats": {
             "affection": 3,
             "fulfillment": 2.0,
-            "comfort": 5,
+            "comfort": 9,
             "focus": 0.5,
             "playfulness": 4.5,
             "curiosity": 1.5,
@@ -62,7 +62,7 @@ VARIANTS = {
             "maturity": 0.1,
             "loyalty": 0.5,
             "mischievousness": 0.1,
-            "courage": 0.1,
+            "courage": 0.4,
         },
     },
 }
