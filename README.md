@@ -17,9 +17,9 @@ The pet tracks 18 stats, split into tiers by how quickly they change:
 | Slow | fitness, serenity | Monthly |
 | Trait | courage, loyalty, mischievousness, curiosity, sociability | Nearly fixed |
 
-All stats sit on a 0–100 scale. **Health** is never set directly — it's a weighted average of fitness, fullness, energy, cleanliness, comfort, affection, fulfillment, focus, intelligence, and playfulness, recomputed after every behavior completes.
+All stats sit on a 0-100 scale. **Health** is never set directly; it's a weighted average of fitness, fullness, energy, cleanliness, comfort, affection, fulfillment, focus, intelligence, and playfulness, recomputed after every behavior completes.
 
-Each pet gets a unique 64-bit seed at creation. That seed deterministically derives balanced personality offsets (up to ±10) for the five trait stats, so every pet feels distinct without any individual pet being universally happier or sadder than another.
+Each pet gets a unique 64-bit seed at creation. That seed deterministically derives balanced personality offsets (up to +/-10) for the five trait stats, so every pet feels distinct without any individual pet being universally happier or sadder than another.
 
 Stat changes use **asymptotic damping**: a stat near its ceiling resists further increases, and a stat near the floor resists further decreases. This keeps rewards feeling meaningful throughout the full 0–100 range.
 
@@ -32,30 +32,30 @@ The pet runs one behavior at a time. Behaviors are lazy-loaded and their modules
 After each behavior finishes, the next one is chosen automatically:
 
 1. Each behavior defines a `can_trigger` condition (stat thresholds, time of day, location, etc.).
-2. Eligible behaviors are given a random priority draw — lower is better.
+2. Eligible behaviors are given a random priority draw (lower is better).
 3. Recently completed behaviors get a priority penalty to prevent loops.
 4. The best few behaviors are binned together and one is chosen at random from the top bin.
 
 Personality traits feed directly into the selection. A high-mischievousness pet triggers `mischief` more often; a low-courage pet is more prone to `hiding` and `startled`.
 
-High serenity adds a chance to skip the selection entirely and stay idle — a content pet is happy doing nothing.
+High serenity adds a chance to skip the selection entirely and stay idle; a content pet is happy doing nothing.
 
 ### Coins and the store
 
 Coins are the in-game currency. They are earned by:
 
-- **Minigames** — Zoomies, Snake, Maze, Memory, Hanjie, Breakout, and Tic-tac-toe all award coins on completion, scaled by how well the player did.
-- **Hunting** — each successful hunt awards 1–3 coins at random.
+- **Minigames**: Zoomies, Snake, Maze, Memory, Hanjie, Breakout, and Tic-tac-toe all award coins on completion, scaled by how well the player did.
+- **Hunting**: each successful hunt awards 1-3 coins at random.
 
 Coins are spent at the **store**, which is accessible from the main scene menu. The store sells:
 
 | Category | Items | Cost |
 |----------|-------|------|
-| **Meals** | Chicken, Salmon, Tuna, Shrimp, Trout, Herring, Haddock, Cod, Turkey, Kibble, Beef, Lamb, Liver | 4–8c per 5 uses |
-| **Snacks** | Treats, Nuggets, Puree, Milk, Chew Sticks, Fish Bytes, Eggs, Pumpkin, Carrots | 2–4c per 5 uses |
+| **Meals** | Chicken, Salmon, Tuna, Shrimp, Trout, Herring, Haddock, Cod, Turkey, Kibble, Beef, Lamb, Liver | 4-8c per 5 uses |
+| **Snacks** | Treats, Nuggets, Puree, Milk, Chew Sticks, Fish Bytes, Eggs, Pumpkin, Carrots | 2-4c per 5 uses |
 | **Toys** | String (5c), Feather (8c), Yarn Ball (10c), Laser Pointer (15c) | one-time purchase |
 
-Food is consumed by feeding the pet from the main scene menu and depletes by one use per feeding. Different foods grant different stat bonuses — meals primarily restore fullness and energy, while snacks tend to boost comfort and affection. Toys can be used to trigger the playing behavior.
+Food is consumed by feeding the pet from the main scene menu and depletes by one use per feeding. Different foods grant different stat bonuses: meals primarily restore fullness and energy, while snacks tend to boost comfort and affection. Toys can be used to trigger the playing behavior.
 
 ### Location rewards
 
@@ -63,9 +63,9 @@ The pet can roam between five scenes: **inside**, **bedroom**, **kitchen**, **ou
 
 The pet navigates autonomously using the `go_to` behavior. At the end of each behavior, there is a small base chance (~8%) of walking to a new room, boosted by relevant needs:
 
-- **Hungry** → more likely to head to the kitchen
-- **Tired or uncomfortable** → more likely to head to the bedroom
-- **Bad weather** → strongly discourages trips outside or to the treehouse
+- **Hungry**: more likely to head to the kitchen
+- **Tired or uncomfortable**: more likely to head to the bedroom
+- **Bad weather**: strongly discourages trips outside or to the treehouse
 
 Each location modifies the stat rewards from behaviors:
 
@@ -81,7 +81,7 @@ Each location modifies the stat rewards from behaviors:
 
 Weather follows a **deterministic Markov chain** seeded from the pet's unique seed, so each pet has its own distinct long-term weather trajectory that is reproducible across saves.
 
-Possible states: **Clear → Cloudy → Overcast → Rain → Storm**, with **Windy** accessible from most states and **Snow** possible from Overcast during Fall and Winter only. Each state lasts between 30 and 300 in-game minutes before transitioning.
+Possible states: Clear, Cloudy, Overcast, Windy, Rain, Storm, and Snow (Fall/Winter only, transitioning from Overcast). Each state lasts between 30 and 300 in-game minutes before transitioning.
 
 Weather influences behavior in several ways:
 
@@ -95,8 +95,8 @@ The ESP32's WiFi radio is used to determine whether the pet is at its familiar h
 
 Two lists of access points are maintained:
 
-- **`wifi_familiar`** — up to 16 well-known APs (persisted to flash). An AP here means the pet considers this a home location.
-- **`wifi_recent`** — up to 8 candidate APs (persisted). New APs land here first and are promoted to familiar after being seen at least 5 times. Entries that aren't seen decay by 0.25 per scan and are pruned when they reach zero.
+- **`wifi_familiar`**: up to 16 well-known APs (persisted to flash). An AP here means the pet considers this a home location.
+- **`wifi_recent`**: up to 8 candidate APs (persisted). New APs land here first and are promoted to familiar after being seen at least 5 times. Entries that aren't seen decay by 0.25 per scan and are pruned when they reach zero.
 
 `context.in_familiar_location` is set to `True` whenever at least one familiar AP is visible. This flag affects multiple behaviors:
 
@@ -331,7 +331,7 @@ If the glob doesn't match (or you have multiple devices), find the exact port fi
 
 Press **Ctrl+A then K** to exit `screen`.
 
-This is useful after a reboot (e.g. from a context save) breaks an mpremote session — the game is still running and its output is still on the serial port.
+This is useful after a reboot (e.g. from a context save) breaks an mpremote session; the game is still running and its output is still on the serial port.
 
 ## Contributing
 
