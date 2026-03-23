@@ -45,6 +45,32 @@ class OutsideScene(MainScene):
             x=179, y=63 - PLANTER1["height"] - PLANT1["height"]
         )
 
+        # Plants for midground
+
+        self.environment.add_object(
+            LAYER_MIDGROUND, PLANT2,
+            x=30, y=61-PLANT2["height"]
+        )
+        self.environment.add_object(
+            LAYER_MIDGROUND, PLANT1,
+            x=144, y=61-PLANT1["height"]
+        )
+        self.environment.add_object(
+            LAYER_MIDGROUND, PLANT2,
+            x=120, y=61-PLANT2["height"]
+        )
+        self.environment.add_object(
+            LAYER_MIDGROUND, PLANT1,
+            x=174, y=61-PLANT1["height"],
+            mirror_h=True
+        )
+
+        # Background plants
+        self.environment.add_object(
+            LAYER_BACKGROUND, PLANT2,
+            x=130, y=58-PLANT2["height"]
+        )
+
         # Set movement bounds for behaviors like zoomies (world coordinates)
         self.context.scene_x_min = 10
         self.context.scene_x_max = 246

@@ -1,6 +1,6 @@
 import config
 from scenes.main_scene import MainScene
-from environment import Environment, LAYER_FOREGROUND, LAYER_MIDGROUND
+from environment import Environment, LAYER_FOREGROUND, LAYER_MIDGROUND, LAYER_BACKGROUND
 from entities.character import CharacterEntity
 from assets.furniture import BOOKSHELF, PILLOW
 from assets.nature import PLANTER1, PLANT3
@@ -30,8 +30,8 @@ class BedroomScene(MainScene):
 
         # Yarn ball on the floor (toy)
         self.environment.add_object(
-            LAYER_FOREGROUND, YARN_BALL,
-            x=80, y=63 - YARN_BALL["height"]
+            LAYER_MIDGROUND, YARN_BALL,
+            x=82, y=63 - YARN_BALL["height"]
         )
 
         self.context.scene_x_min = 10
@@ -42,12 +42,20 @@ class BedroomScene(MainScene):
 
     def on_enter(self):
         self.environment.add_custom_draw(LAYER_MIDGROUND, self._draw_bed)
+        self.environment.add_custom_draw(LAYER_BACKGROUND, self._draw_lamp)
 
     def _draw_bed(self, renderer, camera_x, parallax):
         """Draw a simple bed frame against the right side of the room."""
         offset = int(camera_x * parallax)
 
         bed_x = 108 - offset
+
+        # Mask
+        renderer.draw_rect(bed_x, 32, 82, 20, filled=True, color=0)
+
+        # Pillow mask
+        renderer.draw_rect(bed_x+50, 23, 23, 10, filled=True, color=0)
+        renderer.draw_rect(bed_x+73, 25, 2, 8, filled=True, color=0)
 
         # Frame
         renderer.draw_rect(bed_x, 50, 80, 5, filled=True)
@@ -56,3 +64,24 @@ class BedroomScene(MainScene):
 
         # Mattress
         renderer.draw_rect(bed_x, 32, 79, 16)
+
+    def _draw_lamp(self, renderer, camera_x, parallax):
+        offset = int(camera_x * parallax)
+
+        lamp_x = 146 - offset
+
+        # Base
+        renderer.draw_line(lamp_x - 5, 63, lamp_x + 5, 63)
+        renderer.draw_line(lamp_x - 3, 62, lamp_x + 3, 62)
+
+        # Stem
+        renderer.draw_rect(lamp_x - 1, 20, 3, 48, filled=True)
+
+        # Shade
+        renderer.draw_line(lamp_x-12, 20, lamp_x+12, 20)
+        renderer.draw_line(lamp_x-5, 8, lamp_x+5, 8)
+        renderer.draw_line(lamp_x-12, 20, lamp_x-5, 8)
+        renderer.draw_line(lamp_x+12, 20, lamp_x+5, 8)
+
+        # Cord
+        renderer.draw_line(lamp_x+4, 20, lamp_x+4, 28)
