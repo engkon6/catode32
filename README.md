@@ -205,34 +205,63 @@ Choose the wiring diagram for your board. Each button connects between GPIO pin 
 
 ## Installation
 
-### 1. Flash MicroPython (if not already done)
+This project uses **custom MicroPython firmware** with asset data frozen directly into flash. The sprite/icon data lives in flash rather than RAM, which frees up a significant portion of the ~85KB heap budget. You build the firmware once, flash it, then upload only the game logic.
 
-**For ESP32-C6:**
+### 1. Set Up Build Tools (one-time)
+
+Install build prerequisites:
 ```bash
-esptool.py --chip esp32c6 --port /dev/cu.usbmodem* erase_flash
-esptool.py --chip esp32c6 --port /dev/cu.usbmodem* write_flash -z 0x0 ESP32_GENERIC_C6-*.bin
+brew install cmake ninja dfu-util   # macOS
 ```
 
-**For ESP32-C3:**
+Clone ESP-IDF and MicroPython into `~/esp/`:
 ```bash
-esptool.py --chip esp32c3 --port /dev/cu.usbmodem* erase_flash
-esptool.py --chip esp32c3 --port /dev/cu.usbmodem* write_flash -z 0x0 ESP32_GENERIC_C3-*.bin
+mkdir -p ~/esp
+
+# ESP-IDF (required version: v5.5.1)
+git clone --recursive https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+cd ~/esp/esp-idf && git checkout v5.5.1
+git submodule update --init --recursive
+./install.sh esp32c6,esp32c3
+
+# MicroPython
+git clone https://github.com/micropython/micropython.git ~/esp/micropython
+cd ~/esp/micropython
+git submodule update --init --recursive
+make -C mpy-cross
 ```
 
-> Download MicroPython firmware from [micropython.org/download](https://micropython.org/download/)
+> If you keep ESP-IDF or MicroPython somewhere other than `~/esp/`, set the `IDF_PATH` and `MICROPYTHON_DIR` environment variables before running build scripts.
 
-### 2. Configure Board Type
+### 2. Build and Flash Custom Firmware
+
+```bash
+# Build and flash in one step (auto-detects USB port):
+./tools/build_firmware.sh build-flash
+
+# Or specify board and port explicitly:
+./tools/build_firmware.sh build-flash esp32c6 /dev/tty.usbmodem1234
+./tools/build_firmware.sh build-flash esp32c3
+```
+
+This compiles a custom MicroPython binary with all `src/assets/` modules frozen in, then flashes bootloader, partition table, and firmware to the device.
+
+> **Note:** Flashing replaces the entire filesystem. Re-run `./upload.sh` after flashing to restore game files.
+
+### 3. Configure Board Type
 
 Before uploading, set your board type in `src/config.py`:
 ```python
 BOARD_TYPE = "ESP32-C6"  # or "ESP32-C3"
 ```
 
-### 3. Install SSD1306 Library
+### 4. Upload Game Files
 
 ```bash
-mpremote mip install ssd1306
+./upload.sh
 ```
+
+This installs the `ssd1306` library, compiles and uploads all game logic. Asset files are not uploaded since they live in the firmware.
 
 ## Development Workflow
 
@@ -243,17 +272,30 @@ For the fastest iteration during development, use the `dev.sh` script which comp
 ```
 
 This script:
-- Compiles all `.py` files in `src/` to `.mpy` bytecode in `build/`
+- Compiles all `.py` files in `src/` to `.mpy` bytecode in `build/` (excluding `src/assets/`)
 - Mounts the `build/` directory on the device
 - Runs the game
 
-Using precompiled `.mpy` files provides faster startup and slightly lower RAM usage compared to raw `.py` files.
+Asset files are skipped because they are frozen into the firmware. MicroPython resolves frozen modules before the filesystem, so uploading them would be redundant.
 
 > [!NOTE]
 > Requires `mpy-cross` (`pip install mpy-cross`) and `mpremote` (`pip install mpremote`).
-> Any libraries used (like `ssd1306`) must already be installed on the device.
+> The device must be running the custom firmware (see Installation). Asset imports will fail on stock MicroPython firmware.
 
 ## Scripts
+
+### tools/build_firmware.sh
+
+Builds custom MicroPython firmware with asset modules frozen in flash, then optionally flashes it:
+
+```bash
+./tools/build_firmware.sh                        # build only, ESP32-C6
+./tools/build_firmware.sh build-flash            # build and flash, ESP32-C6
+./tools/build_firmware.sh build esp32c3          # build only, ESP32-C3
+./tools/build_firmware.sh flash esp32c6 /dev/tty.usbmodem1234  # flash with explicit port
+```
+
+Re-run this whenever you add new sprite data to `src/assets/` (after running `tools/convert_bytearrays.py` to convert any new `bytearray` literals to `bytes` literals first).
 
 ### test_hardware.sh
 
@@ -280,7 +322,7 @@ Deploys the project to the ESP32's flash storage:
 
 This script:
 - Installs the `ssd1306` library via `mip`
-- Compiles all `.py` files to `.mpy` bytecode
+- Compiles all `.py` files to `.mpy` bytecode (excluding `src/assets/`, which are frozen in firmware)
 - Cleans existing files from the device (preserves `lib/`)
 - Uploads compiled `.mpy` files and `boot.py` to the device
 
