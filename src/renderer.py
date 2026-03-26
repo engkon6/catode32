@@ -283,6 +283,10 @@ class Renderer:
         if invert:
             byte_array = bytearray(b ^ 0xFF for b in byte_array)
 
+        # FrameBuffer requires a writable buffer; frozen bytes literals are read-only
+        if not isinstance(byte_array, bytearray):
+            byte_array = bytearray(byte_array)
+
         # Create a framebuffer from the sprite data
         sprite_fb = framebuf.FrameBuffer(
             byte_array,
