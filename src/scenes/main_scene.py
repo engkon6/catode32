@@ -34,6 +34,13 @@ class MainScene(Scene):
         self.environment = None
         self.character = None
         self.menu = None
+        self.visitor_cat = None       # VisitorCatEntity; present only during an active visit
+        self._last_broadcast_pose = None  # pose_name sent in last vst broadcast
+        self._last_broadcast_x = None    # x sent in last vst broadcast (for position-change trigger)
+        self._last_broadcast_vx = 0      # vx sent in last vst broadcast (to detect stop events)
+        self._char_vx = 0.0              # pixels/second derived each frame from position delta
+        self._vst_timer = 0.0         # seconds until next heartbeat vst
+        self._venv_timer = 0.0        # seconds until next environment sync (inviter only, ~1/s)
 
     def load(self):
         super().load()
@@ -52,6 +59,38 @@ class MainScene(Scene):
             self.context.last_main_scene = self.SCENE_NAME
         if self.character:
             self.character.x = self.ENTRY_X
+
+        # If a visit is active, offset both cats so they start on opposite sides
+        if self.context.visit is not None:
+            from entities.visitor_cat import VisitorCatEntity
+            y = int(self.character.y) if self.character else 64
+            if self.context.visit.get('role') == 'inviter':
+                self.character.x = self.ENTRY_X - 20
+                visitor_x = self.ENTRY_X + 20
+            else:
+                self.character.x = self.ENTRY_X + 20
+                visitor_x = self.ENTRY_X - 20
+            self.visitor_cat = VisitorCatEntity(visitor_x, y)
+
+            # Tell the peer which scene we just entered
+            if self.SCENE_NAME and self.context.espnow:
+                self.context.espnow.send_to(
+                    self.context.visit['peer_mac'], 'vloc', {'s': self.SCENE_NAME}
+                )
+                # Inviter is authoritative for sky — push environment on every scene entry
+                # so weather/time changes (which trigger re-enters) propagate to peer
+                if self.context.visit.get('role') == 'inviter':
+                    env = self.context.environment
+                    self.context.espnow.send_to(
+                        self.context.visit['peer_mac'], 'venv', {
+                            'h':  env.get('time_hours', 12),
+                            'mn': env.get('time_minutes', 0),
+                            'w':  env.get('weather', 'Clear'),
+                            's':  env.get('season', 'Spring'),
+                            'mp': env.get('moon_phase', 'Full'),
+                        }
+                    )
+
         self.on_enter()
         if self.character and not self.character.current_behavior.active:
             self.character.behavior_manager.resume_prior_behavior()
@@ -64,6 +103,12 @@ class MainScene(Scene):
         if self.character:
             self.character.behavior_manager.stop_current()
         self.environment.custom_draws.clear()
+        self.visitor_cat = None
+        self._last_broadcast_pose = None
+        self._last_broadcast_x = None
+        self._last_broadcast_vx = 0
+        self._char_vx = 0.0
+        self._venv_timer = 0.0
         self.on_exit()
 
     def on_exit(self):
@@ -73,6 +118,7 @@ class MainScene(Scene):
     def update(self, dt):
         prev_x = self.character.x
         self.on_update(dt)
+        self._char_vx = (self.character.x - prev_x) / dt if dt > 0 else 0.0
         if not (self.input.is_pressed('left') or self.input.is_pressed('right')):
             if int(prev_x) != int(self.character.x):
                 margin = 32
@@ -81,6 +127,64 @@ class MainScene(Scene):
                     self.environment.set_camera(int(self.character.x) - margin)
                 elif screen_x > config.DISPLAY_WIDTH - margin:
                     self.environment.set_camera(int(self.character.x) - (config.DISPLAY_WIDTH - margin))
+        self._update_visit(dt)
+
+    def _update_visit(self, dt):
+        """Tick visitor cat animation and sync our state to the peer."""
+        if self.context.visit is not None:
+            if self.visitor_cat is None:
+                from entities.visitor_cat import VisitorCatEntity
+                y = int(self.character.y) if self.character else 64
+                self.visitor_cat = VisitorCatEntity(96, y)
+            self.visitor_cat.update(dt)
+            self._broadcast_vst(dt)
+            self._broadcast_venv(dt)
+        elif self.visitor_cat is not None:
+            # Visit was ended remotely; clear the entity
+            self.visitor_cat = None
+
+    def _broadcast_venv(self, dt):
+        """Inviter sends environment snapshot once per second to keep peer's sky in sync."""
+        if self.context.visit is None or self.context.visit.get('role') != 'inviter':
+            return
+        self._venv_timer -= dt
+        if self._venv_timer > 0:
+            return
+        self._venv_timer = 1.0
+        if self.context.espnow:
+            env = self.context.environment
+            self.context.espnow.send_to(
+                self.context.visit['peer_mac'], 'venv', {
+                    'h':  env.get('time_hours', 12),
+                    'mn': env.get('time_minutes', 0),
+                    'w':  env.get('weather', 'Clear'),
+                    's':  env.get('season', 'Spring'),
+                    'mp': env.get('moon_phase', 'Full'),
+                }
+            )
+
+    def _broadcast_vst(self, dt):
+        """Send our cat's current state to the peer, on pose change, position change (≥4px), velocity stop, or every 3s."""
+        self._vst_timer -= dt
+        current_x = int(self.character.x)
+        current_pose = self.character.pose_name
+        current_vx = int(self._char_vx)
+        pos_changed = (self._last_broadcast_x is None or
+                       abs(current_x - self._last_broadcast_x) >= 4)
+        just_stopped = (current_vx == 0 and self._last_broadcast_vx != 0)
+        if current_pose != self._last_broadcast_pose or self._vst_timer <= 0 or pos_changed or just_stopped:
+            if self.context.espnow and self.context.visit:
+                payload = {'x': current_x, 'p': current_pose,
+                           'm': 1 if self.character.mirror else 0}
+                if current_vx != 0:
+                    payload['vx'] = current_vx
+                self.context.espnow.send_to(
+                    self.context.visit['peer_mac'], 'vst', payload,
+                )
+            self._last_broadcast_pose = current_pose
+            self._last_broadcast_x = current_x
+            self._last_broadcast_vx = current_vx
+            self._vst_timer = 3.0
 
     def on_update(self, dt):
         """Override for sky/entity updates. Must call self.character.update(dt)."""
@@ -93,7 +197,13 @@ class MainScene(Scene):
         self.on_pre_draw()
         self.environment.draw(self.renderer)
         camera_offset = int(self.environment.camera_x)
-        self.character.draw(self.renderer, mirror=self.character.mirror, camera_offset=camera_offset)
+        if self.visitor_cat is not None and self.visitor_cat.x < self.character.x:
+            self.visitor_cat.draw(self.renderer, camera_offset=camera_offset)
+            self.character.draw(self.renderer, mirror=self.character.mirror, camera_offset=camera_offset)
+        else:
+            self.character.draw(self.renderer, mirror=self.character.mirror, camera_offset=camera_offset)
+            if self.visitor_cat is not None:
+                self.visitor_cat.draw(self.renderer, camera_offset=camera_offset)
         self.on_post_draw()
 
     def on_pre_draw(self):

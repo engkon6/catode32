@@ -77,6 +77,35 @@ class EspNowManager:
         gc.collect()
         print('[ESPNow] Stopped')
 
+    def add_peer(self, mac):
+        """Register a unicast peer MAC. No-op if already added or inactive."""
+        if self._e is None:
+            return
+        try:
+            self._e.add_peer(mac)
+        except Exception:
+            pass  # peer may already exist
+
+    def send_to(self, mac, msg_type, payload=None):
+        """Send a unicast message to a specific MAC address.
+
+        The MAC must have been registered via add_peer() first.
+
+        Args:
+            mac:      Peer MAC address as bytes.
+            msg_type: Short string identifying the event.
+            payload:  Optional dict of extra fields to include.
+        """
+        if self._e is None:
+            return
+        try:
+            msg = {'t': msg_type}
+            if payload:
+                msg.update(payload)
+            self._e.send(mac, json.dumps(msg))
+        except Exception as ex:
+            print('[ESPNow] Send_to error: ' + str(ex))
+
     def send(self, msg_type, payload=None):
         """Broadcast a message to all nearby devices.
 

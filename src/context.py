@@ -276,6 +276,13 @@ class GameContext:
         # ESP-NOW manager; injected by Game.__init__ when WIFI_ENABLED. None otherwise.
         self.espnow = None
 
+        # Pet display name. Derived from MAC on first social scene entry; None until then.
+        self.pet_name = None
+
+        # Active visit state. None when not visiting, otherwise:
+        #   {'peer_mac': bytes, 'peer_name': str}
+        self.visit = None
+
         if delete_save:
             try:
                 import uos

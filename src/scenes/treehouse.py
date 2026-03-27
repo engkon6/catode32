@@ -62,7 +62,7 @@ class TreehouseScene(MainScene):
         self.character.set_pose("sitting.forward.neutral")
 
     def on_enter(self):
-        if self.context.espnow:
+        if self.context.espnow and self.context.visit is None:
             self.context.espnow.start()
 
         env_settings = getattr(self.context, 'environment', {})
@@ -76,7 +76,7 @@ class TreehouseScene(MainScene):
         self.environment.add_custom_draw(LAYER_MIDGROUND, self._draw_platform_mid)
 
     def on_exit(self):
-        if self.context.espnow:
+        if self.context.espnow and self.context.visit is None:
             self.context.espnow.stop()
 
         self.sky.remove_from_environment(self.environment, LAYER_BACKGROUND)
