@@ -228,16 +228,27 @@ class Menu:
         # Clear inside
         self.renderer.draw_rect(5, 13, 118, 38, filled=True, color=0)
 
-        # Draw confirmation message (centered-ish)
+        # Draw confirmation message with word-wrap
+        # Inner box: x=5 width=118, text at x=8 with ~4px right padding → 14 chars/line
         message = self.pending_confirmation.confirm
-        # Simple text wrapping - just truncate for now
-        if len(message) > 18:
-            line1 = message[:18]
-            line2 = message[18:36]
-            self.renderer.draw_text(line1, 8, 18)
-            self.renderer.draw_text(line2, 8, 28)
-        else:
-            self.renderer.draw_text(message, 8, 22)
+        chars_per_line = 14
+        words = message.split(' ')
+        lines = []
+        current = ""
+        for word in words:
+            test = current + (" " if current else "") + word
+            if len(test) <= chars_per_line:
+                current = test
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        # Two lines fit above the button row; center vertically in the available space
+        y_start = 18 if len(lines) > 1 else 22
+        for i, line in enumerate(lines[:2]):
+            self.renderer.draw_text(line, 8, y_start + i * 10)
 
         # Draw button hints
         self.renderer.draw_text("[A]Yes [B]No", 20, 42)

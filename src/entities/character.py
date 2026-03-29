@@ -40,7 +40,7 @@ class CharacterEntity(Entity):
         self._pose = get_pose(pose)
         self.context = context
 
-        self.mirror = False  # True = facing left, False = facing right
+        self.mirror = random.choice([True, False])  # True = facing left, False = facing right
         self._mirror_cache = {}    # id(sprite) -> {"frames": [...], "inv_fill_frames": [...]}
         self._inv_fill_cache = {}  # id(sprite) -> [inverted_fill_frame, ...]
 

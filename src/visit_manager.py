@@ -150,9 +150,11 @@ class VisitManager:
             if role == 'inviter':
                 # Inviter walks left toward the center (started at ENTRY_X-20)
                 target_x = entry_x - 8
+                sniff_pose = ('leaning_forward.side.stretch'
+                              if random.random() < 0.3 else 'standing.side.sniffing')
                 scene.character.trigger('greeting',
                                         target_x=target_x,
-                                        sniff_pose='leaning_forward.side.stretch')
+                                        sniff_pose=sniff_pose)
                 if ctx.espnow:
                     ctx.espnow.send_to(ctx.visit['peer_mac'], 'vgreet', {})
 
@@ -419,8 +421,10 @@ class VisitManager:
                     self._sniff_cooldown = _SNIFF_COOLDOWN_SECS
                     mac_hex = ':'.join('%02x' % b for b in visit['peer_mac'])
                     familiarity = ctx.get_friendship_level(mac_hex)
+                    sniff_pose = ('leaning_forward.side.stretch'
+                                  if random.random() < 0.3 else 'standing.side.sniffing')
                     scene.character.trigger('greeting',
-                                            sniff_pose='leaning_forward.side.stretch')
+                                            sniff_pose=sniff_pose)
                     if ctx.espnow:
                         ctx.espnow.send_to(visit['peer_mac'], 'vprox', {})
                     icon = 'heart' if familiarity >= 0.5 else 'question'
