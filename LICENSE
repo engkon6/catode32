@@ -1,0 +1,106 @@
+LICENSE
+
+This project contains multiple types of work with different licenses:
+
+================================================================================
+SOFTWARE LICENSE (Source Code)
+================================================================================
+
+MIT License
+
+Copyright (c) 2026 Moonbench
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+ARTWORK LICENSE (Graphics, Sprites, Visual Assets)
+================================================================================
+
+Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
+(CC BY-NC-ND 4.0)
+
+Copyright (c) 2026 Moonbench
+
+All artwork, graphics, sprites, visual designs, and related creative assets
+in this repository are licensed under CC BY-NC-ND 4.0.
+
+You are free to:
+  - Share: copy and redistribute the material in any medium or format
+
+Under the following terms:
+  - Attribution: You must give appropriate credit to Moonbench, provide a link
+    to the license, and indicate if changes were made.
+  - NonCommercial: You may not use the material for commercial purposes.
+  - NoDerivatives: If you remix, transform, or build upon the material, you
+    may not distribute the modified material.
+
+Full license text: https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
+
+================================================================================
+TRADEMARK
+================================================================================
+
+"Catode32" is a trademark of Moonbench.
+
+Use of the Catode32 name in connection with hardware products, software
+distributions, or related goods and services requires prior written permission
+from Moonbench.
+
+You may reference the Catode32 project in documentation, articles, or
+discussions without permission, provided such use does not imply endorsement
+or official status.
+
+================================================================================
+SUMMARY
+================================================================================
+
+In plain language:
+
+CODE (*.py, *.c, *.h, etc.):
+  - Licensed under MIT
+  - Use freely for any purpose, including commercial
+  - Modify and distribute as you wish
+  - Include the copyright notice
+
+ARTWORK (*.png, *.bmp, sprites, graphics, bytecode):
+  - Licensed under CC BY-NC-ND 4.0
+  - Personal use is allowed
+  - Commercial use is not allowed
+  - Must credit Moonbench
+  - Cannot modify or create derivatives
+
+NAME:
+  - "Catode32" is a trademark of Moonbench
+  - Cannot be used for commercial products without permission
+  - Can be used in reference to this project
+
+BUILDING YOUR OWN:
+  - You may build devices using the code (MIT license)
+  - You may use the artwork for personal builds (CC BY-NC-ND)
+  - You must use a different name if selling commercially
+  - You must create your own artwork if selling commercially
+
+CONTRIBUTING:
+  - Code contributions are accepted under MIT license
+  - By contributing, you agree your code can be distributed under MIT
+  - Artwork contributions require separate licensing discussion
+
+================================================================================
+
+For questions about licensing or commercial use, contact Moonbench.
