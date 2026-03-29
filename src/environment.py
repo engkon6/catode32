@@ -56,6 +56,13 @@ class Environment:
         """Add an entity that gets update() called and draws with foreground"""
         self.entities.append(entity)
 
+    def remove_entity(self, entity):
+        """Remove an entity from the update/draw list"""
+        try:
+            self.entities.remove(entity)
+        except ValueError:
+            pass
+
     def add_custom_draw(self, layer, draw_func):
         """Add a custom draw function for procedural elements
 

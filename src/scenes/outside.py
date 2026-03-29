@@ -1,23 +1,61 @@
+import random
+
 import config
 from scenes.main_scene import MainScene
 from environment import Environment, LAYER_BACKGROUND, LAYER_MIDGROUND, LAYER_FOREGROUND
 from entities.character import CharacterEntity
 from entities.butterfly import ButterflyEntity
+from entities.jumper import JumperEntity
 from assets.nature import PLANT1, PLANTER1, PLANT2
 from sky import SkyRenderer
+
+_WORLD_WIDTH = 256
+
+# ---------------------------------------------------------------------------
+# Critter specs
+#
+# spawn_weight  - probability that any critters of this type appear at all
+#                 when entering the scene (0.0–1.0)
+# max_spawn     - maximum count spawned in one go when the weight roll passes
+# seasons       - tuple of season strings in which this critter can appear
+# ---------------------------------------------------------------------------
+_CRITTER_SPECS = [
+    {
+        'type': 'butterfly',
+        'seasons': ('Spring', 'Summer'),
+        'spawn_weight': 0.65,
+        'max_spawn': 3,
+    },
+    {
+        'type': 'jumper',
+        'variant': 'frog',
+        'seasons': ('Spring', 'Summer'),
+        'spawn_weight': 0.30,
+        'max_spawn': 1,
+    },
+    {
+        'type': 'jumper',
+        'variant': 'grasshopper',
+        'seasons': ('Summer', 'Fall'),
+        'spawn_weight': 0.25,
+        'max_spawn': 1,
+    },
+]
 
 
 class OutsideScene(MainScene):
     SCENE_NAME = 'outside'
-    MODULES_TO_KEEP = ['assets.nature', 'sky', 'entities.butterfly']
+    MODULES_TO_KEEP = ['assets.nature', 'sky', 'entities.butterfly', 'entities.jumper']
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
         self.sky = SkyRenderer()
         self._last_weather = None
+        self._critter_entities = []
+        self._respawn_timers = []   # list of [remaining_secs, spec]
 
     def setup_scene(self):
-        self.environment = Environment(world_width=256)
+        self.environment = Environment(world_width=_WORLD_WIDTH)
 
         # Add plants to foreground
         self.environment.add_object(
@@ -46,7 +84,6 @@ class OutsideScene(MainScene):
         )
 
         # Plants for midground
-
         self.environment.add_object(
             LAYER_MIDGROUND, PLANT2,
             x=30, y=61-PLANT2["height"]
@@ -77,13 +114,53 @@ class OutsideScene(MainScene):
 
         self.character = CharacterEntity(64, 64, context=self.context)
 
-        butterfly1 = ButterflyEntity(110, 20)
-        butterfly2 = ButterflyEntity(50, 30)
-        butterfly2.anim_speed = 10
-        butterfly1.bounds_right = 200
-        butterfly2.bounds_right = 200
-        self.environment.add_entity(butterfly1)
-        self.environment.add_entity(butterfly2)
+    def _is_daytime(self):
+        h = self.context.environment.get('time_hours', 12)
+        return 6 <= h < 20
+
+    def _make_critter(self, spec):
+        """Instantiate and return a single critter entity for the given spec."""
+        if spec['type'] == 'butterfly':
+            b = ButterflyEntity(
+                random.randint(20, _WORLD_WIDTH - 20),
+                random.randint(10, 35)
+            )
+            b.anim_speed = random.randint(7, 12)
+            b.bounds_left = 10
+            b.bounds_right = _WORLD_WIDTH - 10
+            return b
+
+        if spec['type'] == 'jumper':
+            direction = random.choice((-1, 1))
+            x = -12 if direction == 1 else _WORLD_WIDTH + 12
+            return JumperEntity(spec['variant'], x, direction)
+
+        return None
+
+    def _spawn_critters(self):
+        """Roll and spawn initial critters based on current season/time."""
+        if not self._is_daytime():
+            return
+
+        season = self.context.environment.get('season', 'Summer')
+
+        for spec in _CRITTER_SPECS:
+            if season not in spec['seasons']:
+                continue
+            if random.random() > spec['spawn_weight']:
+                continue
+            count = random.randint(1, spec['max_spawn'])
+            for _ in range(count):
+                entity = self._make_critter(spec)
+                if entity:
+                    self._critter_entities.append(entity)
+                    self.environment.add_entity(entity)
+
+    def _find_jumper_spec(self, variant):
+        for spec in _CRITTER_SPECS:
+            if spec.get('type') == 'jumper' and spec.get('variant') == variant:
+                return spec
+        return None
 
     def on_enter(self):
         if self.context.espnow and self.context.visit is None:
@@ -101,12 +178,20 @@ class OutsideScene(MainScene):
         self.environment.add_custom_draw(LAYER_MIDGROUND, self.sky.make_precipitation_drawer(0.6, 1))
         self.environment.add_custom_draw(LAYER_FOREGROUND, self.sky.make_precipitation_drawer(1.0, 2))
 
+        self._spawn_critters()
+
     def on_exit(self):
         if self.context.espnow and self.context.visit is None:
             self.context.espnow.stop()
 
         # Remove sky objects (celestial body, clouds) from environment layers
         self.sky.remove_from_environment(self.environment, LAYER_BACKGROUND)
+
+        # Remove critters and clear timers so re-entry starts fresh
+        for entity in self._critter_entities:
+            self.environment.remove_entity(entity)
+        self._critter_entities.clear()
+        self._respawn_timers.clear()
 
     def on_update(self, dt):
         env = self.context.environment
@@ -121,7 +206,34 @@ class OutsideScene(MainScene):
         self.sky.update(dt)
         self.character.update(dt)
 
-        # Update environment entities (butterflies)
+        # Tick respawn timers
+        i = len(self._respawn_timers) - 1
+        while i >= 0:
+            self._respawn_timers[i][0] -= dt
+            if self._respawn_timers[i][0] <= 0:
+                spec = self._respawn_timers.pop(i)[1]
+                if self._is_daytime():
+                    season = self.context.environment.get('season', 'Summer')
+                    if season in spec['seasons']:
+                        entity = self._make_critter(spec)
+                        if entity:
+                            self._critter_entities.append(entity)
+                            self.environment.add_entity(entity)
+            i -= 1
+
+        # Remove despawned jumpers and roll for replacement
+        i = len(self._critter_entities) - 1
+        while i >= 0:
+            entity = self._critter_entities[i]
+            if getattr(entity, 'despawned', False):
+                self._critter_entities.pop(i)
+                self.environment.remove_entity(entity)
+                spec = self._find_jumper_spec(entity.variant)
+                if spec and random.random() < 0.6:
+                    delay = random.uniform(5, 90)
+                    self._respawn_timers.append([delay, spec])
+            i -= 1
+
         self.environment.update(dt)
 
     def on_post_draw(self):
