@@ -192,7 +192,8 @@ class BehaviorManager:
             return None, {}
 
         # Random meander (special case — checked before main selection)
-        if self.can_trigger_meandering(context) and random.random() <= 0.2:
+        # Skip when critically hungry so the pet focuses on feeding itself.
+        if context.fullness >= 5 and self.can_trigger_meandering(context) and random.random() <= 0.2:
             print("\033[32mRandomly meandering....\033[0m")
             return 'meandering', {}
 
@@ -203,8 +204,9 @@ class BehaviorManager:
             print("\033[32mScene exit -> %s\033[0m" % kwargs.get('pending_scene', '?'))
             return name, kwargs
 
-        # High serenity makes the pet content to keep resting
-        if context.serenity > 25 and random.random() < (context.serenity - 25) / 150:
+        # High serenity makes the pet content to keep resting.
+        # Suppressed when critically hungry — a starving pet can't just lounge around.
+        if context.fullness >= 5 and context.serenity > 25 and random.random() < (context.serenity - 25) / 150:
             print(f"\033[32mStaying idle (serenity: {context.serenity:.1f})\033[0m")
             return None, {}
 
@@ -536,6 +538,11 @@ class BehaviorManager:
         base = random.uniform(floor, max(floor + 5, ceiling))
         if getattr(ctx, 'last_main_scene', None) in ('outside', 'treehouse'):
             base *= 0.75
+        # When critically hungry the raised floor would let curiosity behaviors
+        # (investigate, observe ~10-50) keep slipping ahead of hunting. Cap the
+        # priority so hunting wins right after vocalizing has had its one turn.
+        if ctx.fullness < 5:
+            base = min(base, 15 + ctx.fullness * 0.5)
         return base
 
     def priority_playing(self, ctx):
