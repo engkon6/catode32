@@ -62,6 +62,7 @@ MINIGAME_ICONS = {
     "Snake": SNAKE_ICON,
     "Memory": MEMORY_ICON,
     "Hanjie": HANJIE_ICON,
+    "LightsOut": POWER_ICON,
 }
 
 EXCLAIM = {
