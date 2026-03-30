@@ -75,6 +75,7 @@ class SceneManager:
             'memory': ('scenes.memory', 'MemoryScene'),
             'hanjie': ('scenes.hanjie', 'HanjieScene'),
             'lightsout': ('scenes.lightsout', 'LightsOutScene'),
+            'pipes': ('scenes.pipes', 'PipeScene'),
             'debug_context': ('scenes.debug_context', 'DebugContextScene'),
             'debug_memory': ('scenes.debug_memory', 'DebugMemoryScene'),
             'debug_poses': ('scenes.debug_poses', 'DebugPosesScene'),
@@ -328,6 +329,7 @@ class SceneManager:
         minigame_items.append(MenuItem("TicTacToe", icon=MINIGAME_ICONS.get("TicTacToe"), action=('scene', 'tictactoe')))
         minigame_items.append(MenuItem("Hanjie", icon=MINIGAME_ICONS.get("Hanjie"), action=('scene', 'hanjie')))
         minigame_items.append(MenuItem("Lights Out", icon=MINIGAME_ICONS.get("LightsOut"), action=('scene', 'lightsout')))
+        minigame_items.append(MenuItem("Pipes", icon=MINIGAME_ICONS.get("Pipes"), action=('scene', 'pipes')))
         items.append(MenuItem("Minigames", icon=MINIGAMES_ICON, submenu=minigame_items))
         
         # Store
