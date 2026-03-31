@@ -75,6 +75,10 @@ class SleepingBehavior(BaseBehavior):
         if context.meteor_shower_happening:
             bonus['serenity'] = bonus.get('serenity', 0) + 4
             bonus['fulfillment'] = bonus.get('fulfillment', 0) + 2
+        if getattr(context, 'in_cat_bed', False):
+            bonus['energy'] = bonus.get('energy', 0) * 1.15
+            bonus['comfort'] = bonus.get('comfort', 0) + 5
+            bonus['serenity'] = bonus.get('serenity', 0) + 2
         return bonus
 
     def __init__(self, character):

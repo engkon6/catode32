@@ -2,7 +2,7 @@ import config
 from scenes.main_scene import MainScene
 from environment import Environment, LAYER_FOREGROUND, LAYER_MIDGROUND, LAYER_BACKGROUND
 from entities.character import CharacterEntity
-from assets.furniture import BOOKSHELF, PILLOW
+from assets.furniture import BOOKSHELF, PILLOW, CAT_BED_SIDE
 from assets.nature import PLANTER1, PLANT3
 from assets.items import YARN_BALL
 
@@ -43,6 +43,12 @@ class BedroomScene(MainScene):
     def on_enter(self):
         self.environment.add_custom_draw(LAYER_MIDGROUND, self._draw_bed)
         self.environment.add_custom_draw(LAYER_BACKGROUND, self._draw_lamp)
+        self.context.cat_bed_x = 154  # approx foreground world-x of the bed interior (tunable)
+
+    def on_exit(self):
+        self.context.cat_bed_x = None
+        if self.character:
+            self.character.draw_y_offset = 0
 
     def _draw_bed(self, renderer, camera_x, parallax):
         """Draw a simple bed frame against the right side of the room."""
@@ -85,3 +91,18 @@ class BedroomScene(MainScene):
 
         # Cord
         renderer.draw_line(lamp_x+4, 20, lamp_x+4, 28)
+
+    def on_post_draw(self):
+        camera_offset = int(self.environment.camera_x * 1.0)  # foreground parallax
+        bed_x = 125 - camera_offset  # match your bed position
+
+        # Left rim of cat bed
+        self.renderer.draw_sprite_obj(CAT_BED_SIDE, bed_x, 52)
+        # Middle of cat bed
+        self.renderer.draw_rect(bed_x + CAT_BED_SIDE["width"], 54, 20, 10, filled=True, color=0)
+        self.renderer.draw_line(bed_x + CAT_BED_SIDE["width"], 54, bed_x + CAT_BED_SIDE["width"] + 20, 54)
+        self.renderer.draw_line(bed_x + CAT_BED_SIDE["width"], 63, bed_x + CAT_BED_SIDE["width"] + 20, 63)
+        self.renderer.draw_line(bed_x + CAT_BED_SIDE["width"], 59, bed_x + CAT_BED_SIDE["width"] + 20, 59)
+
+        # Right rim (mirrored)
+        self.renderer.draw_sprite_obj(CAT_BED_SIDE, bed_x + CAT_BED_SIDE["width"] + 20, 52, mirror_h=True)

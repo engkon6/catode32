@@ -128,6 +128,22 @@ class BehaviorManager:
 
     def _load_and_start(self, name, **kwargs):
         """Load a behavior module, instantiate it, and start it."""
+        # Reset any per-behavior draw offset and bed flag before starting a new behavior.
+        self._character.draw_y_offset = 0
+        ctx = self._character.context
+        if ctx:
+            ctx.in_cat_bed = False
+
+        # In the bedroom, sleep-type behaviors may be redirected to walk to the
+        # cat bed first. If the cat is already near the bed, apply the lift offset.
+        if name in self._BED_SLEEP_BEHAVIORS:
+            name, kwargs = self._maybe_redirect_to_bed(name, kwargs)
+            if name in self._BED_SLEEP_BEHAVIORS:
+                cat_bed_x = getattr(ctx, 'cat_bed_x', None) if ctx else None
+                if cat_bed_x is not None and abs(self._character.x - cat_bed_x) < 8:
+                    self._character.draw_y_offset = -4
+                    ctx.in_cat_bed = True
+
         if name not in self._REGISTRY:
             print(f"\033[31mUnknown behavior: {name}, falling back to idle\033[0m")
             name = 'idle'
@@ -159,6 +175,25 @@ class BehaviorManager:
         behavior._behavior_name = name
         self._character.current_behavior = behavior
         behavior.start(**kwargs)
+
+    # Behaviors that should walk to the cat bed before starting (when in bedroom).
+    _BED_SLEEP_BEHAVIORS = frozenset(('sleeping', 'napping', 'lounging'))
+    _BED_REDIRECT_CHANCE = 0.6
+
+    def _maybe_redirect_to_bed(self, name, kwargs):
+        """If a sleep-type behavior triggers in the bedroom, sometimes walk to the
+        cat bed first via go_to, then chain to the original behavior on arrival."""
+        ctx = self._character.context
+        if not ctx:
+            return name, kwargs
+        cat_bed_x = getattr(ctx, 'cat_bed_x', None)
+        if cat_bed_x is None:
+            return name, kwargs
+        if abs(self._character.x - cat_bed_x) < 8:
+            return name, kwargs  # already at (or in) the bed
+        if random.random() > self._BED_REDIRECT_CHANCE:
+            return name, kwargs  # rolled to skip
+        return 'go_to', {'target_x': cat_bed_x, 'next_behavior': name, 'next_kwargs': kwargs}
 
     # Modules kept permanently in sys.modules to avoid repeated import spikes.
     # idle cycles on every behavior transition so pinning it eliminates the most

@@ -3,12 +3,13 @@ from scenes.main_scene import MainScene
 from environment import Environment, LAYER_BACKGROUND, LAYER_MIDGROUND, LAYER_FOREGROUND
 from entities.character import CharacterEntity
 from assets.nature import PLANTER1, PLANT1, PLANT3, SMALLTREE1
+from assets.furniture import CAT_BED_SIDE
 from sky import SkyRenderer
 
 
 class TreehouseScene(MainScene):
     SCENE_NAME = 'treehouse'
-    MODULES_TO_KEEP = ['assets.nature', 'sky']
+    MODULES_TO_KEEP = ['assets.nature', 'assets.furniture', 'sky']
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
@@ -74,8 +75,13 @@ class TreehouseScene(MainScene):
         self.environment.add_custom_draw(LAYER_FOREGROUND, self.sky.make_precipitation_drawer(1.0, 2))
         self.environment.add_custom_draw(LAYER_FOREGROUND, self._draw_platform)
         self.environment.add_custom_draw(LAYER_MIDGROUND, self._draw_platform_mid)
+        self.context.cat_bed_x = 150  # foreground world-x of the cat bed interior (tunable)
 
     def on_exit(self):
+        self.context.cat_bed_x = None
+        if self.character:
+            self.character.draw_y_offset = 0
+
         if self.context.espnow and self.context.visit is None:
             self.context.espnow.stop()
 
@@ -95,6 +101,19 @@ class TreehouseScene(MainScene):
         self.character.update(dt)
 
     def on_post_draw(self):
+        camera_offset = int(self.environment.camera_x * 1.0)  # foreground parallax
+        bed_x = 130 - camera_offset
+
+        # Left rim of cat bed
+        self.renderer.draw_sprite_obj(CAT_BED_SIDE, bed_x, 52)
+        # Middle gap (mask + lines)
+        self.renderer.draw_rect(bed_x + CAT_BED_SIDE["width"], 54, 20, 10, filled=True, color=0)
+        self.renderer.draw_line(bed_x + CAT_BED_SIDE["width"], 54, bed_x + CAT_BED_SIDE["width"] + 20, 54)
+        self.renderer.draw_line(bed_x + CAT_BED_SIDE["width"], 63, bed_x + CAT_BED_SIDE["width"] + 20, 63)
+        self.renderer.draw_line(bed_x + CAT_BED_SIDE["width"], 59, bed_x + CAT_BED_SIDE["width"] + 20, 59)
+        # Right rim (mirrored)
+        self.renderer.draw_sprite_obj(CAT_BED_SIDE, bed_x + CAT_BED_SIDE["width"] + 20, 52, mirror_h=True)
+
         self.renderer.invert(self.sky.get_lightning_invert_state())
 
     def _draw_platform(self, renderer, camera_x, parallax):

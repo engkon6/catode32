@@ -55,6 +55,9 @@ class CharacterEntity(Entity):
         # Behavior manager — handles lazy loading and module lifecycle
         self.behavior_manager = None
 
+        # Vertical draw offset — used to lift the cat into the bed when sleeping there
+        self.draw_y_offset = 0
+
         # Burst sparkle effects (played via play_bursts())
         self._burst_sprite = None
         self._burst_timer = 0.0
@@ -210,7 +213,7 @@ class CharacterEntity(Entity):
             return
 
         pose = self._pose
-        x, y = int(self.x) - camera_offset, int(self.y)
+        x, y = int(self.x) - camera_offset, int(self.y) + self.draw_y_offset
 
         # Get the positions for the parts
         body = pose["body"]

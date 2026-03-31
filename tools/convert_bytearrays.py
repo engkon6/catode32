@@ -49,30 +49,33 @@ def convert_file(path, dry_run=False):
     with open(path, 'r') as f:
         original = f.read()
 
-    converted = PATTERN.sub(bytearray_to_literal, original)
+    # Collect converted byte values during substitution for verification
+    converted_values = []
 
-    count = len(PATTERN.findall(original))
+    def bytearray_to_literal_collecting(match):
+        inner = match.group(1)
+        tokens = re.findall(r'0x[0-9a-fA-F]+|\d+', inner)
+        values = [int(t, 0) for t in tokens]
+        for v in values:
+            if not 0 <= v <= 255:
+                raise ValueError(f"Value out of byte range: {v}")
+        converted_values.append(bytes(values))
+        escaped = ''.join(f'\\x{v:02x}' for v in values)
+        return f'b"{escaped}"'
+
+    converted = PATTERN.sub(bytearray_to_literal_collecting, original)
+    count = len(converted_values)
+
     if count == 0:
         print(f"  {path}: no bytearrays found, skipped")
         return 0
 
-    # Verify: eval all matches in original and converted produce identical data
+    # Verify: original parsed values match what we converted
     orig_matches = PATTERN.findall(original)
-    # Re-find in converted output using bytes literal pattern
-    bytes_pattern = re.compile(r'b"((?:\\x[0-9a-fA-F]{2})*)"')
-    conv_matches = bytes_pattern.findall(converted)
-
-    if len(orig_matches) != len(conv_matches):
-        raise RuntimeError(
-            f"{path}: match count mismatch: {len(orig_matches)} original vs {len(conv_matches)} converted"
-        )
-
-    for i, (orig_inner, conv_escaped) in enumerate(zip(orig_matches, conv_matches)):
+    for i, orig_inner in enumerate(orig_matches):
         tokens = re.findall(r'0x[0-9a-fA-F]+|\d+', orig_inner)
         orig_values = bytes([int(t, 0) for t in tokens])
-        conv_values = bytes([int(conv_escaped[j*4+2:j*4+4], 16)
-                             for j in range(len(conv_escaped) // 4)])
-        if orig_values != conv_values:
+        if orig_values != converted_values[i]:
             raise RuntimeError(f"{path}: data mismatch at match #{i}")
 
     if dry_run:
