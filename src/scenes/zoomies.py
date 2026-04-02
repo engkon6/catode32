@@ -6,7 +6,8 @@ import config
 import random
 from scene import Scene
 from assets.minigame_character import RUNCAT1, SITCAT1, SMALL_BIRD1
-from assets.nature import SMALLTREE1, PLANT1, PLANT2, PLANT6, CLOUD1, CLOUD2, CLOUD3
+from assets.nature import SMALLTREE1, CLOUD1, CLOUD2, CLOUD3
+from assets.plants import PLANT1, PLANT2, PLANT6
 from ui import Popup
 
 # Ground decor type constants (int for fast comparison)

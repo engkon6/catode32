@@ -3,15 +3,23 @@ from scenes.main_scene import MainScene
 from environment import Environment, LAYER_BACKGROUND, LAYER_MIDGROUND, LAYER_FOREGROUND
 from entities.character import CharacterEntity
 from assets.furniture import BOOKSHELF
-from assets.nature import PLANTER1, PLANT1, PLANT3
-from assets.items import BOX_SMALL_1, PLANTER_SMALL_1
+from assets.items import BOX_SMALL_1
 from sky import SkyRenderer
 from clock import ClockWidget
 
 
 class InsideScene(MainScene):
     SCENE_NAME = 'inside'
-    MODULES_TO_KEEP = ['assets.furniture', 'assets.nature', 'sky', 'clock']
+    MODULES_TO_KEEP = ['assets.furniture', 'assets.nature', 'assets.plants', 'sky', 'clock']
+
+    # Valid surfaces for plant placement.
+    # x_exclude: (x_min, x_max) world range where placement is blocked (behind bookshelf).
+    # x_min / x_max: restrict surface to a world x range.
+    PLANT_SURFACES = [
+        {'y_snap': 63, 'layer': 'foreground', 'x_min': 26, 'x_max': 182},
+        {'y_snap': 60, 'layer': 'midground',  'x_min': 26, 'x_max': 150},
+        {'y_snap': 29, 'layer': 'midground',  'x_min': 95, 'x_max': 150},
+    ]
 
     # Window position and size (world x, screen y, width, height)
     WINDOW_WORLD_X = 100
@@ -28,21 +36,7 @@ class InsideScene(MainScene):
     def setup_scene(self):
         self.environment = Environment(world_width=192)
 
-        # Plant on window sill
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANTER1,
-            x=110, y=26 - PLANTER1["height"] + 3
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT1,
-            x=110, y=26 - PLANTER1["height"] + 3 - PLANT1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANTER_SMALL_1,
-            x=130, y=26 - PLANTER_SMALL_1["height"] + 3
-        )
-
-        # Add furniture to foreground layer
+        # Furniture (foreground)
         self.environment.add_object(
             LAYER_FOREGROUND, BOOKSHELF,
             x=0, y=63 - BOOKSHELF["height"]
@@ -50,24 +44,6 @@ class InsideScene(MainScene):
         self.environment.add_object(
             LAYER_FOREGROUND, BOX_SMALL_1,
             x=2, y=63 - BOOKSHELF["height"] - BOX_SMALL_1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=15, y=63 - BOOKSHELF["height"] - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT3,
-            x=16, y=63 - BOOKSHELF["height"] - PLANTER1["height"] - PLANT3["height"]
-        )
-
-        # Add more furniture on the right side (visible when panned)
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=140, y=63 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT3,
-            x=141, y=63 - PLANTER1["height"] - PLANT3["height"]
         )
 
         # Set movement bounds for behaviors like zoomies (world coordinates)

@@ -3,13 +3,18 @@ from scenes.main_scene import MainScene
 from environment import Environment, LAYER_FOREGROUND, LAYER_MIDGROUND
 from entities.character import CharacterEntity
 from assets.furniture import BOOKSHELF
-from assets.nature import PLANTER1, PLANT1, PLANT3
 from assets.items import BOX_SMALL_1, FOOD_BOWL
 from clock import ClockWidget
 
 class KitchenScene(MainScene):
     SCENE_NAME = 'kitchen'
-    MODULES_TO_KEEP = ['assets.furniture', 'assets.nature']
+    MODULES_TO_KEEP = ['assets.furniture', 'assets.nature', 'assets.plants']
+
+    PLANT_SURFACES = [
+        {'y_snap': 63, 'layer': 'foreground', 'x_min': 0,  'x_max': 180},
+        {'y_snap': 60, 'layer': 'midground',  'x_min': 0,  'x_max': 16},
+        {'y_snap': 24, 'layer': 'midground',  'x_min': 25, 'x_max': 160},
+    ]
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
@@ -17,42 +22,6 @@ class KitchenScene(MainScene):
 
     def setup_scene(self):
         self.environment = Environment(world_width=192)
-
-        # Plant on the floor
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=10, y=63 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT1,
-            x=9, y=63 - PLANTER1["height"] - PLANT1["height"]
-        )
-
-        # Small plant on the counter
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANTER1,
-            x=155, y=24 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT1,
-            x=154, y=24 - PLANTER1["height"] - PLANT1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANTER1,
-            x=62, y=24 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT3,
-            x=63, y=24 - PLANTER1["height"] - PLANT3["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANTER1,
-            x=45, y=24 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT1,
-            x=44, y=24 - PLANTER1["height"] - PLANT1["height"]
-        )
 
         self.context.scene_x_min = 10
         self.context.scene_x_max = 182

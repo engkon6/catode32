@@ -19,6 +19,7 @@ class SceneManager:
         'assets.effects',
         'assets.character',
         'assets.items',
+        'assets.plants',
     }
 
     def __init__(self, context, renderer, input_handler):

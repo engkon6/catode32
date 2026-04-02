@@ -42,6 +42,77 @@ def _derive_trait_offsets(seed):
     return [v - mean for v in raw]
 
 
+def _make_starter_plants():
+    """Return the initial set of plants that replace the old static scene decorations.
+
+    These mirror the developer-placed planters that were hard-coded in each
+    scene's setup_scene() method.  They start at 'young' stage with zero water
+    debt so the world feels alive without immediately demanding player attention.
+    """
+    _id = [0]
+
+    # Manually distributed mirror values, one per plant in order below (20 total).
+    # outside x=174 must be True — it was mirror_h=True in the original scene.
+    _mirrors = (False, False, True, False,   # inside
+                True, False, True, False,    # kitchen
+                False, True, False, True, False, True, True, False,  # outside
+                False, True, False, True)    # treehouse
+
+    def _p(scene, layer, x, y_snap, pot, plant_type, stage='young', age_hours=80):
+        plant = {
+            'id': _id[0],
+            'type': plant_type,
+            'scene': scene,
+            'layer': layer,
+            'x': x,
+            'y_snap': y_snap,
+            'pot': pot,
+            'stage': stage,
+            'age_hours': age_hours,
+            'water_debt_hours': 0,
+            'planted_day': 0,
+            'mirror': _mirrors[_id[0]],
+        }
+        _id[0] += 1
+        return plant
+
+    return [
+        # Windowsill (midground, y_snap=29): PLANTER1+PLANT1 (growing fern) and PLANTER_SMALL_1+PLANT6 (thriving fern)
+        _p('inside', 'midground', 110, 29, 'small',   'fern', stage='growing',  age_hours=200),
+        _p('inside', 'midground', 130, 29, 'planter', 'fern', stage='thriving', age_hours=400),
+        # Bookshelf top (foreground, y_snap=15): PLANTER1+PLANT3 (small sprout → young)
+        _p('inside', 'foreground',  15, 15, 'small', 'fern',     stage='young', age_hours=96),
+        # Floor (foreground, y_snap=63): PLANTER1+PLANT3
+        _p('inside', 'foreground', 140, 63, 'small', 'cat_grass', stage='young', age_hours=80),
+
+        # Floor (foreground): PLANTER1+PLANT1 — more grown
+        _p('kitchen', 'foreground',  10, 63, 'small', 'cat_grass', stage='growing', age_hours=180),
+        # Counter (midground, y_snap=24): rightmost was PLANT1, middle PLANT3, leftmost PLANT1
+        _p('kitchen', 'midground', 155, 24, 'small', 'fern',      stage='growing', age_hours=160),
+        _p('kitchen', 'midground',  62, 24, 'small', 'fern',      stage='young',   age_hours=85),
+        _p('kitchen', 'midground',  45, 24, 'small', 'cat_grass', stage='growing', age_hours=170),
+
+        # Foreground pots (foreground, y_snap=63): PLANT1, PLANT2, PLANT1
+        _p('outside', 'foreground',  10, 63, 'small',  'cat_grass', stage='growing', age_hours=160),
+        _p('outside', 'foreground',  94, 63, 'small',  'fern',      stage='mature',  age_hours=350),
+        _p('outside', 'foreground', 180, 63, 'small',  'cat_grass', stage='growing', age_hours=155),
+        # Midground ground plants (midground, y_snap=61): PLANT2, PLANT1, PLANT2, PLANT1(mirrored)
+        _p('outside', 'midground',  30, 61, 'ground', 'fern',      stage='mature',  age_hours=340),
+        _p('outside', 'midground', 144, 61, 'ground', 'cat_grass', stage='growing', age_hours=150),
+        _p('outside', 'midground', 120, 61, 'ground', 'fern',      stage='mature',  age_hours=360),
+        _p('outside', 'midground', 174, 61, 'ground', 'cat_grass', stage='growing', age_hours=145),
+        # Background (background, y_snap=56): PLANT2
+        _p('outside', 'background', 130, 56, 'ground', 'fern',      stage='mature',  age_hours=320),
+
+        # foreground platform (y_snap=63): PLANT3, PLANT1
+        _p('treehouse', 'foreground',  15, 63, 'small', 'fern',      stage='young',   age_hours=72),
+        _p('treehouse', 'foreground', 200, 63, 'small', 'cat_grass', stage='growing', age_hours=155),
+        # midground platform (y_snap=59): PLANT1, PLANT3
+        _p('treehouse', 'midground',  30, 59, 'small', 'cat_grass', stage='growing', age_hours=150),
+        _p('treehouse', 'midground', 120, 59, 'small', 'fern',      stage='young',   age_hours=88),
+    ]
+
+
 _STAT_KEYS = (
     'fullness', 'energy', 'comfort', 'playfulness', 'focus',
     'fulfillment', 'cleanliness', 'curiosity', 'sociability',
@@ -130,7 +201,14 @@ class GameContext:
         """Write stats to flash without rebooting. Returns True on success."""
         import ujson
         import time
-        data = {'v': 1, 'env': self.environment, 'food_stock': self.food_stock, 'toys': self.inventory["toys"], 'pet_seed': self.pet_seed,
+        data = {'v': 1, 'env': self.environment, 'food_stock': self.food_stock,
+                'toys': self.inventory["toys"],
+                'pots': self.inventory["pots"],
+                'seeds': self.inventory["seeds"],
+                'tools': self.inventory["tools"],
+                'plants': self.plants,
+                'next_plant_id': self.next_plant_id,
+                'pet_seed': self.pet_seed,
                 'wifi_familiar': self.wifi_familiar, 'wifi_recent': self.wifi_recent,
                 'pet_name': self.pet_name, 'friends': self.friends}
         for key in _STAT_KEYS:
@@ -145,6 +223,12 @@ class GameContext:
         except Exception as e:
             print("[Context] Save failed: " + str(e))
             return False
+
+    def reset_plants(self):
+        """Restore all plants to the default starter set."""
+        self.plants = _make_starter_plants()
+        self.next_plant_id = len(self.plants)
+        self._last_plant_tick_hour = None
 
     def save(self):
         """Write stats to flash then reboot."""
@@ -176,6 +260,20 @@ class GameContext:
                 self.food_stock.update(data['food_stock'])
             if 'toys' in data:
                 self.inventory['toys'] = data['toys']
+            if 'pots' in data:
+                self.inventory['pots'].update(data['pots'])
+            if 'seeds' in data:
+                self.inventory['seeds'].update(data['seeds'])
+            if 'tools' in data:
+                self.inventory['tools'].update(data['tools'])
+            # Plants: if absent from save (old save file), keep the starter plants
+            # that reset() already populated.
+            if 'plants' in data:
+                _LAYER_MIGRATE = {'fg': 'foreground', 'mg': 'midground', 'bg': 'background'}
+                for p in data['plants']:
+                    p['layer'] = _LAYER_MIGRATE.get(p.get('layer'), p.get('layer'))
+                self.plants = data['plants']
+            self.next_plant_id = data.get('next_plant_id', len(self.plants))
             self.wifi_familiar = data.get('wifi_familiar', [])
             self.wifi_recent   = data.get('wifi_recent',   [])
             self.friends       = data.get('friends',       {})
@@ -237,7 +335,23 @@ class GameContext:
             "toys": [
                 {"name": "Feather", "variant": "toy"},
             ],
+            "pots":  {"small": 0, "medium": 0, "large": 0, "planter": 0},
+            "seeds": {"cat_grass": 0, "sunflower": 0, "rose": 0, "tulip": 0, "fern": 0},
+            "tools": {"watering_can": False, "spade": False},
         }
+
+        # Living plants placed by the player (and the developer-seeded starters).
+        # Each entry is a dict; see plant_system.py for the full schema.
+        self.plants = _make_starter_plants()
+        self.next_plant_id = len(self.plants)
+
+        # Non-persisted: absolute in-game hour of the last plant tick.
+        # Initialised lazily on the first tick_plants() call each session.
+        self._last_plant_tick_hour = None
+
+        # Non-persisted: pending plant move across scenes.
+        # Set by the Tend→"Move to" action; consumed by the destination scene on enter.
+        self.pending_gardening_move = None
 
         # Minigame high scores
         self.zoomies_high_score = 0

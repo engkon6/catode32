@@ -3,9 +3,12 @@ import config
 from scene import Scene
 from entities.character import CharacterEntity
 from menu import Menu, MenuItem
+from plant_system import tick_plants
+from plant_renderer import register_plant_draws
+from gardening_ui import PlacementMode
 from assets.icons import (TOYS_ICON, HEART_ICON, HEART_BUBBLE_ICON, HAND_ICON,
                           KIBBLE_ICON, TOY_ICONS, SNACK_ICONS, FISH_ICON,
-                          CHICKEN_ICON, MEAL_ICON)
+                          CHICKEN_ICON, MEAL_ICON, TREES_ICON)
 from assets.items import FOOD_BOWL, TREAT_PILE
 from ui import draw_bubble
 
@@ -36,6 +39,7 @@ class MainScene(Scene):
         self.environment = None
         self.character = None
         self.menu = None
+        self._placement = PlacementMode()
 
     def load(self):
         super().load()
@@ -67,6 +71,16 @@ class MainScene(Scene):
             vm.on_scene_enter(self)
 
         self.on_enter()
+
+        if getattr(self, 'PLANT_SURFACES', None):
+            register_plant_draws(self)
+
+        # Handle pending plant move arriving at this scene.
+        move = getattr(self.context, 'pending_gardening_move', None)
+        if move and move.get('dest_scene') == self.SCENE_NAME:
+            self.context.pending_gardening_move = None
+            # TODO: activate placement mode for the moved plant (step 6)
+
         if self.character and not self.character.current_behavior.active:
             self.character.behavior_manager.resume_prior_behavior()
 
@@ -75,6 +89,7 @@ class MainScene(Scene):
         pass
 
     def exit(self):
+        tick_plants(self.context)
         if self.character:
             self.character.behavior_manager.stop_current()
         self.environment.custom_draws.clear()
@@ -88,6 +103,8 @@ class MainScene(Scene):
         pass
 
     def update(self, dt):
+        if self._placement.active:
+            self._placement.update(dt)
         prev_x = self.character.x
         self.on_update(dt)
         if not (self.input.is_pressed('left') or self.input.is_pressed('right')):
@@ -155,6 +172,9 @@ class MainScene(Scene):
 
         self.on_post_draw()
 
+        if self._placement.active:
+            self._placement.draw(self.renderer, self.environment)
+
     def on_pre_draw(self):
         """Override for any setup needed before environment.draw()."""
         pass
@@ -163,7 +183,12 @@ class MainScene(Scene):
         """Override for any drawing after the character (e.g. renderer.invert)."""
         pass
 
+    # ------------------------------------------------------------------
+
     def handle_input(self):
+        if self._placement.active:
+            return self._placement.handle_input(self.input, self.environment)
+
         if self.menu_active:
             result = self.menu.handle_input()
             if result == 'closed':
@@ -254,12 +279,50 @@ class MainScene(Scene):
             MenuItem("Sociability", icon=HAND_ICON, action=("train",)),
         ]
 
+        inv = self.context.inventory
+        _pot_defs = (
+            ("Small pot",   "small"),
+            ("Medium pot",  "medium"),
+            ("Large pot",   "large"),
+            ("Planter box", "planter"),
+        )
+        place_pot_items = [
+            MenuItem(f"{name} ({inv['pots'].get(key, 0)})", icon=TREES_ICON,
+                     action=("gardening_place_pot", key))
+            for name, key in _pot_defs
+            if inv['pots'].get(key, 0) > 0
+        ]
+
+        _seed_defs = (
+            ("Cat Grass",  "cat_grass"),
+            ("Fern",       "fern"),
+            ("Sunflower",  "sunflower"),
+            ("Rose",       "rose"),
+            ("Tulip",      "tulip"),
+        )
+        plant_seed_items = [
+            MenuItem(f"{name} ({inv['seeds'].get(key, 0)})", icon=TREES_ICON,
+                     action=("gardening_plant_seed", key))
+            for name, key in _seed_defs
+            if inv['seeds'].get(key, 0) > 0
+        ]
+
+        gardening_items = []
+        if place_pot_items:
+            gardening_items.append(MenuItem("Place Pot",  icon=TREES_ICON, submenu=place_pot_items))
+        if plant_seed_items:
+            gardening_items.append(MenuItem("Plant Seed", icon=TREES_ICON, submenu=plant_seed_items))
+        gardening_items.append(MenuItem("Water", icon=TREES_ICON, action=("gardening_water",)))
+        gardening_items.append(MenuItem("Tend",  icon=TREES_ICON, action=("gardening_tend",)))
+        gardening_items.append(MenuItem("Reset",  icon=TREES_ICON, action=("gardening_reset",), confirm="Reset all plants?"))
+
         items = [
             MenuItem("Affection", icon=HEART_ICON, submenu=affection_items),
             MenuItem("Train", icon=HAND_ICON, submenu=train_items),
         ]
         items.append(MenuItem("Feed", icon=MEAL_ICON, submenu=feed_items))
         items.append(MenuItem("Play", icon=TOYS_ICON, submenu=toy_items))
+        items.append(MenuItem("Gardening", icon=TREES_ICON, submenu=gardening_items))
 
         return items
 
@@ -293,3 +356,16 @@ class MainScene(Scene):
             self.character.trigger('training')
         elif action_type == "go_store":
             return ('change_scene', 'store')
+        elif action_type == "gardening_place_pot":
+            self._placement.enter(action[1], self)
+        elif action_type == "gardening_plant_seed":
+            # TODO step 6: enter seed-placement cursor mode
+            print('[Gardening] plant_seed', action[1])
+        elif action_type == "gardening_water":
+            # TODO step 7: enter plant-selection mode → water selected plant
+            print('[Gardening] water')
+        elif action_type == "gardening_tend":
+            # TODO step 7: enter plant-selection mode → show tend submenu
+            print('[Gardening] tend')
+        elif action_type == "gardening_reset":
+            self.context.reset_plants()

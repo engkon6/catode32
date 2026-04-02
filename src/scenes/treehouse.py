@@ -2,14 +2,18 @@ import config
 from scenes.main_scene import MainScene
 from environment import Environment, LAYER_BACKGROUND, LAYER_MIDGROUND, LAYER_FOREGROUND
 from entities.character import CharacterEntity
-from assets.nature import PLANTER1, PLANT1, PLANT3, SMALLTREE1
 from assets.furniture import CAT_BED_SIDE
 from sky import SkyRenderer
 
 
 class TreehouseScene(MainScene):
     SCENE_NAME = 'treehouse'
-    MODULES_TO_KEEP = ['assets.nature', 'assets.furniture', 'sky']
+    MODULES_TO_KEEP = ['assets.nature', 'assets.plants', 'assets.furniture', 'sky']
+
+    PLANT_SURFACES = [
+        {'y_snap': 63, 'layer': 'foreground'},
+        {'y_snap': 59, 'layer': 'midground'},
+    ]
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
@@ -18,43 +22,6 @@ class TreehouseScene(MainScene):
 
     def setup_scene(self):
         self.environment = Environment(world_width=256)
-
-
-        # Some foliage and planters on the platform
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=15, y=63 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT3,
-            x=16, y=63 - PLANTER1["height"] - PLANT3["height"]
-        )
-
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=200, y=63 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT1,
-            x=199, y=63 - PLANTER1["height"] - PLANT1["height"]
-        )
-
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANTER1,
-            x=30, y=59 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT1,
-            x=29, y=59 - PLANTER1["height"] - PLANT1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANTER1,
-            x=120, y=59 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT3,
-            x=121, y=59 - PLANTER1["height"] - PLANT3["height"]
-        )
 
         self.context.scene_x_min = 20
         self.context.scene_x_max = 236

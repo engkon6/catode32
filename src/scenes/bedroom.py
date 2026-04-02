@@ -3,13 +3,20 @@ from scenes.main_scene import MainScene
 from environment import Environment, LAYER_FOREGROUND, LAYER_MIDGROUND, LAYER_BACKGROUND
 from entities.character import CharacterEntity
 from assets.furniture import BOOKSHELF, PILLOW, CAT_BED_SIDE
-from assets.nature import PLANTER1, PLANT3
 from assets.items import YARN_BALL
 
 
 class BedroomScene(MainScene):
     SCENE_NAME = 'bedroom'
-    MODULES_TO_KEEP = ['assets.furniture', 'assets.nature', 'assets.items']
+    MODULES_TO_KEEP = ['assets.furniture', 'assets.nature', 'assets.plants', 'assets.items']
+
+    PLANT_SURFACES = [
+        {'y_snap': 63, 'layer': 'foreground', 'x_min': 34,  'x_max': 182},
+        {'y_snap': 15, 'layer': 'foreground', 'x_min': 0,   'x_max': 33},
+        {'y_snap': 60, 'layer': 'midground',  'x_min': 34,   'x_max': 90},
+        {'y_snap': 16, 'layer': 'midground',  'x_min': 184, 'x_max': 188},
+        {'y_snap': 56, 'layer': 'background', 'x_min': 34,   'x_max': 80},
+    ]
 
     def setup_scene(self):
         self.environment = Environment(256)

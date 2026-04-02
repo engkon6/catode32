@@ -47,6 +47,31 @@ _TOY_ITEMS = (
     ("String",  "String",         "string",  5),
 )
 
+# (display_name, full_name, inventory_key, cost)
+_POT_ITEMS = (
+    ("Small",   "Small pot",   "small",    3),
+    ("Medium",  "Medium pot",  "medium",   6),
+    ("Large",   "Large pot",   "large",   10),
+    ("Planter", "Planter box", "planter", 12),
+)
+
+_SEEDS_PER_PACK = 3
+
+# (display_name, full_name, inventory_key, cost per pack)
+_SEED_ITEMS = (
+    ("Grass",   "Cat Grass",  "cat_grass",  2),
+    ("Fern",    "Fern",       "fern",       3),
+    ("Tulip",   "Tulip",      "tulip",      5),
+    ("Sun", "Sunflower",  "sunflower",  5),
+    ("Rose",    "Rose",       "rose",       6),
+)
+
+# (display_name, full_name, inventory_key, cost)
+_TOOL_ITEMS = (
+    ("W. Can", "Watering Can", "watering_can", 15),
+    ("Spade",  "Spade",        "spade",        12),
+)
+
 # Width of the menu panel (left half of 128px screen)
 _MENU_WIDTH = 60
 # X position of the store art panel
@@ -84,11 +109,23 @@ class StoreScene(Scene):
                        for name, key, cost in _SNACK_ITEMS]
         toy_items   = [self._toy_item(label, full_name, variant, cost)
                        for label, full_name, variant, cost in _TOY_ITEMS]
+        pot_items   = [self._pot_item(label, full, key, cost)
+                       for label, full, key, cost in _POT_ITEMS]
+        seed_items  = [self._seed_item(label, full, key, cost)
+                       for label, full, key, cost in _SEED_ITEMS]
+        tool_items  = [self._tool_item(label, full, key, cost)
+                       for label, full, key, cost in _TOOL_ITEMS]
+        gardening_items = [
+            MenuItem("Pots",  submenu=pot_items),
+            MenuItem("Seeds", submenu=seed_items),
+            MenuItem("Tools", submenu=tool_items),
+        ]
         return [
-            MenuItem("Food",   submenu=food_items),
-            MenuItem("Snacks", submenu=snack_items),
-            MenuItem("Toys",   submenu=toy_items),
-            MenuItem("Exit",   action=("leave",)),
+            MenuItem("Food",    submenu=food_items),
+            MenuItem("Snacks",  submenu=snack_items),
+            MenuItem("Toys",    submenu=toy_items),
+            MenuItem("Garden",  submenu=gardening_items),
+            MenuItem("Exit",    action=("leave",)),
         ]
 
     def _food_item(self, name, key, cost):
@@ -106,6 +143,28 @@ class StoreScene(Scene):
         if self.context.coins >= cost:
             return MenuItem(label, action=("buy_toy", full_name, variant, cost),
                             confirm=f"{label}: {cost}c")
+        return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
+
+    def _pot_item(self, label, full, key, cost):
+        if self.context.coins >= cost:
+            return MenuItem(label, action=("buy_pot", full, key, cost),
+                            confirm=f"{full}: {cost}c")
+        return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
+
+    def _seed_item(self, label, full, key, cost):
+        if self.context.coins >= cost:
+            return MenuItem(label, action=("buy_seeds", full, key, cost),
+                            confirm=f"{full}x{_SEEDS_PER_PACK}: {cost}c")
+        return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
+
+    def _tool_item(self, label, full, key, cost):
+        owned = self.context.inventory['tools'].get(key, False)
+        if owned:
+            return MenuItem(label + "*", action=("already_owned",),
+                            confirm="Already owned!")
+        if self.context.coins >= cost:
+            return MenuItem(label, action=("buy_tool", full, key, cost),
+                            confirm=f"{full}: {cost}c")
         return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
 
     # ------------------------------------------------------------------
@@ -223,6 +282,39 @@ class StoreScene(Scene):
                     self._popup.set_text(self._purchase_msg, center=True)
                     return None
             self.menu.open(self._build_menu())
+
+        elif kind == "buy_pot":
+            _, full, key, cost = action
+            if self.context.coins >= cost:
+                self.context.coins -= cost
+                self.context.inventory['pots'][key] = self.context.inventory['pots'].get(key, 0) + 1
+                print(f"[Store] Bought pot {key} for {cost}c")
+                self._purchase_msg = f"{full} bought!"
+                self._popup.set_text(self._purchase_msg, center=True)
+            else:
+                self.menu.open(self._build_menu())
+
+        elif kind == "buy_seeds":
+            _, full, key, cost = action
+            if self.context.coins >= cost:
+                self.context.coins -= cost
+                self.context.inventory['seeds'][key] = self.context.inventory['seeds'].get(key, 0) + _SEEDS_PER_PACK
+                print(f"[Store] Bought {key} seeds x{_SEEDS_PER_PACK} for {cost}c")
+                self._purchase_msg = f"{full} x{_SEEDS_PER_PACK}!"
+                self._popup.set_text(self._purchase_msg, center=True)
+            else:
+                self.menu.open(self._build_menu())
+
+        elif kind == "buy_tool":
+            _, full, key, cost = action
+            if self.context.coins >= cost:
+                self.context.coins -= cost
+                self.context.inventory['tools'][key] = True
+                print(f"[Store] Bought tool {key} for {cost}c")
+                self._purchase_msg = f"{full} bought!"
+                self._popup.set_text(self._purchase_msg, center=True)
+            else:
+                self.menu.open(self._build_menu())
 
         elif kind in ("no_funds", "already_owned"):
             # Confirmation was shown; just reopen the menu

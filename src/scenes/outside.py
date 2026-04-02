@@ -6,7 +6,6 @@ from environment import Environment, LAYER_BACKGROUND, LAYER_MIDGROUND, LAYER_FO
 from entities.character import CharacterEntity
 from entities.butterfly import ButterflyEntity
 from entities.jumper import JumperEntity
-from assets.nature import PLANT1, PLANTER1, PLANT2
 from sky import SkyRenderer
 
 _WORLD_WIDTH = 256
@@ -45,7 +44,13 @@ _CRITTER_SPECS = [
 
 class OutsideScene(MainScene):
     SCENE_NAME = 'outside'
-    MODULES_TO_KEEP = ['assets.nature', 'sky', 'entities.butterfly', 'entities.jumper']
+    MODULES_TO_KEEP = ['assets.nature', 'assets.plants', 'sky', 'entities.butterfly', 'entities.jumper']
+
+    PLANT_SURFACES = [
+        {'y_snap': 63, 'layer': 'foreground'},
+        {'y_snap': 61, 'layer': 'midground'},
+        {'y_snap': 56, 'layer': 'background'},
+    ]
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
@@ -56,57 +61,6 @@ class OutsideScene(MainScene):
 
     def setup_scene(self):
         self.environment = Environment(world_width=_WORLD_WIDTH)
-
-        # Add plants to foreground
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=10, y=64 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT1,
-            x=9, y=64 - PLANTER1["height"] - PLANT1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=94, y=64 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT2,
-            x=90, y=64 - PLANTER1["height"] - PLANT2["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANTER1,
-            x=180, y=64 - PLANTER1["height"]
-        )
-        self.environment.add_object(
-            LAYER_FOREGROUND, PLANT1,
-            x=179, y=64 - PLANTER1["height"] - PLANT1["height"]
-        )
-
-        # Plants for midground
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT2,
-            x=30, y=61-PLANT2["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT1,
-            x=144, y=61-PLANT1["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT2,
-            x=120, y=61-PLANT2["height"]
-        )
-        self.environment.add_object(
-            LAYER_MIDGROUND, PLANT1,
-            x=174, y=61-PLANT1["height"],
-            mirror_h=True
-        )
-
-        # Background plants
-        self.environment.add_object(
-            LAYER_BACKGROUND, PLANT2,
-            x=130, y=58-PLANT2["height"]
-        )
 
         # Set movement bounds for behaviors like zoomies (world coordinates)
         self.context.scene_x_min = 10
