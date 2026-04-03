@@ -90,10 +90,10 @@ PLACE_DOWN_ICON = {
     "width": 7,
     "height": 7,
     "frames": [
-        bytearray([0xfe, 0x82, 0x82, 0x82, 0x44, 0x28, 0x10])
+        b"\xfe\x82\x82\x82\x44\x28\x10"
     ],
     "fill_frames": [
-        bytearray([0xfe, 0xfe, 0xfe, 0xfe, 0x7c, 0x38, 0x10])
+        b"\xfe\xfe\xfe\xfe\x7c\x38\x10"
     ]
 }
 

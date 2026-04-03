@@ -13,29 +13,34 @@ once per in-game hour and advances *all* plants, not just the active scene.
 # ---------------------------------------------------------------------------
 
 # Per-type thresholds (all in in-game hours).
-# stage_hours: time at each stage before advancing
+# Time scale: game_minutes_per_second=1.0, so 1 in-game hour = 1 real minute,
+#   1 real day = 1440 in-game hours.
+# wilt:    hours of no water before wilting  (target: 1–2 real days = 1440–2880 h)
+# death:   hours of no water before death    (wilt window = death - wilt)
+# recover: max debt allowed for auto-recovery after watering while wilted
+# stage_hours: time at each stage before advancing (target: 2–5 real days = 2880–7200 h)
 #   index 0 = seedling→young, 1 = young→growing, 2 = growing→mature, 3 = mature→thriving
 _PLANT_TYPES = {
     'cat_grass': {
-        'wilt': 36, 'death': 72, 'recover': 12,
-        'stage_hours': (6, 24, 48, 96),
+        'wilt': 1440, 'death': 4320, 'recover': 240,  # 1 day / 3 days
+        'stage_hours': (2880, 3600, 4320, 5040),       # 2, 2.5, 3, 3.5 real days
     },
     'fern': {
-        'wilt': 48, 'death': 120, 'recover': 24,
-        'stage_hours': (12, 48, 96, 192),
+        'wilt': 2160, 'death': 5760, 'recover': 360,  # 1.5 days / 4 days
+        'stage_hours': (3600, 4320, 5760, 7200),       # 2.5, 3, 4, 5 real days
     },
     'tulip': {
-        'wilt': 24, 'death': 48, 'recover': 8,
-        'stage_hours': (18, 72, 144, 288),
+        'wilt': 1440, 'death': 4320, 'recover': 120,  # 1 day / 3 days
+        'stage_hours': (4320, 5040, 6480, 7200),       # 3, 3.5, 4.5, 5 real days
         'dormant_in_winter': True,
     },
     'rose': {
-        'wilt': 18, 'death': 36, 'recover': 6,
-        'stage_hours': (24, 96, 192, 384),
+        'wilt': 1440, 'death': 4320, 'recover': 120,  # 1 day / 3 days
+        'stage_hours': (5040, 6480, 7200, 7200),       # 3.5, 4.5, 5, 5 real days
     },
     'sunflower': {
-        'wilt': 30, 'death': 60, 'recover': 18,
-        'stage_hours': (12, 48, 96, 192, 384),
+        'wilt': 2880, 'death': 5760, 'recover': 240,  # 2 days / 4 days
+        'stage_hours': (2880, 4320, 5760, 7200, 7200), # 2, 3, 4, 5 real days (last unused)
         'indoor_max': 'growing',
     },
 }

@@ -21,6 +21,7 @@ ASSET_FILES = [
     "src/assets/minigame_character.py",
     "src/assets/nature.py",
     "src/assets/store.py",
+    "src/assets/plants.py",
 ]
 
 # Matches bytearray([...]) across single or multiple lines.

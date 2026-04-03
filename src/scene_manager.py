@@ -81,6 +81,7 @@ class SceneManager:
             'debug_memory': ('scenes.debug_memory', 'DebugMemoryScene'),
             'debug_poses': ('scenes.debug_poses', 'DebugPosesScene'),
             'debug_behaviors': ('scenes.debug_behaviors', 'DebugBehaviorsScene'),
+            'debug_plants':    ('scenes.debug_plants',    'DebugPlantsScene'),
             'debug_led': ('scenes.debug_led', 'DebugLedScene'),
             'debug_power': ('scenes.debug_power', 'DebugPowerScene'),
             'debug_stats': ('scenes.debug_stats', 'DebugStatsScene'),
@@ -351,6 +352,7 @@ class SceneManager:
         debug_items.append(MenuItem("Poses", icon=CAT_ICON, action=('scene', 'debug_poses')))
         debug_items.append(MenuItem("Behaviors", icon=CAT_ICON, action=('scene', 'debug_behaviors')))
         debug_items.append(MenuItem("Stats", icon=CAT_ICON, action=('scene', 'debug_stats')))
+        debug_items.append(MenuItem("Plants", icon=TREES_ICON, action=('scene', 'debug_plants')))
         debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('scene', 'time_settings')))
         debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
         debug_items.append(MenuItem("RGB LED", icon=WRENCH_ICON, action=('scene', 'debug_led')))
