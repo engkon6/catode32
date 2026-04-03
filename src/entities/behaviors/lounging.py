@@ -76,6 +76,11 @@ class LoungeingBehavior(BaseBehavior):
         if getattr(context, 'in_cat_bed', False):
             bonus['comfort'] = bonus.get('comfort', 0) + 5
             bonus['serenity'] = bonus.get('serenity', 0) + 2
+        ph = getattr(context, 'scene_plant_health', 0)
+        if ph != 0:
+            bonus['serenity'] = bonus.get('serenity', 0) + ph * 0.2
+            bonus['comfort'] = bonus.get('comfort', 0) + ph * 0.15
+            bonus['fulfillment'] = bonus.get('fulfillment', 0) + ph * 0.05
         return bonus
 
     def next(self, context):

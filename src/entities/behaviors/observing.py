@@ -32,6 +32,15 @@ class ObservingBehavior(BaseBehavior):
         "serenity": -0.02,
     }
 
+    def get_completion_bonus(self, context):
+        bonus = dict(super().get_completion_bonus(context))
+        ph = getattr(context, 'scene_plant_health', 0)
+        if ph != 0:
+            bonus['serenity'] = bonus.get('serenity', 0) + ph * 0.1
+            bonus['fulfillment'] = bonus.get('fulfillment', 0) + ph * 0.05
+            bonus['curiosity'] = bonus.get('curiosity', 0) + ph * 0.05
+        return bonus
+
     def __init__(self, character):
         super().__init__(character)
 

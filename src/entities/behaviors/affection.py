@@ -94,6 +94,11 @@ class AffectionBehavior(BaseBehavior):
             bonus['serenity'] = bonus.get('serenity', 0) + 0.5  # more open to affection at home
         else:
             bonus['affection'] = bonus.get('affection', 0) * 0.85  # distracted away from home
+        ph = getattr(context, 'scene_plant_health', 0)
+        if ph != 0:
+            bonus['affection'] = bonus.get('affection', 0) + ph * 0.1
+            bonus['comfort'] = bonus.get('comfort', 0) + ph * 0.1
+            bonus['fulfillment'] = bonus.get('fulfillment', 0) + ph * 0.05
         return bonus
 
     def start(self, variant=None, on_complete=None):

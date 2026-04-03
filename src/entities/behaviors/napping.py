@@ -76,6 +76,10 @@ class NappingBehavior(BaseBehavior):
             bonus['energy'] = bonus.get('energy', 0) * 1.15
             bonus['comfort'] = bonus.get('comfort', 0) + 5
             bonus['serenity'] = bonus.get('serenity', 0) + 2
+        ph = getattr(context, 'scene_plant_health', 0)
+        if ph != 0:
+            bonus['serenity'] = bonus.get('serenity', 0) + ph * 0.15
+            bonus['comfort'] = bonus.get('comfort', 0) + ph * 0.1
         return bonus
     
     def __init__(self, character):

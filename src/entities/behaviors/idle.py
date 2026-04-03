@@ -58,6 +58,10 @@ class IdleBehavior(BaseBehavior):
             bonus['serenity'] = bonus.get('serenity', 0) + 0.5
             bonus['fulfillment'] = bonus.get('fulfillment', 0) + 0.3
             bonus['comfort'] = bonus.get('comfort', 0) + 0.5
+        ph = getattr(context, 'scene_plant_health', 0)
+        if ph != 0:
+            bonus['serenity'] = bonus.get('serenity', 0) + ph * 0.15
+            bonus['comfort'] = bonus.get('comfort', 0) + ph * 0.1
         return bonus
 
     def __init__(self, character):

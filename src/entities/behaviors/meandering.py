@@ -21,6 +21,14 @@ class MeanderingBehavior(BaseBehavior):
         "fitness": 0.01
     }
 
+    def get_completion_bonus(self, context):
+        bonus = dict(super().get_completion_bonus(context))
+        ph = getattr(context, 'scene_plant_health', 0)
+        if ph != 0:
+            bonus['comfort'] = bonus.get('comfort', 0) + ph * 0.1
+            bonus['serenity'] = bonus.get('serenity', 0) + ph * 0.1
+        return bonus
+
     def __init__(self, character):
         super().__init__(character)
         self.start_duration = random.uniform(1.0, 5.0)

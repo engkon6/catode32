@@ -118,6 +118,32 @@ class GameContext:
         """True when a meteor shower is currently active."""
         return self.environment.get('meteor_shower_timer', 0.0) > 0
 
+    @property
+    def scene_plant_health(self):
+        """Aggregate plant health score for the current scene.
+
+        Iterates over all plants in last_main_scene and returns a numeric score:
+          +2 per thriving plant, +1 per other healthy plant (young/growing/mature),
+          -1 per withering plant, -2 per dead plant.
+        A positive score means the surroundings feel lush and well-tended;
+        a negative score means the environment is neglected.
+        """
+        scene = self.last_main_scene
+        score = 0
+        for p in self.plants:
+            if p.get('scene') != scene:
+                continue
+            stage = p.get('stage', '')
+            if stage == 'thriving':
+                score += 2
+            elif stage == 'dead':
+                score -= 2
+            elif stage == 'withering':
+                score -= 1
+            else:
+                score += 1
+        return score
+
     def apply_stat_changes(self, changes):
         """Apply a dict of stat changes with asymptotic damping near extremes.
 
