@@ -391,6 +391,67 @@ def get_plants_for_scene(context, scene_name):
     return [p for p in context.plants if p['scene'] == scene_name]
 
 
+def inspect_lines(plant):
+    """Return 1–3 short label strings for the Inspect submenu.
+
+    Each string is at most 15 chars (fits 120px content area at 8px/char).
+    Lines cover: identity (type + pot), stage/health, and watering need.
+    """
+    stage = plant.get('stage', 'empty_pot')
+    plant_type = plant.get('type')
+    pot = plant.get('pot', 'small')
+
+    _TYPE_NAMES = {
+        'cat_grass': 'Cat Grass', 'fern': 'Fern',
+        'sunflower': 'Sunflower', 'rose': 'Rose', 'tulip': 'Tulip',
+    }
+    _POT_SHORT = {
+        'small': 'sm', 'medium': 'md', 'large': 'lg',
+        'planter': 'pl', 'ground': 'gr',
+    }
+
+    # Line 1: identity
+    if stage == 'empty_pot' or plant_type is None:
+        return ['Empty (' + _POT_SHORT.get(pot, pot) + ')']
+
+    type_label = _TYPE_NAMES.get(plant_type, plant_type)
+    line1 = type_label + ' (' + _POT_SHORT.get(pot, pot) + ')'
+
+    # Terminal / special stages — no water line needed
+    if stage == 'dead':
+        return [line1, 'Stage: Dead']
+    if stage == 'dormant':
+        return [line1, 'Stage: Dormant']
+
+    ptype = _PLANT_TYPES.get(plant_type, _PLANT_TYPES['fern'])
+    debt = plant.get('water_debt_hours', 0)
+    wilted = _is_wilted(stage)
+    recovering = wilted and debt <= ptype['recover']
+
+    if recovering:
+        return [line1, 'Stage: Recovering']
+
+    # Line 2: stage (use base stage name even when wilted)
+    line2 = 'Stage: ' + stage_display_name(_base_stage(stage))
+
+    # Line 3: watering need
+    if wilted:
+        remaining = ptype['death'] - debt
+        water_label = 'Critical' if remaining <= ptype['death'] // 4 else 'Dry!'
+    else:
+        wilt = ptype['wilt']
+        if debt == 0:
+            water_label = 'Full'
+        elif debt < wilt // 3:
+            water_label = 'OK'
+        elif debt < wilt * 2 // 3:
+            water_label = 'Low'
+        else:
+            water_label = 'Urgent'
+
+    return [line1, line2, 'Water: ' + water_label]
+
+
 def stage_display_name(stage):
     """Human-readable label for a stage string."""
     _NAMES = {

@@ -3,9 +3,9 @@ import config
 from scene import Scene
 from entities.character import CharacterEntity
 from menu import Menu, MenuItem
-from plant_system import tick_plants
+from plant_system import tick_plants, plant_seed, water_plant, remove_plant, repot_plant, inspect_lines
 from plant_renderer import register_plant_draws
-from gardening_ui import PlacementMode
+from gardening_ui import PlacementMode, PlantSelectionMode
 from assets.icons import (TOYS_ICON, HEART_ICON, HEART_BUBBLE_ICON, HAND_ICON,
                           KIBBLE_ICON, TOY_ICONS, SNACK_ICONS, FISH_ICON,
                           CHICKEN_ICON, MEAL_ICON, TREES_ICON)
@@ -40,6 +40,8 @@ class MainScene(Scene):
         self.character = None
         self.menu = None
         self._placement = PlacementMode()
+        self._plant_selection = PlantSelectionMode()
+        self._in_tend_mode = False
 
     def load(self):
         super().load()
@@ -105,6 +107,8 @@ class MainScene(Scene):
     def update(self, dt):
         if self._placement.active:
             self._placement.update(dt)
+        if self._plant_selection.active:
+            self._plant_selection.update(dt)
         prev_x = self.character.x
         self.on_update(dt)
         if not (self.input.is_pressed('left') or self.input.is_pressed('right')):
@@ -174,6 +178,8 @@ class MainScene(Scene):
 
         if self._placement.active:
             self._placement.draw(self.renderer, self.environment)
+        if self._plant_selection.active:
+            self._plant_selection.draw(self.renderer, self.environment)
 
     def on_pre_draw(self):
         """Override for any setup needed before environment.draw()."""
@@ -185,17 +191,36 @@ class MainScene(Scene):
 
     # ------------------------------------------------------------------
 
+    # Tend submenu actions that should re-enter plant selection when done.
+    _TEND_REENTER_ACTIONS = ('tend_pluck', 'tend_repot', 'inspect_dismiss')
+
     def handle_input(self):
         if self._placement.active:
             return self._placement.handle_input(self.input, self.environment)
+
+        if self._plant_selection.active:
+            self._plant_selection.handle_input(self.input, self.environment)
+            # If selection ended without opening a tend submenu, the player
+            # pressed B → exit tend mode entirely.
+            if not self._plant_selection.active and not self.menu_active:
+                self._in_tend_mode = False
+            return None
 
         if self.menu_active:
             result = self.menu.handle_input()
             if result == 'closed':
                 self.menu_active = False
+                if self._in_tend_mode:
+                    if not self._reenter_tend_selection():
+                        self._in_tend_mode = False
             elif result is not None:
                 self.menu_active = False
-                return self._handle_menu_action(result)
+                ret = self._handle_menu_action(result)
+                if self._in_tend_mode and result[0] in self._TEND_REENTER_ACTIONS:
+                    if not self._reenter_tend_selection():
+                        self._in_tend_mode = False
+                    return None
+                return ret
             return None
 
         if self.input.was_just_pressed('menu2'):
@@ -208,6 +233,14 @@ class MainScene(Scene):
             self.environment.pan(dx * config.PAN_SPEED)
 
         return None
+
+    def _reenter_tend_selection(self):
+        """Re-enter plant selection for the next tend action. Returns True if
+        at least one plant is available, False if the scene is now empty."""
+        def _on_tend_selected(plant):
+            self.menu_active = True
+            self.menu.open(self._build_tend_items(plant))
+        return self._plant_selection.enter(self, _on_tend_selected)
 
     def _build_menu_items(self):
         affection_items = [
@@ -359,13 +392,66 @@ class MainScene(Scene):
         elif action_type == "gardening_place_pot":
             self._placement.enter(action[1], self)
         elif action_type == "gardening_plant_seed":
-            # TODO step 6: enter seed-placement cursor mode
-            print('[Gardening] plant_seed', action[1])
+            seed_type = action[1]
+            def _on_pot_selected(plant, _st=seed_type):
+                plant_seed(self.context, plant['scene'], plant['layer'],
+                           plant['x'], plant['y_snap'], plant['pot'], _st)
+            self._plant_selection.enter(self, _on_pot_selected,
+                                        filter_fn=lambda p: p['stage'] == 'empty_pot')
         elif action_type == "gardening_water":
-            # TODO step 7: enter plant-selection mode → water selected plant
-            print('[Gardening] water')
+            def _on_water_selected(plant):
+                water_plant(plant)
+            self._plant_selection.enter(self, _on_water_selected,
+                                        filter_fn=lambda p: p['stage'] not in ('empty_pot', 'dead'))
         elif action_type == "gardening_tend":
-            # TODO step 7: enter plant-selection mode → show tend submenu
-            print('[Gardening] tend')
+            self._in_tend_mode = True
+            if not self._reenter_tend_selection():
+                self._in_tend_mode = False
         elif action_type == "gardening_reset":
             self.context.reset_plants()
+        elif action_type == "tend_pluck":
+            remove_plant(self.context, action[1])
+        elif action_type == "tend_repot":
+            repot_plant(self.context, action[1], action[2])
+        elif action_type == "inspect_dismiss":
+            pass  # player pressed A to exit the info panel — nothing to do
+
+    def _build_tend_items(self, plant):
+        """Build the tend submenu items for the given plant."""
+        _cap_order = ('small', 'medium', 'large', 'planter')
+        _pot_labels = {
+            'medium': 'Medium pot', 'large': 'Large pot', 'planter': 'Planter box'
+        }
+        items = []
+
+        # Repot options: any larger pot type currently in inventory
+        current_pot = plant.get('pot', 'small')
+        if current_pot in _cap_order:
+            current_rank = _cap_order.index(current_pot)
+            inv_pots = self.context.inventory.get('pots', {})
+            for pt in _cap_order[current_rank + 1:]:
+                if inv_pots.get(pt, 0) > 0:
+                    items.append(MenuItem(
+                        "Repot: " + _pot_labels.get(pt, pt),
+                        icon=TREES_ICON,
+                        action=("tend_repot", plant['id'], pt),
+                    ))
+
+        # Pluck: confirm only if the plant is alive (not already dead/empty)
+        stage = plant.get('stage', '')
+        needs_confirm = stage not in ('dead', 'empty_pot')
+        items.append(MenuItem(
+            "Pluck",
+            icon=TREES_ICON,
+            action=("tend_pluck", plant['id']),
+            confirm="Remove plant?" if needs_confirm else None,
+        ))
+
+        # Inspect: read-only submenu showing stage, health, and water status
+        info_items = [
+            MenuItem(line, action=("inspect_dismiss",))
+            for line in inspect_lines(plant)
+        ]
+        items.append(MenuItem("Inspect", icon=TREES_ICON, submenu=info_items))
+
+        return items

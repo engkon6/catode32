@@ -2,6 +2,9 @@
 
 PlacementMode handles the cursor-based pot/seed placement flow that replaces
 normal scene panning when the player is placing a new pot.
+
+PlantSelectionMode lets the player cycle through existing plants in a scene
+to select one for watering, tending, or seeding into an empty pot.
 """
 
 import config
@@ -185,3 +188,137 @@ class PlacementMode:
                 self._pot_type,
             )
         self.cancel()
+
+
+class PlantSelectionMode:
+    """Cursor mode for cycling through existing plants in a scene to select one.
+
+    Usage:
+        mode = PlantSelectionMode()
+        mode.enter(scene, on_confirm, filter_fn)  # activate; returns False if no plants
+        mode.update(dt)                            # call from scene update
+        mode.handle_input(input, environment)      # call from scene handle_input
+        mode.draw(renderer, environment)           # call from scene draw
+
+    on_confirm(plant) is called when the player presses A; on_confirm is NOT called
+    on cancel (B press) — the mode simply deactivates.
+    """
+
+    _BOUNCE_PERIOD = 0.4
+
+    def __init__(self):
+        self.active = False
+        self._plants = []
+        self._idx = 0
+        self._scene = None
+        self._bounce_t = 0.0
+        self._on_confirm = None
+
+    # ------------------------------------------------------------------
+    # Activation
+    # ------------------------------------------------------------------
+
+    def enter(self, scene, on_confirm, filter_fn=None):
+        """Activate selection mode.
+
+        Args:
+            scene: the host MainScene instance
+            on_confirm: callable(plant_dict) invoked when A is pressed
+            filter_fn: optional callable(plant_dict) → bool to restrict which
+                       plants are selectable (e.g. only empty pots)
+
+        Returns True if at least one selectable plant was found, False otherwise.
+        """
+        plants = [p for p in scene.context.plants if p['scene'] == scene.SCENE_NAME]
+        if filter_fn:
+            plants = [p for p in plants if filter_fn(p)]
+        if not plants:
+            return False
+
+        plants.sort(key=lambda p: p['x'])
+
+        self.active = True
+        self._plants = plants
+        self._idx = 0
+        self._scene = scene
+        self._bounce_t = 0.0
+        self._on_confirm = on_confirm
+        self._follow_camera(scene.environment)
+        return True
+
+    def cancel(self):
+        self.active = False
+        self._scene = None
+        self._on_confirm = None
+
+    # ------------------------------------------------------------------
+    # Update / input / draw
+    # ------------------------------------------------------------------
+
+    def update(self, dt):
+        self._bounce_t = (self._bounce_t + dt) % (self._BOUNCE_PERIOD * 2)
+
+    def handle_input(self, input_handler, environment):
+        """Process one frame of selection input. Returns None always."""
+        if input_handler.was_just_pressed('b'):
+            self.cancel()
+            return None
+
+        if input_handler.was_just_pressed('a'):
+            plant = self._plants[self._idx]
+            cb = self._on_confirm
+            self.active = False
+            self._scene = None
+            self._on_confirm = None
+            if cb:
+                cb(plant)
+            return None
+
+        n = len(self._plants)
+        if n > 1:
+            if input_handler.was_just_pressed('right'):
+                self._idx = (self._idx + 1) % n
+                self._follow_camera(environment)
+            elif input_handler.was_just_pressed('left'):
+                self._idx = (self._idx - 1) % n
+                self._follow_camera(environment)
+
+        return None
+
+    def draw(self, renderer, environment):
+        if not self._plants:
+            return
+        plant = self._plants[self._idx]
+        layer = plant.get('layer', 'foreground')
+        parallax = PARALLAX_FACTORS.get(layer, 1.0)
+
+        pot_type = plant.get('pot', 'small')
+        if pot_type != 'ground':
+            pot_spr = POT_SPRITES.get(pot_type)
+            pot_h = pot_spr['height'] if pot_spr else 0
+            pot_w = pot_spr['width'] if pot_spr else 8
+        else:
+            pot_h = 0
+            pot_w = 8
+
+        sx = plant['x'] - int(environment.camera_x * parallax)
+        sy = plant['y_snap'] - pot_h
+
+        bounce_offset = 0 if self._bounce_t < self._BOUNCE_PERIOD else 2
+        icon_x = sx + pot_w // 2 - PLACE_DOWN_ICON['width'] // 2
+        icon_y = sy - PLACE_DOWN_ICON['height'] - 2 + bounce_offset
+        renderer.draw_sprite_obj(PLACE_DOWN_ICON, icon_x, icon_y)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _follow_camera(self, environment):
+        """Pan the camera so the selected plant is roughly centered on screen."""
+        plant = self._plants[self._idx]
+        layer = plant.get('layer', 'foreground')
+        parallax = PARALLAX_FACTORS.get(layer, 1.0)
+        # Solve for camera_x such that plant appears at the screen centre:
+        #   screen_x = plant['x'] - camera_x * parallax  = DISPLAY_WIDTH // 2
+        target_cam = int((plant['x'] - config.DISPLAY_WIDTH // 2) / parallax)
+        environment.set_camera(target_cam)
