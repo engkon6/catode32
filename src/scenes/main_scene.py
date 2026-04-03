@@ -3,8 +3,9 @@ import config
 from scene import Scene
 from entities.character import CharacterEntity
 from menu import Menu, MenuItem
-from plant_system import tick_plants, plant_seed, water_plant, remove_plant, repot_plant, inspect_lines
-from plant_renderer import register_plant_draws
+from plant_system import (tick_plants, plant_seed, water_plant, remove_plant,
+                          repot_plant, move_plant, get_plant_by_id, inspect_lines)
+from plant_renderer import register_plant_draws, invalidate_plant_cache
 from gardening_ui import PlacementMode, PlantSelectionMode
 from assets.icons import (TOYS_ICON, HEART_ICON, HEART_BUBBLE_ICON, HAND_ICON,
                           KIBBLE_ICON, TOY_ICONS, SNACK_ICONS, FISH_ICON,
@@ -81,7 +82,12 @@ class MainScene(Scene):
         move = getattr(self.context, 'pending_gardening_move', None)
         if move and move.get('dest_scene') == self.SCENE_NAME:
             self.context.pending_gardening_move = None
-            # TODO: activate placement mode for the moved plant (step 6)
+            plant_id = move['plant_id']
+            plant = get_plant_by_id(self.context, plant_id)
+            if plant and plant.get('pot') != 'ground':
+                def _on_cross_scene_move(layer, x, y_snap, _pid=plant_id):
+                    move_plant(self.context, _pid, self.SCENE_NAME, layer, x, y_snap)
+                self._placement.enter(plant['pot'], self, on_confirm=_on_cross_scene_move)
 
         if self.character and not self.character.current_behavior.active:
             self.character.behavior_manager.resume_prior_behavior()
@@ -191,12 +197,30 @@ class MainScene(Scene):
 
     # ------------------------------------------------------------------
 
+    # Scenes that support plant placement (have PLANT_SURFACES defined).
+    _PLANTABLE_SCENES = (
+        ('inside',    'Inside'),
+        ('kitchen',   'Kitchen'),
+        ('outside',   'Outside'),
+        ('bedroom',   'Bedroom'),
+        ('treehouse', 'Treehouse'),
+    )
+
     # Tend submenu actions that should re-enter plant selection when done.
+    # tend_move_here is intentionally absent: placement-mode ending handles
+    # the re-entry for within-scene moves (see handle_input placement block).
     _TEND_REENTER_ACTIONS = ('tend_pluck', 'tend_repot', 'inspect_dismiss')
 
     def handle_input(self):
         if self._placement.active:
-            return self._placement.handle_input(self.input, self.environment)
+            self._placement.handle_input(self.input, self.environment)
+            if not self._placement.active:
+                invalidate_plant_cache(self)
+                # After a within-scene move (or cancelled move), re-enter tend selection.
+                if self._in_tend_mode:
+                    if not self._reenter_tend_selection():
+                        self._in_tend_mode = False
+            return None
 
         if self._plant_selection.active:
             self._plant_selection.handle_input(self.input, self.environment)
@@ -328,7 +352,6 @@ class MainScene(Scene):
 
         _seed_defs = (
             ("Cat Grass",  "cat_grass"),
-            ("Fern",       "fern"),
             ("Sunflower",  "sunflower"),
             ("Rose",       "rose"),
             ("Tulip",      "tulip"),
@@ -394,8 +417,7 @@ class MainScene(Scene):
         elif action_type == "gardening_plant_seed":
             seed_type = action[1]
             def _on_pot_selected(plant, _st=seed_type):
-                plant_seed(self.context, plant['scene'], plant['layer'],
-                           plant['x'], plant['y_snap'], plant['pot'], _st)
+                plant_seed(self.context, plant['id'], _st)
             self._plant_selection.enter(self, _on_pot_selected,
                                         filter_fn=lambda p: p['stage'] == 'empty_pot')
         elif action_type == "gardening_water":
@@ -409,8 +431,20 @@ class MainScene(Scene):
                 self._in_tend_mode = False
         elif action_type == "gardening_reset":
             self.context.reset_plants()
+            invalidate_plant_cache(self)
+        elif action_type == "tend_move_here":
+            plant = get_plant_by_id(self.context, action[1])
+            if plant and plant.get('pot') != 'ground':
+                def _on_move_placed(layer, x, y_snap, _pid=action[1]):
+                    move_plant(self.context, _pid, self.SCENE_NAME, layer, x, y_snap)
+                self._placement.enter(plant['pot'], self, on_confirm=_on_move_placed)
+        elif action_type == "tend_move_to":
+            self._in_tend_mode = False
+            self.context.pending_gardening_move = {'plant_id': action[1], 'dest_scene': action[2]}
+            return ('change_scene', action[2])
         elif action_type == "tend_pluck":
             remove_plant(self.context, action[1])
+            invalidate_plant_cache(self)
         elif action_type == "tend_repot":
             repot_plant(self.context, action[1], action[2])
         elif action_type == "inspect_dismiss":
@@ -423,6 +457,11 @@ class MainScene(Scene):
             'medium': 'Medium pot', 'large': 'Large pot', 'planter': 'Planter box'
         }
         items = []
+
+        # Move (not available for ground plants)
+        if plant.get('pot') != 'ground':
+            move_items = self._build_move_items(plant)
+            items.append(MenuItem("Move", icon=TREES_ICON, submenu=move_items))
 
         # Repot options: any larger pot type currently in inventory
         current_pot = plant.get('pot', 'small')
@@ -454,4 +493,16 @@ class MainScene(Scene):
         ]
         items.append(MenuItem("Inspect", icon=TREES_ICON, submenu=info_items))
 
+        return items
+
+    def _build_move_items(self, plant):
+        """Build the Move submenu: 'Here' (within scene) + one item per other plantable scene."""
+        items = [MenuItem("Here", icon=TREES_ICON,
+                          action=("tend_move_here", plant["id"]))]
+        for scene_name, label in self._PLANTABLE_SCENES:
+            if scene_name != self.SCENE_NAME:
+                items.append(MenuItem(
+                    "To " + label, icon=TREES_ICON,
+                    action=("tend_move_to", plant["id"], scene_name),
+                ))
         return items

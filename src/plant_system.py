@@ -25,10 +25,6 @@ _PLANT_TYPES = {
         'wilt': 1440, 'death': 4320, 'recover': 240,  # 1 day / 3 days
         'stage_hours': (2880, 3600, 4320, 5040),       # 2, 2.5, 3, 3.5 real days
     },
-    'fern': {
-        'wilt': 2160, 'death': 5760, 'recover': 360,  # 1.5 days / 4 days
-        'stage_hours': (3600, 4320, 5760, 7200),       # 2.5, 3, 4, 5 real days
-    },
     'tulip': {
         'wilt': 1440, 'death': 4320, 'recover': 120,  # 1 day / 3 days
         'stage_hours': (4320, 5040, 6480, 7200),       # 3, 3.5, 4.5, 5 real days
@@ -42,6 +38,10 @@ _PLANT_TYPES = {
         'wilt': 2880, 'death': 5760, 'recover': 240,  # 2 days / 4 days
         'stage_hours': (2880, 4320, 5760, 7200, 7200), # 2, 3, 4, 5 real days (last unused)
         'indoor_max': 'growing',
+        # Annuals die naturally: wilt after 19 real days, dead 2 days later.
+        # Outdoor: reaches thriving at ~14d; spends ~5d there before end of life.
+        'max_age_hours': 27360,        # 19 real days
+        'max_age_death_window': 2880,  # 2 real days in wilted state before dead
     },
 }
 
@@ -135,7 +135,7 @@ def tick_plant(plant, season, weather='Clear'):
     if stage in _INERT_STAGES:
         return False
 
-    ptype = _PLANT_TYPES.get(plant['type'], _PLANT_TYPES['fern'])
+    ptype = _PLANT_TYPES.get(plant['type'], _PLANT_TYPES['cat_grass'])
 
     # --- Outdoor winter handling ---
     if plant['scene'] == 'outside' and season == 'Winter':
@@ -165,6 +165,23 @@ def tick_plant(plant, season, weather='Clear'):
             plant['water_debt_hours'] += _STORM_DEBT_DELTA
         if plant['water_debt_hours'] < 0:
             plant['water_debt_hours'] = 0
+
+    # --- Age-based lifecycle (annual plants, e.g. sunflower) ---
+    max_age = ptype.get('max_age_hours')
+    if max_age:
+        age = plant['age_hours']
+        death_window = ptype.get('max_age_death_window', 2880)
+        if age >= max_age + death_window:
+            plant['stage'] = 'dead'
+            return True
+        if age >= max_age:
+            if not _is_wilted(stage):
+                # Begin end-of-life wilt; mark so watering won't revive it.
+                plant['stage'] = stage + '_wilted'
+                plant['aged'] = True
+                return True
+            # Already age-wilted: hold until the death window above fires.
+            return False
 
     debt = plant['water_debt_hours']
 
@@ -242,37 +259,31 @@ def water_plant(plant):
     plant['water_debt_hours'] = 0
 
 
-def plant_seed(context, scene, layer, x, y_snap, pot, plant_type):
-    """Place a new seedling into context.plants.  Consumes one seed from inventory.
+def plant_seed(context, pot_id, plant_type):
+    """Plant a seed into an existing empty pot, identified by pot_id.
 
-    Returns the new plant dict, or None if the seed was not available.
+    Modifies the pot entry in place (stage empty_pot → seedling) so the same
+    dict is reused and no duplicate entry is created.  Consumes one seed from
+    inventory.  Returns the updated plant dict, or None if the seed was not
+    available or the pot was not found / not empty.
     """
     import random
     seeds = context.inventory.get('seeds', {})
     if seeds.get(plant_type, 0) <= 0:
         return None
 
-    seeds[plant_type] -= 1
+    for plant in context.plants:
+        if plant['id'] == pot_id and plant['stage'] == 'empty_pot':
+            seeds[plant_type] -= 1
+            plant['type'] = plant_type
+            plant['stage'] = 'seedling'
+            plant['age_hours'] = 0
+            plant['water_debt_hours'] = 0
+            plant['planted_day'] = context.environment.get('day_number', 0)
+            plant['mirror'] = bool(random.getrandbits(1))
+            return plant
 
-    pid = context.next_plant_id
-    context.next_plant_id += 1
-
-    plant = {
-        'id': pid,
-        'type': plant_type,
-        'scene': scene,
-        'layer': layer,
-        'x': x,
-        'y_snap': y_snap,
-        'pot': pot,
-        'stage': 'seedling',
-        'age_hours': 0,
-        'water_debt_hours': 0,
-        'planted_day': context.environment.get('day_number', 0),
-        'mirror': bool(random.getrandbits(1)),
-    }
-    context.plants.append(plant)
-    return plant
+    return None
 
 
 def place_empty_pot(context, scene, layer, x, y_snap, pot_type):
@@ -326,13 +337,19 @@ def remove_plant(context, plant_id):
     return False
 
 
-def move_plant(context, plant_id, new_scene, new_layer, new_x):
-    """Relocate a plant to a new scene/layer/x.  Stage and health are preserved."""
+def move_plant(context, plant_id, new_scene, new_layer, new_x, new_y_snap=None):
+    """Relocate a plant to a new scene/layer/x (and optionally y_snap).
+
+    Stage and health are preserved.  Pass new_y_snap when the surface changes
+    (different shelf height or a cross-scene move).
+    """
     for plant in context.plants:
         if plant['id'] == plant_id:
             plant['scene'] = new_scene
             plant['layer'] = new_layer
             plant['x'] = new_x
+            if new_y_snap is not None:
+                plant['y_snap'] = new_y_snap
             return True
     return False
 
@@ -406,58 +423,72 @@ def get_plant_by_id(context, plant_id):
     return None
 
 
-def get_plants_for_scene(context, scene_name):
-    """Return a list of all plant dicts for the given scene."""
-    return [p for p in context.plants if p['scene'] == scene_name]
+_INSPECT_TYPE_NAMES = {
+    'cat_grass': 'Cat Grass',
+    'sunflower': 'Sunflower', 'rose': 'Rose', 'tulip': 'Tulip',
+}
+_INSPECT_POT_LABELS = {
+    'small': 'Small', 'medium': 'Medium', 'large': 'Large',
+    'planter': 'Planter', 'ground': 'Ground',
+}
+_STAGE_DISPLAY_NAMES = {
+    'empty_pot':       'Empty pot',
+    'seedling':        'Seedling',
+    'seedling_wilted': 'Wilting seedling',
+    'young':           'Young',
+    'young_wilted':    'Wilting',
+    'growing':         'Growing',
+    'growing_wilted':  'Wilting',
+    'mature':          'Mature',
+    'mature_wilted':   'Wilting',
+    'thriving':        'Thriving',
+    'thriving_wilted': 'Wilting',
+    'dead':            'Dead',
+    'dormant':         'Dormant',
+}
 
 
 def inspect_lines(plant):
-    """Return 1–3 short label strings for the Inspect submenu.
+    """Return label strings for the Inspect submenu.
 
     Each string is at most 15 chars (fits 120px content area at 8px/char).
-    Lines cover: identity (type + pot), stage/health, and watering need.
+    Lines: type name, pot, stage/health, watering need (or lifespan notice).
     """
     stage = plant.get('stage', 'empty_pot')
     plant_type = plant.get('type')
     pot = plant.get('pot', 'small')
 
-    _TYPE_NAMES = {
-        'cat_grass': 'Cat Grass', 'fern': 'Fern',
-        'sunflower': 'Sunflower', 'rose': 'Rose', 'tulip': 'Tulip',
-    }
-    _POT_SHORT = {
-        'small': 'sm', 'medium': 'md', 'large': 'lg',
-        'planter': 'pl', 'ground': 'gr',
-    }
+    pot_line = 'Pot: ' + _INSPECT_POT_LABELS.get(pot, pot)
 
-    # Line 1: identity
+    # Empty pot: just identity, no stage/water lines
     if stage == 'empty_pot' or plant_type is None:
-        return ['Empty (' + _POT_SHORT.get(pot, pot) + ')']
+        return ['Empty pot', pot_line]
 
-    type_label = _TYPE_NAMES.get(plant_type, plant_type)
-    line1 = type_label + ' (' + _POT_SHORT.get(pot, pot) + ')'
+    type_label = _INSPECT_TYPE_NAMES.get(plant_type, plant_type)
 
-    # Terminal / special stages — no water line needed
+    # Terminal / special stages
     if stage == 'dead':
-        return [line1, 'Stage: Dead']
+        return [type_label, pot_line, 'Stage: Dead']
     if stage == 'dormant':
-        return [line1, 'Stage: Dormant']
+        return [type_label, pot_line, 'Stage: Dormant']
 
-    ptype = _PLANT_TYPES.get(plant_type, _PLANT_TYPES['fern'])
+    ptype = _PLANT_TYPES.get(plant_type, _PLANT_TYPES['cat_grass'])
     debt = plant.get('water_debt_hours', 0)
+    aged = plant.get('aged', False)
     wilted = _is_wilted(stage)
-    recovering = wilted and debt <= ptype['recover']
+    recovering = wilted and not aged and debt <= ptype['recover']
 
     if recovering:
-        return [line1, 'Stage: Recovering']
+        return [type_label, pot_line, 'Stage: Recovering']
 
-    # Line 2: stage (use base stage name even when wilted)
-    line2 = 'Stage: ' + stage_display_name(_base_stage(stage))
+    stage_line = 'Stage: ' + stage_display_name(_base_stage(stage))
 
-    # Line 3: watering need
-    if wilted:
+    # Status line: lifespan notice takes priority over water for aged plants
+    if aged:
+        status = 'Natural lifespan'
+    elif wilted:
         remaining = ptype['death'] - debt
-        water_label = 'Critical' if remaining <= ptype['death'] // 4 else 'Dry!'
+        status = 'Water: Critical' if remaining <= ptype['death'] // 4 else 'Water: Dry!'
     else:
         wilt = ptype['wilt']
         if debt == 0:
@@ -468,25 +499,11 @@ def inspect_lines(plant):
             water_label = 'Low'
         else:
             water_label = 'Urgent'
+        status = 'Water: ' + water_label
 
-    return [line1, line2, 'Water: ' + water_label]
+    return [type_label, pot_line, stage_line, status]
 
 
 def stage_display_name(stage):
     """Human-readable label for a stage string."""
-    _NAMES = {
-        'empty_pot':      'Empty pot',
-        'seedling':       'Seedling',
-        'seedling_wilted': 'Wilting seedling',
-        'young':          'Young',
-        'young_wilted':   'Wilting',
-        'growing':        'Growing',
-        'growing_wilted': 'Wilting',
-        'mature':         'Mature',
-        'mature_wilted':  'Wilting',
-        'thriving':       'Thriving',
-        'thriving_wilted': 'Wilting',
-        'dead':           'Dead',
-        'dormant':        'Dormant',
-    }
-    return _NAMES.get(stage, stage)
+    return _STAGE_DISPLAY_NAMES.get(stage, stage)

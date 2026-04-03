@@ -9,10 +9,29 @@ import config
 from assets.plants import PLANT_SPRITES, POT_SPRITES
 
 
+def _rebuild_plant_cache(scene):
+    """Build scene._plant_layer_cache: {layer: [plant, ...]} for this scene only."""
+    cache = {}
+    scene_name = scene.SCENE_NAME
+    for plant in scene.context.plants:
+        if plant['scene'] == scene_name:
+            layer = plant['layer']
+            if layer not in cache:
+                cache[layer] = []
+            cache[layer].append(plant)
+    scene._plant_layer_cache = cache
+
+
+def invalidate_plant_cache(scene):
+    """Mark the plant layer cache stale so it is rebuilt on the next draw."""
+    scene._plant_layer_cache = None
+
+
 def register_plant_draws(scene):
     """Register a draw callback for each unique layer in scene.PLANT_SURFACES."""
     scene._plant_sprites = PLANT_SPRITES
     scene._pot_sprites   = POT_SPRITES
+    _rebuild_plant_cache(scene)
     seen = set()
     for surf in getattr(scene, 'PLANT_SURFACES', []):
         layer = surf['layer']
@@ -28,18 +47,20 @@ def register_plant_draws(scene):
 
 def draw_plants_layer(scene, renderer, camera_x, parallax, layer):
     """Draw all pots and plants for one layer of one scene."""
-    plant_sprites = getattr(scene, '_plant_sprites', None)
-    pot_sprites   = getattr(scene, '_pot_sprites',   None)
-    if plant_sprites is None or pot_sprites is None:
+    cache = getattr(scene, '_plant_layer_cache', None)
+    if cache is None:
+        _rebuild_plant_cache(scene)
+        cache = scene._plant_layer_cache
+
+    plants = cache.get(layer)
+    if not plants:
         return
 
-    offset     = int(camera_x * parallax)
-    scene_name = scene.SCENE_NAME
+    plant_sprites = scene._plant_sprites
+    pot_sprites   = scene._pot_sprites
+    offset        = int(camera_x * parallax)
 
-    for plant in scene.context.plants:
-        if plant['scene'] != scene_name or plant['layer'] != layer:
-            continue
-
+    for plant in plants:
         screen_x = plant['x'] - offset
         if screen_x + 30 < 0 or screen_x > config.DISPLAY_WIDTH:
             continue
@@ -49,8 +70,8 @@ def draw_plants_layer(scene, renderer, camera_x, parallax, layer):
         stage    = plant['stage']
         mirror   = plant.get('mirror', False)
 
-        pot_h   = 0
-        pot_w   = 0
+        pot_h = 0
+        pot_w = 0
         if pot_type != 'ground':
             pot_spr = pot_sprites.get(pot_type)
             if pot_spr:
@@ -61,7 +82,6 @@ def draw_plants_layer(scene, renderer, camera_x, parallax, layer):
         if stage not in ('empty_pot', 'dead', 'dormant') and stage is not None:
             plant_spr = plant_sprites.get((plant['type'], stage))
             if plant_spr:
-                # Centre the plant sprite over the pot
                 cx = screen_x + pot_w // 2
                 plant_x = cx - plant_spr['width'] // 2
                 renderer.draw_sprite_obj(

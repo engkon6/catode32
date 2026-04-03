@@ -9,7 +9,7 @@ from assets.icons import TREES_ICON
 _STAGES     = ('seedling', 'young', 'growing', 'mature', 'thriving')
 _HEALTH     = ('healthy', 'wilted', 'dead')
 _POT_TYPES  = ('small', 'medium', 'large', 'planter')
-_PLANT_TYPES = ('cat_grass', 'fern', 'tulip', 'rose', 'sunflower')
+_PLANT_TYPES = ('cat_grass', 'tulip', 'rose', 'sunflower')
 
 _FLOOR_Y = 63   # bottom of display
 

@@ -381,7 +381,8 @@ class SkyRenderer:
         # Managed objects (added to environment layer)
         self._sun_obj = None
         self._moon_obj = None
-        self._cloud_objs = []  # List of {"obj": dict, "base_speed": float}
+        self._cloud_objs = []   # List of {"obj": dict, "base_speed": float}
+        self._cloud_layer = None
 
         # Cached sprites
         self._moon_sprite_cached = None
@@ -494,17 +495,15 @@ class SkyRenderer:
         if not self.precipitation_type:
             return
 
-        # Create particles for each layer (0=background, 1=midground, 2=foreground)
+        # Create particles for background layer only (layer 0)
         if self.precipitation_type == "rain":
-            count_per_layer = int(RAIN_PARTICLE_COUNT * self.precipitation_intensity)
-            for layer in range(3):
-                for _ in range(count_per_layer):
-                    self._precip_particles.append(self._spawn_rain_particle(random_y=True, layer=layer))
+            count = int(RAIN_PARTICLE_COUNT * self.precipitation_intensity)
+            for _ in range(count):
+                self._precip_particles.append(self._spawn_rain_particle(random_y=True, layer=0))
         elif self.precipitation_type == "snow":
-            count_per_layer = int(SNOW_PARTICLE_COUNT * self.precipitation_intensity)
-            for layer in range(3):
-                for _ in range(count_per_layer):
-                    self._precip_particles.append(self._spawn_snow_particle(random_y=True, layer=layer))
+            count = int(SNOW_PARTICLE_COUNT * self.precipitation_intensity)
+            for _ in range(count):
+                self._precip_particles.append(self._spawn_snow_particle(random_y=True, layer=0))
 
     def _spawn_rain_particle(self, random_y=False, layer=None):
         """Spawn a rain particle at top of screen (or random y for init).
@@ -573,7 +572,8 @@ class SkyRenderer:
             "frame": moon_frame if moon_frame is not None else 0,
         }
 
-        # Add clouds
+        # Add clouds as a custom draw so precipitation (added later by the scene)
+        # renders in front of them.
         self._cloud_objs.clear()
         count = min(self.cloud_count, len(CLOUD_TEMPLATES))
         spacing = self.world_width // max(count, 1)
@@ -589,7 +589,8 @@ class SkyRenderer:
                 "obj": cloud_obj,
                 "base_speed": template["base_speed"],
             })
-            environment.layers[layer].append(cloud_obj)
+        self._cloud_layer = layer
+        environment.add_custom_draw(layer, self._draw_clouds)
 
     def remove_from_environment(self, environment, layer):
         """
@@ -605,12 +606,8 @@ class SkyRenderer:
         self._sun_obj = None
         self._moon_obj = None
 
-        # Remove clouds
-        for cloud_data in self._cloud_objs:
-            obj = cloud_data["obj"]
-            if obj in environment.layers[layer]:
-                environment.layers[layer].remove(obj)
         self._cloud_objs.clear()
+        self._cloud_layer = None
 
     def update(self, dt):
         """
@@ -856,6 +853,17 @@ class SkyRenderer:
                 frame=0,
                 mirror_h=event.mirror
             )
+
+    def _draw_clouds(self, renderer, camera_x, parallax):
+        """Draw clouds (custom draw so precipitation renders in front of them)."""
+        camera_offset = int(camera_x * parallax)
+        for cloud_data in self._cloud_objs:
+            obj = cloud_data["obj"]
+            screen_x = int(obj["x"] - camera_offset)
+            sprite = obj["sprite"]
+            if screen_x + sprite["width"] < 0 or screen_x >= config.DISPLAY_WIDTH:
+                continue
+            renderer.draw_sprite_obj(sprite, screen_x, int(obj["y"]))
 
     def _draw_stars(self, renderer, camera_x, parallax):
         """Draw stars (used as custom draw function)"""

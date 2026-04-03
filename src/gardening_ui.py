@@ -43,13 +43,19 @@ class PlacementMode:
         self._cursor_x    = 0
         self._scene       = None  # weak ref to host scene (not persisted)
         self._bounce_t    = 0.0   # accumulator for bounce animation
+        self._on_confirm  = None  # optional callable(layer, x, y_snap); overrides default place_empty_pot
 
     # ------------------------------------------------------------------
     # Activation
     # ------------------------------------------------------------------
 
-    def enter(self, pot_type, scene):
-        """Activate placement mode for the given pot type in the given scene."""
+    def enter(self, pot_type, scene, on_confirm=None):
+        """Activate placement mode for the given pot type in the given scene.
+
+        on_confirm: optional callable(layer, x, y_snap) called instead of
+        place_empty_pot when the player confirms.  Use this when repositioning
+        an existing plant rather than placing a new pot.
+        """
         raw = list(getattr(scene, 'PLANT_SURFACES', None) or [_DEFAULT_SURFACE])
         # Primary sort: y_snap ascending (higher on screen first).
         # Secondary sort: layer order ascending so foreground is always last —
@@ -68,11 +74,13 @@ class PlacementMode:
         self._surface_idx  = start_idx
         self._cursor_x     = cursor_x
         self._scene        = scene
+        self._on_confirm   = on_confirm
 
     def cancel(self):
         self.active = False
         self._bounce_t = 0.0
         self._scene = None
+        self._on_confirm = None
 
     # ------------------------------------------------------------------
     # Input handling
@@ -176,17 +184,20 @@ class PlacementMode:
     def _confirm(self, environment):
         scene = self._scene
         surf  = self._surfaces[self._surface_idx]
-        scene_count = sum(1 for p in scene.context.plants
-                          if p['scene'] == scene.SCENE_NAME)
-        if scene_count < 16:
-            place_empty_pot(
-                scene.context,
-                scene.SCENE_NAME,
-                surf['layer'],
-                self._cursor_x,
-                surf['y_snap'],
-                self._pot_type,
-            )
+        if self._on_confirm:
+            self._on_confirm(surf['layer'], self._cursor_x, surf['y_snap'])
+        else:
+            scene_count = sum(1 for p in scene.context.plants
+                              if p['scene'] == scene.SCENE_NAME)
+            if scene_count < 12:
+                place_empty_pot(
+                    scene.context,
+                    scene.SCENE_NAME,
+                    surf['layer'],
+                    self._cursor_x,
+                    surf['y_snap'],
+                    self._pot_type,
+                )
         self.cancel()
 
 

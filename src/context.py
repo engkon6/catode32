@@ -70,41 +70,31 @@ def _make_starter_plants():
         return plant
 
     return [
-        # Windowsill (midground, y_snap=29): PLANTER1+PLANT1 (growing fern) and PLANTER_SMALL_1+PLANT6 (thriving fern)
-        _p('inside', 'midground', 110, 29, 'small',   'rose', stage='growing',  age_hours=200),
+        _p('inside', 'midground', 110, 29, 'small', 'rose', stage='growing', age_hours=200),
         _p('inside', 'midground', 130, 29, 'planter', 'tulip', stage='young', age_hours=400, mirror=True),
-        # Bookshelf top (foreground, y_snap=15): PLANTER1+PLANT3 (small sprout → young)
-        _p('inside', 'foreground',  15, 15, 'small', 'tulip',     stage='young', age_hours=96),
-        # Floor (foreground, y_snap=63): PLANTER1+PLANT3
+        _p('inside', 'foreground', 15, 15, 'small', 'tulip', stage='young', age_hours=96),
         _p('inside', 'foreground', 140, 63, 'medium', 'cat_grass', stage='thriving', age_hours=80),
 
-        # Floor (foreground): PLANTER1+PLANT1 — more grown
-        _p('kitchen', 'foreground',  10, 63, 'small', 'cat_grass', stage='growing', age_hours=180, mirror=True),
-        # Counter (midground, y_snap=24): rightmost was PLANT1, middle PLANT3, leftmost PLANT1
-        _p('kitchen', 'midground', 155, 24, 'medium', 'rose',      stage='mature', age_hours=160),
-        _p('kitchen', 'midground',  62, 24, 'small', 'rose',      stage='growing',   age_hours=85, mirror=True),
-        _p('kitchen', 'midground',  45, 24, 'small', 'cat_grass', stage='growing', age_hours=170),
+        _p('kitchen', 'foreground', 10, 63, 'small', 'cat_grass', stage='growing', age_hours=180, mirror=True),
+        _p('kitchen', 'midground', 130, 24, 'medium', 'cat_grass', stage='mature', age_hours=160),
+        _p('kitchen', 'midground', 62, 24, 'small', 'rose', stage='growing', age_hours=85, mirror=True),
+        _p('kitchen', 'midground', 45, 24, 'small', 'cat_grass', stage='growing', age_hours=170),
 
-        # Foreground pots (foreground, y_snap=63): PLANT1, PLANT2, PLANT1
-        _p('outside', 'foreground',  10, 63, 'small',  'cat_grass', stage='growing', age_hours=160),
-        _p('outside', 'foreground',  94, 63, 'medium',  'sunflower',      stage='growing',  age_hours=350, mirror=True),
-        _p('outside', 'foreground', 180, 63, 'small',  'cat_grass', stage='growing', age_hours=155),
-        # Midground ground plants (midground, y_snap=61): PLANT2, PLANT1, PLANT2, PLANT1(mirrored)
-        _p('outside', 'midground',  30, 61, 'ground', 'tulip',      stage='mature',  age_hours=340, mirror=True),
+        _p('outside', 'foreground', 10, 63, 'small', 'cat_grass', stage='growing', age_hours=160),
+        _p('outside', 'foreground', 180, 63, 'small', 'cat_grass', stage='growing', age_hours=155),
         _p('outside', 'midground', 144, 61, 'ground', 'cat_grass', stage='growing', age_hours=150),
-        _p('outside', 'midground', 120, 61, 'ground', 'sunflower',      stage='mature',  age_hours=360, mirror=True),
+        _p('outside', 'midground', 120, 61, 'ground', 'sunflower', stage='mature', age_hours=360, mirror=True),
         _p('outside', 'midground', 174, 61, 'ground', 'cat_grass', stage='mature', age_hours=145, mirror=True),
-        _p('outside', 'midground',  40, 61, 'ground', 'cat_grass', stage='thriving', age_hours=150),
-        # Background (background, y_snap=56): PLANT2
-        _p('outside', 'background', 130, 56, 'ground', 'fern',      stage='thriving',  age_hours=320),
-        _p('outside', 'background',  55, 56, 'ground', 'cat_grass',      stage='mature',  age_hours=320),
+        _p('outside', 'midground', 40, 61, 'ground', 'cat_grass', stage='thriving', age_hours=150),
+        _p('outside', 'midground', 94, 63, 'medium', 'sunflower', stage='growing', age_hours=350, mirror=True),
+        _p('outside', 'midground', 20, 61, 'ground', 'tulip', stage='mature', age_hours=340, mirror=True),
+        _p('outside', 'background', 90, 56, 'ground', 'cat_grass', stage='thriving', age_hours=320),
+        _p('outside', 'background', 55, 56, 'ground', 'cat_grass', stage='mature', age_hours=320),
 
-        # foreground platform (y_snap=63): PLANT3, PLANT1
-        _p('treehouse', 'foreground',  15, 63, 'small', 'rose',      stage='young',   age_hours=72),
+        _p('treehouse', 'foreground', 15, 63, 'small', 'rose', stage='young', age_hours=72),
         _p('treehouse', 'foreground', 200, 63, 'medium', 'cat_grass', stage='growing', age_hours=155, mirror=True),
-        # midground platform (y_snap=59): PLANT1, PLANT3
-        _p('treehouse', 'midground',  30, 59, 'small', 'cat_grass', stage='growing', age_hours=150),
-        _p('treehouse', 'midground', 120, 59, 'medium', 'tulip',      stage='thriving',   age_hours=88, mirror=True),
+        _p('treehouse', 'midground', 30, 59, 'small', 'cat_grass', stage='growing', age_hours=150),
+        _p('treehouse', 'midground', 120, 59, 'medium', 'tulip', stage='thriving', age_hours=88, mirror=True),
     ]
 
 
@@ -331,7 +321,7 @@ class GameContext:
                 {"name": "Feather", "variant": "toy"},
             ],
             "pots":  {"small": 0, "medium": 0, "large": 0, "planter": 0},
-            "seeds": {"cat_grass": 0, "sunflower": 0, "rose": 0, "tulip": 0, "fern": 0},
+            "seeds": {"cat_grass": 0, "sunflower": 0, "rose": 0, "tulip": 0},
             "tools": {"watering_can": False, "spade": False},
         }
 
