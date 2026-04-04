@@ -12,7 +12,7 @@ from assets.icons import (TOYS_ICON, HEART_ICON, HEART_BUBBLE_ICON, HAND_ICON,
                           KIBBLE_ICON, TOY_ICONS, SNACK_ICONS, FISH_ICON,
                           CHICKEN_ICON, MEAL_ICON, TREES_ICON)
 from assets.items import FOOD_BOWL, TREAT_PILE
-from ui import draw_bubble
+from ui import draw_bubble, Popup
 
 
 class MainScene(Scene):
@@ -44,11 +44,14 @@ class MainScene(Scene):
         self._placement = PlacementMode()
         self._plant_selection = PlantSelectionMode()
         self._in_tend_mode = False
+        self._popup_msg = None
+        self._plant_bursts = {}  # {plant_id: {'timer': float, 'bursts': [{dx,dy,delay},...]}}
 
     def load(self):
         super().load()
         self.setup_scene()
         self.menu = Menu(self.renderer, self.input)
+        self._popup = Popup(self.renderer, x=14, y=12, width=100, height=40, padding=4)
 
     def setup_scene(self):
         """Override to create self.environment, self.character, and place objects."""
@@ -127,6 +130,12 @@ class MainScene(Scene):
                 elif screen_x > config.DISPLAY_WIDTH - margin:
                     self.environment.set_camera(int(self.character.x) - (config.DISPLAY_WIDTH - margin))
         self._check_lightning_startled()
+        if self._plant_bursts:
+            for info in self._plant_bursts.values():
+                info['timer'] += dt
+            expired = [pid for pid, info in self._plant_bursts.items() if info['timer'] >= 3.0]
+            for pid in expired:
+                del self._plant_bursts[pid]
 
     # Behaviors that block lightning startled (don't interrupt deep sleep etc.)
     _NO_STARTLE_BEHAVIORS = frozenset(('sleeping', 'eating', 'being_groomed', 'training'))
@@ -195,6 +204,8 @@ class MainScene(Scene):
             self._placement.draw(self.renderer, self.environment)
         if self._plant_selection.active:
             self._plant_selection.draw(self.renderer, self.environment)
+        if self._popup_msg is not None:
+            self._popup.draw()
 
     def on_pre_draw(self):
         """Override for any setup needed before environment.draw()."""
@@ -221,6 +232,11 @@ class MainScene(Scene):
     _TEND_REENTER_ACTIONS = ('tend_pluck', 'tend_repot', 'inspect_dismiss')
 
     def handle_input(self):
+        if self._popup_msg is not None:
+            if self.input.was_just_pressed('a') or self.input.was_just_pressed('b'):
+                self._popup_msg = None
+            return None
+
         if self._placement.active:
             self._placement.handle_input(self.input, self.environment)
             if not self._placement.active:
@@ -365,7 +381,7 @@ class MainScene(Scene):
             ("Rose",       "rose"),
             ("Tulip",      "tulip"),
         )
-        plant_seed_items = [
+        in_pot_items = [
             MenuItem(f"{name} ({inv['seeds'].get(key, 0)})", icon=TREES_ICON,
                      action=("gardening_plant_seed", key))
             for name, key in _seed_defs
@@ -373,25 +389,27 @@ class MainScene(Scene):
         ]
 
         has_spade = inv.get('tools', {}).get('spade', False)
-        plant_ground_items = []
-        if has_spade and getattr(self, 'PLANT_SURFACES', None):
-            plant_ground_items = [
+        in_ground_items = []
+        if has_spade and getattr(self, 'SCENE_NAME', None) == 'outside':
+            in_ground_items = [
                 MenuItem(f"{name} ({inv['seeds'].get(key, 0)})", icon=TREES_ICON,
                          action=("gardening_plant_ground", key))
                 for name, key in _seed_defs
                 if inv['seeds'].get(key, 0) > 0
             ]
 
+        plant_seed_submenu = []
+        if in_pot_items:
+            plant_seed_submenu.append(MenuItem("In Pot", icon=TREES_ICON, submenu=in_pot_items))
+        if in_ground_items:
+            plant_seed_submenu.append(MenuItem("In Ground", icon=TREES_ICON, submenu=in_ground_items))
+
         gardening_items = []
+        gardening_items.append(MenuItem("Tend",  icon=TREES_ICON, action=("gardening_tend",)))
         if place_pot_items:
             gardening_items.append(MenuItem("Place Pot",  icon=TREES_ICON, submenu=place_pot_items))
-        if plant_seed_items:
-            gardening_items.append(MenuItem("Plant Seed", icon=TREES_ICON, submenu=plant_seed_items))
-        if plant_ground_items:
-            gardening_items.append(MenuItem("Plant in Ground", icon=TREES_ICON, submenu=plant_ground_items))
-        gardening_items.append(MenuItem("Water", icon=TREES_ICON, action=("gardening_water",)))
-        gardening_items.append(MenuItem("Tend",  icon=TREES_ICON, action=("gardening_tend",)))
-        gardening_items.append(MenuItem("Reset",  icon=TREES_ICON, action=("gardening_reset",), confirm="Reset all plants?"))
+        if plant_seed_submenu:
+            gardening_items.append(MenuItem("Plant Seed", icon=TREES_ICON, submenu=plant_seed_submenu))
 
         items = [
             MenuItem("Affection", icon=HEART_ICON, submenu=affection_items),
@@ -439,8 +457,11 @@ class MainScene(Scene):
             seed_type = action[1]
             def _on_pot_selected(plant, _st=seed_type):
                 plant_seed(self.context, plant['id'], _st)
-            self._plant_selection.enter(self, _on_pot_selected,
-                                        filter_fn=lambda p: p['stage'] == 'empty_pot')
+            found = self._plant_selection.enter(self, _on_pot_selected,
+                                                filter_fn=lambda p: p['stage'] == 'empty_pot')
+            if not found:
+                self._popup_msg = "No empty pots in this location"
+                self._popup.set_text(self._popup_msg, center=True)
         elif action_type == "gardening_plant_ground":
             seed_type = action[1]
             scene = self
@@ -448,18 +469,21 @@ class MainScene(Scene):
                 plant_in_ground(_sc.context, _sc.SCENE_NAME, layer, x, y_snap, _st)
                 invalidate_plant_cache(_sc)
             self._placement.enter('ground', self, on_confirm=_on_ground_placed)
-        elif action_type == "gardening_water":
-            def _on_water_selected(plant):
+        elif action_type == "tend_water":
+            plant = get_plant_by_id(self.context, action[1])
+            if plant:
                 water_plant(plant)
-            self._plant_selection.enter(self, _on_water_selected,
-                                        filter_fn=lambda p: p['stage'] not in ('empty_pot', 'dead'))
+                self._plant_bursts[plant['id']] = {
+                    'timer': 0.0,
+                    'bursts': [
+                        {'dx': random.randint(-12, 12), 'dy': random.randint(-25, 5), 'delay': i * 0.4 + random.uniform(0.0, 0.2)}
+                        for i in range(4)
+                    ]
+                }
         elif action_type == "gardening_tend":
             self._in_tend_mode = True
             if not self._reenter_tend_selection():
                 self._in_tend_mode = False
-        elif action_type == "gardening_reset":
-            self.context.reset_plants()
-            invalidate_plant_cache(self)
         elif action_type == "tend_move_here":
             plant = get_plant_by_id(self.context, action[1])
             if plant and plant.get('pot') != 'ground':
@@ -482,30 +506,56 @@ class MainScene(Scene):
         """Build the tend submenu items for the given plant."""
         _cap_order = ('small', 'medium', 'large', 'planter')
         _pot_labels = {
-            'medium': 'Medium pot', 'large': 'Large pot', 'planter': 'Planter box'
+            'small': 'Small pot', 'medium': 'Medium pot',
+            'large': 'Large pot', 'planter': 'Planter box',
         }
+        _large_stages = ('mature', 'thriving')
         items = []
+
+        # Inspect: read-only submenu showing stage, health, and water status
+        info_items = [
+            MenuItem(line, action=("inspect_dismiss",))
+            for line in inspect_lines(plant)
+        ]
+
+        # Get information about the health of the plant
+        items.append(MenuItem("Inspect", icon=TREES_ICON, submenu=info_items))
+
+        # Water: only for plants that are alive and in the ground/pot
+        stage = plant.get('stage', '')
+        if stage not in ('empty_pot', 'dead'):
+            items.append(MenuItem("Water", icon=TREES_ICON, action=("tend_water", plant['id'])))
 
         # Move (not available for ground plants)
         if plant.get('pot') != 'ground':
             move_items = self._build_move_items(plant)
             items.append(MenuItem("Move", icon=TREES_ICON, submenu=move_items))
 
-        # Repot options: any larger pot type currently in inventory
+        # Repot submenu: larger pots always allowed; smaller pots only for
+        # seedling/young/growing stages that still fit.
         current_pot = plant.get('pot', 'small')
         if current_pot in _cap_order:
-            current_rank = _cap_order.index(current_pot)
+            stage = plant.get('stage', '')
+            is_large = stage in _large_stages
             inv_pots = self.context.inventory.get('pots', {})
-            for pt in _cap_order[current_rank + 1:]:
+            repot_items = []
+            for pt in _cap_order:
+                if pt == current_pot:
+                    continue
+                pt_rank = _cap_order.index(pt)
+                cur_rank = _cap_order.index(current_pot)
+                if pt_rank < cur_rank and is_large:
+                    continue  # mature/thriving plants can't go back to smaller pots
                 if inv_pots.get(pt, 0) > 0:
-                    items.append(MenuItem(
-                        "Repot: " + _pot_labels.get(pt, pt),
+                    repot_items.append(MenuItem(
+                        _pot_labels.get(pt, pt),
                         icon=TREES_ICON,
                         action=("tend_repot", plant['id'], pt),
                     ))
+            if repot_items:
+                items.append(MenuItem("Repot", icon=TREES_ICON, submenu=repot_items))
 
         # Pluck: confirm only if the plant is alive (not already dead/empty)
-        stage = plant.get('stage', '')
         needs_confirm = stage not in ('dead', 'empty_pot')
         items.append(MenuItem(
             "Pluck",
@@ -514,18 +564,11 @@ class MainScene(Scene):
             confirm="Remove plant?" if needs_confirm else None,
         ))
 
-        # Inspect: read-only submenu showing stage, health, and water status
-        info_items = [
-            MenuItem(line, action=("inspect_dismiss",))
-            for line in inspect_lines(plant)
-        ]
-        items.append(MenuItem("Inspect", icon=TREES_ICON, submenu=info_items))
-
         return items
 
     def _build_move_items(self, plant):
         """Build the Move submenu: 'Here' (within scene) + one item per other plantable scene."""
-        items = [MenuItem("Here", icon=TREES_ICON,
+        items = [MenuItem("Around Here", icon=TREES_ICON,
                           action=("tend_move_here", plant["id"]))]
         for scene_name, label in self._PLANTABLE_SCENES:
             if scene_name != self.SCENE_NAME:

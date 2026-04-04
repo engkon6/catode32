@@ -26,7 +26,7 @@ class KitchenScene(MainScene):
         self.context.scene_x_min = 10
         self.context.scene_x_max = 182
 
-        self.clock = ClockWidget(world_x=110, world_y=0)
+        self.clock = ClockWidget(world_x=100, world_y=0)
 
         self.character = CharacterEntity(64, 63, context=self.context)
         self.character.set_pose("sitting.forward.neutral")

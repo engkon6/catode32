@@ -7,6 +7,10 @@ callbacks onto the scene's Environment.
 
 import config
 from assets.plants import PLANT_SPRITES, POT_SPRITES
+from assets.effects import BURST1
+
+_BURST_FRAME_DUR = 1.0 / BURST1['speed']
+_BURST_TOTAL = len(BURST1['frames']) * _BURST_FRAME_DUR
 
 
 def _rebuild_plant_cache(scene):
@@ -45,6 +49,24 @@ def register_plant_draws(scene):
         scene.environment.add_custom_draw(layer, make_cb(layer))
 
 
+def _draw_plant_bursts(renderer, info, cx, mid_y):
+    """Draw sparkle bursts centred at (cx, mid_y) for a recently-watered plant."""
+    timer = info['timer']
+    hw = BURST1['width'] // 2
+    hh = BURST1['height'] // 2
+    for burst in info['bursts']:
+        elapsed = timer - burst['delay']
+        if elapsed < 0 or elapsed >= _BURST_TOTAL:
+            continue
+        frame_idx = min(int(elapsed / _BURST_FRAME_DUR), len(BURST1['frames']) - 1)
+        renderer.draw_sprite(
+            BURST1['frames'][frame_idx],
+            BURST1['width'], BURST1['height'],
+            cx + burst['dx'] - hw, mid_y + burst['dy'] - hh,
+            transparent=True, transparent_color=0,
+        )
+
+
 def draw_plants_layer(scene, renderer, camera_x, parallax, layer):
     """Draw all pots and plants for one layer of one scene."""
     cache = getattr(scene, '_plant_layer_cache', None)
@@ -59,6 +81,7 @@ def draw_plants_layer(scene, renderer, camera_x, parallax, layer):
     plant_sprites = scene._plant_sprites
     pot_sprites   = scene._pot_sprites
     offset        = int(camera_x * parallax)
+    plant_bursts  = getattr(scene, '_plant_bursts', None)
 
     for plant in plants:
         screen_x = plant['x'] - offset
@@ -90,3 +113,8 @@ def draw_plants_layer(scene, renderer, camera_x, parallax, layer):
                     y_snap - pot_h - plant_spr['height'],
                     mirror_h=mirror,
                 )
+                if plant_bursts:
+                    burst_info = plant_bursts.get(plant['id'])
+                    if burst_info:
+                        mid_y = y_snap - pot_h - plant_spr['height'] // 2
+                        _draw_plant_bursts(renderer, burst_info, cx, mid_y)
