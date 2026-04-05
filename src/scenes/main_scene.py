@@ -382,7 +382,7 @@ class MainScene(Scene):
             ("Cat Grass",  "cat_grass"),
             ("Sunflower",  "sunflower"),
             ("Rose",       "rose"),
-            ("Tulip",      "tulip"),
+            ("Freesia",    "freesia"),
         )
         in_pot_items = [
             MenuItem(f"{name} ({inv['seeds'].get(key, 0)})", icon=TREES_ICON,
@@ -413,6 +413,7 @@ class MainScene(Scene):
             gardening_items.append(MenuItem("Place Pot",  icon=TREES_ICON, submenu=place_pot_items))
         if plant_seed_submenu:
             gardening_items.append(MenuItem("Plant Seed", icon=TREES_ICON, submenu=plant_seed_submenu))
+        gardening_items.append(MenuItem("Store...", action=("go_store",)))
 
         items = [
             MenuItem("Affection", icon=HEART_ICON, submenu=affection_items),

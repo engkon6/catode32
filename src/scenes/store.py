@@ -60,7 +60,7 @@ _SEEDS_PER_PACK = 3
 # (display_name, full_name, inventory_key, cost per pack)
 _SEED_ITEMS = (
     ("Grass",   "Cat Grass",  "cat_grass",  2),
-    ("Tulip",   "Tulip",      "tulip",      5),
+    ("Freesia", "Freesia",    "freesia",    5),
     ("Sun", "Sunflower",  "sunflower",  5),
     ("Rose",    "Rose",       "rose",       6),
 )

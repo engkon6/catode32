@@ -355,76 +355,76 @@ ROSE_THRIVING_DEAD = {
 }
 
 # ---------------------------------------------------------------------------
-# Tulip sprites — all stages and health states
+# Freesia sprites — all stages and health states
 # ---------------------------------------------------------------------------
 
-TULIP_YOUNG = {
+FREESIA_YOUNG = {
     "width": 9,
     "height": 11,
     "frames": [ b"\x08\x00\x1c\x00\x1c\x00\x88\x80\xc9\x80\xeb\x80\x7b\x00\x3e\x00\x1c\x00\x08\x00\x08\x00" ]
 }
 
-TULIP_YOUNG_WILTED = {
+FREESIA_YOUNG_WILTED = {
     "width": 9,
     "height": 10,
     "frames": [ b"\x04\x00\x0e\x00\x0c\x00\x08\x00\x08\x00\xcb\x80\x7f\x00\x3c\x00\x08\x00\x08\x00" ]
 }
 
-TULIP_YOUNG_DEAD = {
+FREESIA_YOUNG_DEAD = {
     "width": 5,
     "height": 7,
     "frames": [ b"\x10\x38\x58\x40\xe0\x50\x40" ]
 }
 
-TULIP_GROWING = {
+FREESIA_GROWING = {
     "width": 11,
     "height": 15,
     "frames": [ b"\x04\x00\x0e\x00\x0e\x00\x0e\x20\x84\x20\xc4\x60\xe4\xe0\xf5\xe0\x75\xc0\x7f\x80\x3f\x80\x1e\x00\x04\x00\x04\x00\x04\x00" ]
 }
 
-TULIP_GROWING_WILTED = {
+FREESIA_GROWING_WILTED = {
     "width": 11,
     "height": 15,
     "frames": [ b"\x00\x00\x02\x00\x07\x00\x07\x00\x06\x00\x04\x00\x04\x00\x44\xc0\x65\xe0\xff\xe0\xdf\x20\x8e\x20\x84\x20\x04\x00\x04\x00" ]
 }
 
-TULIP_GROWING_DEAD = {
+FREESIA_GROWING_DEAD = {
     "width": 9,
     "height": 11,
     "frames": [ b"\x04\x00\x0a\x00\x13\x00\x13\x80\x11\x00\x10\x00\x54\x00\xba\x00\x12\x00\x10\x00\x10\x00" ]
 }
 
-TULIP_MATURE = {
+FREESIA_MATURE = {
     "width": 13,
     "height": 19,
     "frames": [ b"\x07\x00\x07\x00\x0f\x80\x0f\x80\x0f\x80\x07\x00\x22\x00\x32\x00\x1a\x08\x1a\x18\x8e\x38\xe6\x70\x7a\xe0\x3f\xc0\x1f\x80\x0f\x00\x02\x00\x02\x00\x02\x00" ]
 }
 
-TULIP_MATURE_WILTED = {
+FREESIA_MATURE_WILTED = {
     "width": 13,
     "height": 17,
     "frames": [ b"\x00\x40\x00\xe0\x01\xe0\x01\xe0\x03\xc0\x03\x00\x02\x00\x02\x00\x72\x00\xde\x30\x0e\x70\x1f\xd8\x7f\x88\xe7\x00\xc2\x00\x82\x00\x02\x00" ]
 }
 
-TULIP_MATURE_DEAD = {
+FREESIA_MATURE_DEAD = {
     "width": 9,
     "height": 10,
     "frames": [ b"\x06\x00\x09\x00\x53\x80\xb1\x80\x11\x00\x74\x00\x9a\x00\x92\x00\x10\x00\x08\x00" ]
 }
 
-TULIP_THRIVING = {
+FREESIA_THRIVING = {
     "width": 15,
     "height": 22,
     "frames": [ b"\x01\x00\x0a\xa0\x05\x40\x07\xc0\x07\xc0\x03\x80\x01\x00\x01\x00\x01\x10\x71\x30\x39\x70\x1d\x60\x0d\xc6\xc7\x9c\x73\xb8\x3d\x70\x1f\xe0\x0f\xc0\x07\x80\x01\x00\x01\x00\x01\x00" ]
 }
 
-TULIP_THRIVING_WILTED = {
+FREESIA_THRIVING_WILTED = {
     "width": 13,
     "height": 21,
     "frames": [ b"\x00\x00\x01\x40\x03\x90\x01\xe8\x01\xf0\x01\xe8\x02\x10\x02\x00\x02\x00\x02\x00\x02\x70\x03\xf8\x7b\x00\xff\x20\xc2\x70\x83\xd0\x3f\x90\x77\x00\xe2\x00\x42\x00\x02\x00" ]
 }
 
-TULIP_THRIVING_DEAD = {
+FREESIA_THRIVING_DEAD = {
     "width": 11,
     "height": 12,
     "frames": [ b"\x03\x80\x04\xc0\x09\xc0\x10\xe0\x3c\xe0\x52\x40\x10\xa0\x54\x00\xba\x00\x90\x00\x08\x00\x04\x00" ]
@@ -458,7 +458,7 @@ def _stage_sprite(base):
     return None
 
 
-_TYPES = ('cat_grass', 'tulip', 'rose', 'sunflower')
+_TYPES = ('cat_grass', 'freesia', 'rose', 'sunflower')
 _BASES = ('seedling', 'young', 'growing', 'mature', 'thriving')
 
 PLANT_SPRITES = {}
@@ -511,23 +511,23 @@ PLANT_SPRITES[(_ro, 'thriving')]         = ROSE_THRIVING
 PLANT_SPRITES[(_ro, 'thriving_wilted')]  = ROSE_THRIVING_WILTED
 PLANT_SPRITES[(_ro, 'thriving_dead')]    = ROSE_THRIVING_DEAD
 
-# --- Tulip real sprites (override stubs set above) ---
-_tu = 'tulip'
-PLANT_SPRITES[(_tu, 'seedling')]         = PLANT_SEEDLING
-PLANT_SPRITES[(_tu, 'seedling_wilted')]  = PLANT_SEEDLING_WILTED
-PLANT_SPRITES[(_tu, 'seedling_dead')]    = PLANT_SEEDLING_DEAD
-PLANT_SPRITES[(_tu, 'young')]            = TULIP_YOUNG
-PLANT_SPRITES[(_tu, 'young_wilted')]     = TULIP_YOUNG_WILTED
-PLANT_SPRITES[(_tu, 'young_dead')]       = TULIP_YOUNG_DEAD
-PLANT_SPRITES[(_tu, 'growing')]          = TULIP_GROWING
-PLANT_SPRITES[(_tu, 'growing_wilted')]   = TULIP_GROWING_WILTED
-PLANT_SPRITES[(_tu, 'growing_dead')]     = TULIP_GROWING_DEAD
-PLANT_SPRITES[(_tu, 'mature')]           = TULIP_MATURE
-PLANT_SPRITES[(_tu, 'mature_wilted')]    = TULIP_MATURE_WILTED
-PLANT_SPRITES[(_tu, 'mature_dead')]      = TULIP_MATURE_DEAD
-PLANT_SPRITES[(_tu, 'thriving')]         = TULIP_THRIVING
-PLANT_SPRITES[(_tu, 'thriving_wilted')]  = TULIP_THRIVING_WILTED
-PLANT_SPRITES[(_tu, 'thriving_dead')]    = TULIP_THRIVING_DEAD
+# --- Freesia real sprites (override stubs set above) ---
+_fr = 'freesia'
+PLANT_SPRITES[(_fr, 'seedling')]         = PLANT_SEEDLING
+PLANT_SPRITES[(_fr, 'seedling_wilted')]  = PLANT_SEEDLING_WILTED
+PLANT_SPRITES[(_fr, 'seedling_dead')]    = PLANT_SEEDLING_DEAD
+PLANT_SPRITES[(_fr, 'young')]            = FREESIA_YOUNG
+PLANT_SPRITES[(_fr, 'young_wilted')]     = FREESIA_YOUNG_WILTED
+PLANT_SPRITES[(_fr, 'young_dead')]       = FREESIA_YOUNG_DEAD
+PLANT_SPRITES[(_fr, 'growing')]          = FREESIA_GROWING
+PLANT_SPRITES[(_fr, 'growing_wilted')]   = FREESIA_GROWING_WILTED
+PLANT_SPRITES[(_fr, 'growing_dead')]     = FREESIA_GROWING_DEAD
+PLANT_SPRITES[(_fr, 'mature')]           = FREESIA_MATURE
+PLANT_SPRITES[(_fr, 'mature_wilted')]    = FREESIA_MATURE_WILTED
+PLANT_SPRITES[(_fr, 'mature_dead')]      = FREESIA_MATURE_DEAD
+PLANT_SPRITES[(_fr, 'thriving')]         = FREESIA_THRIVING
+PLANT_SPRITES[(_fr, 'thriving_wilted')]  = FREESIA_THRIVING_WILTED
+PLANT_SPRITES[(_fr, 'thriving_dead')]    = FREESIA_THRIVING_DEAD
 
 # --- Sunflower real sprites (override stubs set above) ---
 _sf = 'sunflower'
@@ -547,4 +547,4 @@ PLANT_SPRITES[(_sf, 'thriving')]         = SUNFLOWER_THRIVING
 PLANT_SPRITES[(_sf, 'thriving_wilted')]  = SUNFLOWER_THRIVING_WILTED
 PLANT_SPRITES[(_sf, 'thriving_dead')]    = SUNFLOWER_THRIVING_DEAD
 
-del _t, _b, _s, _TYPES, _BASES, _cg, _ro, _tu, _sf
+del _t, _b, _s, _TYPES, _BASES, _cg, _ro, _fr, _sf

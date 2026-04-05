@@ -25,7 +25,7 @@ _PLANT_TYPES = {
         'wilt': 1440, 'death': 4320, 'recover': 240,  # 1 day / 3 days
         'stage_hours': (2880, 3600, 4320, 5040),       # 2, 2.5, 3, 3.5 real days
     },
-    'tulip': {
+    'freesia': {
         'wilt': 1440, 'death': 4320, 'recover': 120,  # 1 day / 3 days
         'stage_hours': (4320, 5040, 6480, 7200),       # 3, 3.5, 4.5, 5 real days
         'dormant_in_winter': True,
@@ -145,7 +145,7 @@ def tick_plant(plant, season, weather='Clear'):
         # All outdoor plants pause in winter (no age/debt accumulation).
         return False
 
-    # --- Dormant tulip waking in spring/summer/fall ---
+    # --- Dormant freesia waking in spring/summer/fall ---
     if stage == 'dormant':
         if season != 'Winter':
             plant['stage'] = 'seedling'
@@ -459,7 +459,7 @@ def get_plant_by_id(context, plant_id):
 
 _INSPECT_TYPE_NAMES = {
     'cat_grass': 'Cat Grass',
-    'sunflower': 'Sunflower', 'rose': 'Rose', 'tulip': 'Tulip',
+    'sunflower': 'Sunflower', 'rose': 'Rose', 'freesia': 'Freesia',
 }
 _INSPECT_POT_LABELS = {
     'small': 'Small', 'medium': 'Medium', 'large': 'Large',
