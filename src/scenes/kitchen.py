@@ -2,7 +2,7 @@ import config
 from scenes.main_scene import MainScene
 from environment import Environment, LAYER_FOREGROUND, LAYER_MIDGROUND
 from entities.character import CharacterEntity
-from assets.furniture import BOOKSHELF
+from assets.furniture import BOOKSHELF, FAUCET
 from assets.items import BOX_SMALL_1, FOOD_BOWL
 from clock import ClockWidget
 
@@ -63,3 +63,5 @@ class KitchenScene(MainScene):
             dx = door_wx - offset
             if sx < dx < ex:
                 renderer.draw_line(dx, 28, dx, 57)
+
+        renderer.draw_sprite_obj(FAUCET, 82 - offset, 24-FAUCET["height"])

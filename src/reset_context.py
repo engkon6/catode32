@@ -82,9 +82,9 @@ def _make_starter_plants():
         _p('inside', 'foreground', 140, 63, 'medium', 'cat_grass', stage='thriving', age_hours=80),
 
         _p('kitchen', 'foreground', 10, 63, 'small', 'cat_grass', stage='growing', age_hours=180, mirror=True),
-        _p('kitchen', 'midground', 126, 24, 'medium', 'cat_grass', stage='mature', age_hours=160),
-        _p('kitchen', 'midground', 62, 24, 'small', 'rose', stage='growing', age_hours=85, mirror=True),
-        _p('kitchen', 'midground', 45, 24, 'small', 'cat_grass', stage='growing', age_hours=170),
+        _p('kitchen', 'midground', 130, 24, 'medium', 'cat_grass', stage='mature', age_hours=160),
+        _p('kitchen', 'midground', 46, 24, 'small', 'rose', stage='growing', age_hours=85, mirror=True),
+        _p('kitchen', 'midground', 32, 24, 'small', 'cat_grass', stage='growing', age_hours=170),
 
         _p('outside', 'foreground', 10, 63, 'small', 'cat_grass', stage='growing', age_hours=160),
         _p('outside', 'foreground', 180, 63, 'small', 'freesia', stage='growing', age_hours=155),
