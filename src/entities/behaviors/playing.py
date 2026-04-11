@@ -30,6 +30,12 @@ POUNCE_SLIDE_DURATION = 0.9   # seconds the slide lasts
 # Session constants
 PLAY_MIN_DURATION = 15.0       # seconds before a B-button exit counts as completed
 
+# Shared pounce constants
+POUNCE_RECOVER_DURATION = 0.8  # seconds the cat sits happy between pounces
+POUNCE_CATCH_DURATION = 1.5    # seconds of celebration after the final pounce
+POUNCE_COUNT_MIN = 4           # fewest pounces per session
+POUNCE_COUNT_MAX = 8           # most pounces per session
+
 # Ball variant constants
 BALL_PUSH_FORCE = 140          # pixels/s² acceleration when player holds a direction
 BALL_MAX_SPEED = 65            # max ball speed in pixels per second
@@ -37,12 +43,8 @@ BALL_FRICTION = 0.20           # fraction of speed retained per second (lower = 
 BALL_BOUNCE_DAMPING = 0.55     # fraction of speed kept after hitting a boundary
 BALL_ROLL_RANGE = 60           # max horizontal offset left/right from cat center
 BALL_Y_OFFSET = 8              # pixels above cat's y anchor
-BALL_CATCH_DURATION = 1.5      # seconds of celebration after the final pounce
-BALL_RECOVER_DURATION = 0.8   # seconds the cat sits happy between pounces
 BALL_POUNCE_DELAY_MIN = 2.5   # minimum seconds before each pounce
 BALL_POUNCE_DELAY_MAX = 6.0   # maximum seconds before each pounce
-BALL_POUNCE_COUNT_MIN = 4     # fewest pounces per session
-BALL_POUNCE_COUNT_MAX = 8     # most pounces per session
 
 # Laser variant constants
 LASER_WOBBLE_AMPLITUDE = 8     # pixels of auto-oscillation around user-controlled position
@@ -50,12 +52,8 @@ LASER_WOBBLE_SPEED = 2.5       # radians per second for the wobble sine wave
 LASER_USER_SPEED = 50          # pixels per second when player holds left/right
 LASER_USER_RANGE = 60          # max offset from cat center for player-controlled position
 LASER_Y_OFFSET = 1             # pixels above cat's y anchor
-LASER_CATCH_DURATION = 1.5     # seconds of celebration after the final pounce
-LASER_RECOVER_DURATION = 0.8   # seconds the cat sits happy between pounces
 LASER_POUNCE_DELAY_MIN = 2.0   # minimum seconds before each pounce
 LASER_POUNCE_DELAY_MAX = 5.0   # maximum seconds before each pounce
-LASER_POUNCE_COUNT_MIN = 4     # fewest pounces per session
-LASER_POUNCE_COUNT_MAX = 8     # most pounces per session
 LASER_DOT_RADIUS = 2           # radius in pixels → 5×5 filled circle
 LASER_LINE_TOP_Y = -64         # y coordinate of the off-screen line origin
 
@@ -70,10 +68,6 @@ STRING_ANCHOR_RANGE = 60       # max horizontal offset from cat center for the a
 STRING_ANCHOR_Y = -70          # screen-y offset from char_y → anchor sits just above screen
 STRING_POUNCE_DELAY_MIN = 2.0
 STRING_POUNCE_DELAY_MAX = 8.0
-STRING_POUNCE_COUNT_MIN = 4
-STRING_POUNCE_COUNT_MAX = 8
-STRING_RECOVER_DURATION = 0.8
-STRING_CATCH_DURATION = 1.5
 
 # Feather tip constants (used when variant == "feather")
 FEATHER_SEGMENTS = 8   # fewer rope nodes so feather hangs shorter
@@ -148,17 +142,11 @@ class PlayingBehavior(BaseBehavior):
         self._ball_offset_x = 0.0    # horizontal offset from character.x
         self._ball_vel_x = 0.0       # rolling velocity in pixels per second
         self._ball_rotation = 0.0    # current rotation in degrees (drives frame selection)
-        self._ball_pounce_timer = 0.0
-        self._ball_pounces_total = 3
-        self._ball_pounces_done = 0
 
         # Laser variant state
         self._laser_offset_x = 0.0    # current offset from character.x (wobble + user)
         self._laser_user_x = 0.0      # player-controlled base position
         self._laser_wobble_phase = 0.0 # phase of the auto-oscillation sine wave
-        self._laser_pounce_timer = 0.0 # countdown to next pounce (set each watching phase)
-        self._laser_pounces_total = 3  # total pounces this session (randomised at start)
-        self._laser_pounces_done = 0   # pounces completed so far
         self._laser_line_x_top = 64    # fixed screen-space x for the off-screen line end
 
         # String/feather variant state — all positions are screen-space floats
@@ -169,12 +157,13 @@ class PlayingBehavior(BaseBehavior):
         self._str_oy = [0.0] * STRING_SEGMENTS
         self._str_anchor_x = 0.0       # screen-x of the fixed anchor node
         self._str_node_count = STRING_SEGMENTS  # active node count (fewer for feather)
-        self._str_pounce_timer = 0.0
-        self._str_pounces_total = 3
-        self._str_pounces_done = 0
+        self._str_needs_init = True
 
-        # Shared pounce state
+        # Shared pounce state (only one variant active at a time)
         self._pounce_direction = 1
+        self._pounce_timer = 0.0       # countdown to next pounce
+        self._pounces_total = 3        # total pounces this session
+        self._pounces_done = 0         # pounces completed so far
 
         # Session timer — used to decide if B-button exit earns a reward
         self._session_timer = 0.0
@@ -225,9 +214,9 @@ class PlayingBehavior(BaseBehavior):
         self._laser_user_x = 0.0
         self._laser_wobble_phase = 0.0
         self._laser_offset_x = 0.0
-        self._laser_pounces_total = random.randint(LASER_POUNCE_COUNT_MIN, LASER_POUNCE_COUNT_MAX)
-        self._laser_pounces_done = 0
-        self._laser_pounce_timer = random.uniform(LASER_POUNCE_DELAY_MIN, LASER_POUNCE_DELAY_MAX)
+        self._pounces_total = random.randint(POUNCE_COUNT_MIN, POUNCE_COUNT_MAX)
+        self._pounces_done = 0
+        self._pounce_timer = random.uniform(LASER_POUNCE_DELAY_MIN, LASER_POUNCE_DELAY_MAX)
         self._laser_line_x_top = random.randint(20, 108)
         self._eye_frame_override = _compute_eye_frame(
             self._laser_offset_x, self._character.mirror
@@ -240,9 +229,9 @@ class PlayingBehavior(BaseBehavior):
         self._ball_offset_x = 0.0
         self._ball_vel_x = 0.0
         self._ball_rotation = 0.0
-        self._ball_pounces_total = random.randint(BALL_POUNCE_COUNT_MIN, BALL_POUNCE_COUNT_MAX)
-        self._ball_pounces_done = 0
-        self._ball_pounce_timer = random.uniform(BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX)
+        self._pounces_total = random.randint(POUNCE_COUNT_MIN, POUNCE_COUNT_MAX)
+        self._pounces_done = 0
+        self._pounce_timer = random.uniform(BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX)
         self._eye_frame_override = _compute_eye_frame(
             self._ball_offset_x, self._character.mirror
         )
@@ -252,9 +241,9 @@ class PlayingBehavior(BaseBehavior):
     def _start_string(self):
         """Initialise the dangling string and enter the watching phase."""
         self._str_node_count = FEATHER_SEGMENTS if self._variant == "feather" else STRING_SEGMENTS
-        self._str_pounces_total = random.randint(STRING_POUNCE_COUNT_MIN, STRING_POUNCE_COUNT_MAX)
-        self._str_pounces_done = 0
-        self._str_pounce_timer = random.uniform(STRING_POUNCE_DELAY_MIN, STRING_POUNCE_DELAY_MAX)
+        self._pounces_total = random.randint(POUNCE_COUNT_MIN, POUNCE_COUNT_MAX)
+        self._pounces_done = 0
+        self._pounce_timer = random.uniform(STRING_POUNCE_DELAY_MIN, STRING_POUNCE_DELAY_MAX)
         # Nodes are placed in a straight vertical line; we don't know screen pos
         # yet so we use (0, 0) as placeholder — _update_string will snap them on
         # the first frame using the real char_x/char_y passed to draw().
@@ -346,32 +335,19 @@ class PlayingBehavior(BaseBehavior):
         elif self._phase == "pouncing":
             self._update_ball_pounce(dt)
         elif self._phase == "recovering":
-            self._update_ball_recovering(dt)
+            self._update_recovering(dt, BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX, self._ball_offset_x)
         elif self._phase == "catching":
-            if self._phase_timer >= BALL_CATCH_DURATION:
-                self._progress = 1.0
-                self._character.play_bursts()
-                self.stop(completed=True)
+            self._update_catching(dt)
 
     def _update_ball_rolling(self, dt):
         """Count down to the next pounce."""
-        self._ball_pounce_timer -= dt
-        if self._ball_pounce_timer <= 0:
-            self._begin_ball_pounce()
+        self._pounce_timer -= dt
+        if self._pounce_timer <= 0:
+            self._pounces_done += 1
+            self._begin_pounce(self._ball_offset_x)
             return
 
-        self._progress = self._ball_pounces_done / self._ball_pounces_total
-
-    def _begin_ball_pounce(self):
-        """Start a pounce toward the current ball position."""
-        self._ball_pounces_done += 1
-        direction = 1 if self._ball_offset_x >= 0 else -1
-        self._pounce_direction = direction
-        self._character.mirror = direction > 0
-        self._character.set_pose("leaning_forward.side.pounce")
-        self._eye_frame_override = None
-        self._phase = "pouncing"
-        self._phase_timer = 0.0
+        self._progress = self._pounces_done / self._pounces_total
 
     def _update_ball_pounce(self, dt):
         """Slide the cat toward the ball; keep the ball fixed on screen."""
@@ -387,22 +363,6 @@ class PlayingBehavior(BaseBehavior):
             self._phase_timer = 0.0
             self._character.set_pose("sitting_silly.side.happy")
 
-    def _update_ball_recovering(self, dt):
-        """Brief celebration pose after each pounce."""
-        if self._phase_timer >= BALL_RECOVER_DURATION:
-            if self._ball_pounces_done >= self._ball_pounces_total:
-                self._phase = "catching"
-                self._phase_timer = 0.0
-            else:
-                self._ball_pounce_timer = random.uniform(
-                    BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX
-                )
-                self._eye_frame_override = _compute_eye_frame(
-                    self._ball_offset_x, self._character.mirror
-                )
-                self._phase = "watching"
-                self._phase_timer = 0.0
-                self._character.set_pose("playful.forward.wowed")
 
     # --- String / feather variant ---
 
@@ -414,10 +374,7 @@ class PlayingBehavior(BaseBehavior):
         elif self._phase == "recovering":
             self._update_string_recovering(dt)
         elif self._phase == "catching":
-            if self._phase_timer >= STRING_CATCH_DURATION:
-                self._progress = 1.0
-                self._character.play_bursts()
-                self.stop(completed=True)
+            self._update_catching(dt)
 
     def _str_init_positions(self, anchor_sx, anchor_sy, floor_y):
         """Place nodes in a gentle curve then pre-simulate to a settled state."""
@@ -490,7 +447,7 @@ class PlayingBehavior(BaseBehavior):
         if char_x is None:
             return  # draw() hasn't run yet; skip until positions are known
 
-        if getattr(self, '_str_needs_init', True):
+        if self._str_needs_init:
             anchor_sy = char_y + STRING_ANCHOR_Y
             self._str_init_positions(char_x, anchor_sy, char_y)
 
@@ -567,24 +524,12 @@ class PlayingBehavior(BaseBehavior):
 
         # Pounce countdown — only when actively watching (not during pounce/recover)
         if self._phase == "watching":
-            self._str_pounce_timer -= dt
-            if self._str_pounce_timer <= 0:
-                self._begin_string_pounce(char_x)
+            self._pounce_timer -= dt
+            if self._pounce_timer <= 0:
+                self._pounces_done += 1
+                self._begin_pounce(self._str_px[n - 1] - char_x)
                 return
-            self._progress = self._str_pounces_done / self._str_pounces_total
-
-    def _begin_string_pounce(self, char_x):
-        """Lunge toward the tip of the string."""
-        self._str_pounces_done += 1
-        n = self._str_node_count
-        tip_sx = self._str_px[n - 1]
-        direction = 1 if tip_sx >= char_x else -1
-        self._pounce_direction = direction
-        self._character.mirror = direction > 0
-        self._character.set_pose("leaning_forward.side.pounce")
-        self._eye_frame_override = None
-        self._phase = "pouncing"
-        self._phase_timer = 0.0
+            self._progress = self._pounces_done / self._pounces_total
 
     def _update_string_pounce(self, dt):
         """Slide the cat forward; string physics keep running so it trails naturally."""
@@ -602,12 +547,12 @@ class PlayingBehavior(BaseBehavior):
     def _update_string_recovering(self, dt):
         """Brief celebration; string physics keep running."""
         self._update_string_physics(dt)
-        if self._phase_timer >= STRING_RECOVER_DURATION:
-            if self._str_pounces_done >= self._str_pounces_total:
+        if self._phase_timer >= POUNCE_RECOVER_DURATION:
+            if self._pounces_done >= self._pounces_total:
                 self._phase = "catching"
                 self._phase_timer = 0.0
             else:
-                self._str_pounce_timer = random.uniform(
+                self._pounce_timer = random.uniform(
                     STRING_POUNCE_DELAY_MIN, STRING_POUNCE_DELAY_MAX
                 )
                 self._phase = "watching"
@@ -640,33 +585,19 @@ class PlayingBehavior(BaseBehavior):
         elif self._phase == "pouncing":
             self._update_laser_pounce(dt)
         elif self._phase == "recovering":
-            self._update_laser_recovering(dt)
+            self._update_recovering(dt, LASER_POUNCE_DELAY_MIN, LASER_POUNCE_DELAY_MAX, self._laser_offset_x)
         elif self._phase == "catching":
-            if self._phase_timer >= LASER_CATCH_DURATION:
-                self._progress = 1.0
-                self._character.play_bursts()
-                self.stop(completed=True)
+            self._update_catching(dt)
 
     def _update_laser_rolling(self, dt):
         """Count down to the next pounce."""
-        # Count down to pounce
-        self._laser_pounce_timer -= dt
-        if self._laser_pounce_timer <= 0:
-            self._begin_laser_pounce()
+        self._pounce_timer -= dt
+        if self._pounce_timer <= 0:
+            self._pounces_done += 1
+            self._begin_pounce(self._laser_offset_x)
             return
 
-        self._progress = self._laser_pounces_done / self._laser_pounces_total
-
-    def _begin_laser_pounce(self):
-        """Start a pounce toward the current laser position."""
-        self._laser_pounces_done += 1
-        direction = 1 if self._laser_offset_x >= 0 else -1
-        self._pounce_direction = direction
-        self._character.mirror = direction > 0
-        self._character.set_pose("leaning_forward.side.pounce")
-        self._eye_frame_override = None
-        self._phase = "pouncing"
-        self._phase_timer = 0.0
+        self._progress = self._pounces_done / self._pounces_total
 
     def _update_laser_pounce(self, dt):
         """Slide the cat toward the laser; keep the laser dot fixed on screen."""
@@ -682,39 +613,13 @@ class PlayingBehavior(BaseBehavior):
             self._phase_timer = 0.0
             self._character.set_pose("sitting_silly.side.happy")
 
-    def _update_laser_recovering(self, dt):
-        """Brief celebration pose after each pounce."""
-        if self._phase_timer >= LASER_RECOVER_DURATION:
-            if self._laser_pounces_done >= self._laser_pounces_total:
-                self._phase = "catching"
-                self._phase_timer = 0.0
-            else:
-                self._laser_pounce_timer = random.uniform(
-                    LASER_POUNCE_DELAY_MIN, LASER_POUNCE_DELAY_MAX
-                )
-                self._eye_frame_override = _compute_eye_frame(
-                    self._laser_offset_x, self._character.mirror
-                )
-                self._phase = "watching"
-                self._phase_timer = 0.0
-                self._character.set_pose("playful.forward.wowed")
 
     # ------------------------------------------------------------------
-    # Shared pounce helpers — reusable for other play variants
+    # Shared pounce helpers
     # ------------------------------------------------------------------
 
-    def _begin_pounce(self, offset_x=None):
-        """Transition into the pouncing phase (reusable for any play variant).
-
-        Turns the cat to face the target's side, sets the pounce pose, and
-        releases the eye-tracking override so the side-facing pose looks correct.
-
-        Args:
-            offset_x: Horizontal offset of the target from the cat. Defaults to
-                       the ball's current offset when not provided.
-        """
-        if offset_x is None:
-            offset_x = self._ball_offset_x
+    def _begin_pounce(self, offset_x):
+        """Face the target, set pounce pose, and enter the pouncing phase."""
         self._pounce_direction = 1 if offset_x >= 0 else -1
         self._character.mirror = self._pounce_direction > 0
         self._character.set_pose("leaning_forward.side.pounce")
@@ -722,16 +627,25 @@ class PlayingBehavior(BaseBehavior):
         self._phase = "pouncing"
         self._phase_timer = 0.0
 
-    def _update_pounce(self, dt):
-        """Slide the cat forward during the pounce (reusable for any play variant)."""
-        self._character.x += self._pounce_direction * POUNCE_SLIDE_SPEED * dt
+    def _update_recovering(self, dt, delay_min, delay_max, offset_x):
+        """Brief celebration; then return to watching or end the session."""
+        if self._phase_timer >= POUNCE_RECOVER_DURATION:
+            if self._pounces_done >= self._pounces_total:
+                self._phase = "catching"
+                self._phase_timer = 0.0
+            else:
+                self._pounce_timer = random.uniform(delay_min, delay_max)
+                self._eye_frame_override = _compute_eye_frame(offset_x, self._character.mirror)
+                self._phase = "watching"
+                self._phase_timer = 0.0
+                self._character.set_pose("playful.forward.wowed")
 
-        if self._phase_timer >= POUNCE_SLIDE_DURATION:
-            x_min, x_max = self._get_scene_bounds()
-            self._character.x = max(x_min, min(x_max, self._character.x))
-            self._phase = "catching"
-            self._phase_timer = 0.0
-            self._character.set_pose("sitting_silly.side.happy")
+    def _update_catching(self, dt):
+        """Final celebration phase shared by all interactive variants."""
+        if self._phase_timer >= POUNCE_CATCH_DURATION:
+            self._progress = 1.0
+            self._character.play_bursts()
+            self.stop(completed=True)
 
     # ------------------------------------------------------------------
     # Draw
@@ -796,7 +710,7 @@ class PlayingBehavior(BaseBehavior):
         self._str_last_char_x = char_x
         self._str_last_char_y = char_y
 
-        if getattr(self, '_str_needs_init', True):
+        if self._str_needs_init:
             return  # positions not ready yet
 
         n = self._str_node_count
