@@ -226,7 +226,7 @@ class CharacterEntity(Entity):
         if eye_frame is None and self.current_behavior is not None:
             beh_override = self.current_behavior.eye_frame_override
             if beh_override is not None:
-                eye_frame_idx = beh_override
+                eye_frame_idx = min(beh_override, len(eyes["frames"]) - 1)
         elif eye_frame is not None:
             eye_frame_idx = eye_frame
         eye_x = head_x + self._get_point(head, "eye_x", head_frame, mirror) - self._get_anchor_x(eyes, mirror)

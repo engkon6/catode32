@@ -10,7 +10,6 @@ from assets.items import YARN_BALL
 # Variant configurations
 VARIANTS = {
     "toy": {
-        "bubble": "exclaim",
         "stats": {"playfulness": -8, "energy": -3, "focus": -1},
     },
     "throw_stick": {
@@ -19,7 +18,6 @@ VARIANTS = {
     },
     "ball": {
         "stats": {"playfulness": -8, "energy": -4, "focus": -1},
-        "passes": 4,  # number of half-passes (direction changes) before pouncing
     },
     "laser": {
         "stats": {"playfulness": -6, "energy": -3, "focus": -1},
@@ -31,16 +29,24 @@ POUNCE_SLIDE_SPEED = 28       # pixels per second during the leap slide
 POUNCE_SLIDE_DURATION = 0.9   # seconds the slide lasts
 
 # Ball variant constants
-BALL_ROLL_SPEED = 25           # pixels per second
-BALL_ROLL_RANGE = 28           # max horizontal offset left/right from cat center
+BALL_PUSH_FORCE = 140          # pixels/s² acceleration when player holds a direction
+BALL_MAX_SPEED = 65            # max ball speed in pixels per second
+BALL_FRICTION = 0.20           # fraction of speed retained per second (lower = stops faster)
+BALL_BOUNCE_DAMPING = 0.55     # fraction of speed kept after hitting a boundary
+BALL_ROLL_RANGE = 60           # max horizontal offset left/right from cat center
 BALL_Y_OFFSET = 8              # pixels above cat's y anchor
-BALL_CATCH_DURATION = 1.5      # seconds of celebration after catching
+BALL_CATCH_DURATION = 1.5      # seconds of celebration after the final pounce
+BALL_RECOVER_DURATION = 0.8   # seconds the cat sits happy between pounces
+BALL_POUNCE_DELAY_MIN = 2.5   # minimum seconds before each pounce
+BALL_POUNCE_DELAY_MAX = 6.0   # maximum seconds before each pounce
+BALL_POUNCE_COUNT_MIN = 2     # fewest pounces per session
+BALL_POUNCE_COUNT_MAX = 4     # most pounces per session
 
 # Laser variant constants
 LASER_WOBBLE_AMPLITUDE = 8     # pixels of auto-oscillation around user-controlled position
 LASER_WOBBLE_SPEED = 2.5       # radians per second for the wobble sine wave
 LASER_USER_SPEED = 50          # pixels per second when player holds left/right
-LASER_USER_RANGE = 45          # max offset from cat center for player-controlled position
+LASER_USER_RANGE = 60          # max offset from cat center for player-controlled position
 LASER_Y_OFFSET = 1             # pixels above cat's y anchor
 LASER_CATCH_DURATION = 1.5     # seconds of celebration after the final pounce
 LASER_RECOVER_DURATION = 0.8   # seconds the cat sits happy between pounces
@@ -50,6 +56,22 @@ LASER_POUNCE_COUNT_MIN = 2     # fewest pounces per session
 LASER_POUNCE_COUNT_MAX = 4     # most pounces per session
 LASER_DOT_RADIUS = 2           # radius in pixels → 5×5 filled circle
 LASER_LINE_TOP_Y = -64         # y coordinate of the off-screen line origin
+
+# String (toy) variant constants
+STRING_SEGMENTS = 8            # number of rope nodes (anchor + 6 free nodes)
+STRING_SEG_LEN = 12           # rest length of each segment in pixels (7×11=77px reach)
+STRING_GRAVITY = 120           # pixels per second² downward pull on each node
+STRING_DAMPING = 0.45          # velocity damping per second (lower = more sluggish)
+STRING_ITERATIONS = 3          # constraint solver passes per frame
+STRING_ANCHOR_SPEED = 60       # pixels per second for player-driven anchor movement
+STRING_ANCHOR_RANGE = 60       # max horizontal offset from cat center for the anchor
+STRING_ANCHOR_Y = -70          # screen-y offset from char_y → anchor sits just above screen
+STRING_POUNCE_DELAY_MIN = 2.0
+STRING_POUNCE_DELAY_MAX = 8.0
+STRING_POUNCE_COUNT_MIN = 2
+STRING_POUNCE_COUNT_MAX = 6
+STRING_RECOVER_DURATION = 0.8
+STRING_CATCH_DURATION = 1.5
 
 
 def _compute_eye_frame(ball_offset_x, mirror):
@@ -117,10 +139,12 @@ class PlayingBehavior(BaseBehavior):
         self._bubble = None
 
         # Ball variant state
-        self._ball_offset_x = 0.0   # horizontal offset from character.x (world coords)
-        self._ball_rotation = 0.0   # current rotation in degrees
-        self._ball_direction = 1    # 1 = rolling right, -1 = rolling left
-        self._ball_passes_left = 4
+        self._ball_offset_x = 0.0    # horizontal offset from character.x
+        self._ball_vel_x = 0.0       # rolling velocity in pixels per second
+        self._ball_rotation = 0.0    # current rotation in degrees (drives frame selection)
+        self._ball_pounce_timer = 0.0
+        self._ball_pounces_total = 3
+        self._ball_pounces_done = 0
 
         # Laser variant state
         self._laser_offset_x = 0.0    # current offset from character.x (wobble + user)
@@ -130,6 +154,17 @@ class PlayingBehavior(BaseBehavior):
         self._laser_pounces_total = 3  # total pounces this session (randomised at start)
         self._laser_pounces_done = 0   # pounces completed so far
         self._laser_line_x_top = 64    # fixed screen-space x for the off-screen line end
+
+        # String (toy) variant state — all positions are screen-space floats
+        # _str_px/py: current positions; _str_ox/oy: positions from previous frame
+        self._str_px = [0.0] * STRING_SEGMENTS
+        self._str_py = [0.0] * STRING_SEGMENTS
+        self._str_ox = [0.0] * STRING_SEGMENTS
+        self._str_oy = [0.0] * STRING_SEGMENTS
+        self._str_anchor_x = 0.0       # screen-x of the fixed anchor node
+        self._str_pounce_timer = 0.0
+        self._str_pounces_total = 3
+        self._str_pounces_done = 0
 
         # Shared pounce state
         self._pounce_direction = 1
@@ -166,6 +201,8 @@ class PlayingBehavior(BaseBehavior):
             self._start_ball()
         elif self._variant == "laser":
             self._start_laser()
+        elif self._variant == "toy":
+            self._start_string()
         else:
             config = VARIANTS[self._variant]
             self._bubble = config.get("bubble")
@@ -189,14 +226,29 @@ class PlayingBehavior(BaseBehavior):
 
     def _start_ball(self):
         """Initialise the ball variant state and enter the watching phase."""
-        config = VARIANTS["ball"]
-        self._ball_passes_left = config.get("passes", 4)
-        self._ball_offset_x = BALL_ROLL_RANGE   # start on the right side
+        self._ball_offset_x = 0.0
+        self._ball_vel_x = 0.0
         self._ball_rotation = 0.0
-        self._ball_direction = -1               # roll left first
+        self._ball_pounces_total = random.randint(BALL_POUNCE_COUNT_MIN, BALL_POUNCE_COUNT_MAX)
+        self._ball_pounces_done = 0
+        self._ball_pounce_timer = random.uniform(BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX)
         self._eye_frame_override = _compute_eye_frame(
             self._ball_offset_x, self._character.mirror
         )
+        self._phase = "watching"
+        self._character.set_pose("playful.forward.wowed")
+
+    def _start_string(self):
+        """Initialise the dangling string and enter the watching phase."""
+        self._str_pounces_total = random.randint(STRING_POUNCE_COUNT_MIN, STRING_POUNCE_COUNT_MAX)
+        self._str_pounces_done = 0
+        self._str_pounce_timer = random.uniform(STRING_POUNCE_DELAY_MIN, STRING_POUNCE_DELAY_MAX)
+        # Nodes are placed in a straight vertical line; we don't know screen pos
+        # yet so we use (0, 0) as placeholder — _update_string will snap them on
+        # the first frame using the real char_x/char_y passed to draw().
+        # We store a flag so the first update initialises positions.
+        self._str_needs_init = True
+        self._str_anchor_x = 0.0
         self._phase = "watching"
         self._character.set_pose("playful.forward.wowed")
 
@@ -213,6 +265,8 @@ class PlayingBehavior(BaseBehavior):
             self._update_ball(dt)
         elif self._variant == "laser":
             self._update_laser(dt)
+        elif self._variant == "toy":
+            self._update_string(dt)
         else:
             self._update_default(dt)
 
@@ -244,7 +298,9 @@ class PlayingBehavior(BaseBehavior):
         if self._phase == "watching":
             self._update_ball_rolling(dt)
         elif self._phase == "pouncing":
-            self._update_pounce(dt)
+            self._update_ball_pounce(dt)
+        elif self._phase == "recovering":
+            self._update_ball_recovering(dt)
         elif self._phase == "catching":
             if self._phase_timer >= BALL_CATCH_DURATION:
                 self._progress = 1.0
@@ -252,41 +308,296 @@ class PlayingBehavior(BaseBehavior):
                 self.stop(completed=True)
 
     def _update_ball_rolling(self, dt):
-        """Advance the ball and update eye tracking each frame."""
-        self._ball_offset_x += self._ball_direction * BALL_ROLL_SPEED * dt
+        """Player knocks the ball left/right; it rolls with friction and bounces."""
+        # D-pad applies a push force
+        inp = getattr(self._character.context, 'input', None)
+        if inp:
+            if inp.is_pressed('left'):
+                self._ball_vel_x -= BALL_PUSH_FORCE * dt
+            if inp.is_pressed('right'):
+                self._ball_vel_x += BALL_PUSH_FORCE * dt
+            if self._ball_vel_x > BALL_MAX_SPEED:
+                self._ball_vel_x = BALL_MAX_SPEED
+            elif self._ball_vel_x < -BALL_MAX_SPEED:
+                self._ball_vel_x = -BALL_MAX_SPEED
 
-        # Rotate proportional to distance rolled (d / r * 180/pi degrees)
+        # Friction (exponential decay)
+        self._ball_vel_x *= BALL_FRICTION ** dt
+
+        # Move and update rotation
+        self._ball_offset_x += self._ball_vel_x * dt
         ball_radius = YARN_BALL["width"] / 2.0
-        angle_delta = (self._ball_direction * BALL_ROLL_SPEED * dt
-                       / ball_radius * (180.0 / math.pi))
+        angle_delta = self._ball_vel_x * dt / ball_radius * (180.0 / math.pi)
         self._ball_rotation = (self._ball_rotation + angle_delta) % 360.0
 
-        # Update eye tracking
+        # Bounce off boundaries
+        if self._ball_offset_x >= BALL_ROLL_RANGE:
+            self._ball_offset_x = BALL_ROLL_RANGE
+            self._ball_vel_x = -abs(self._ball_vel_x) * BALL_BOUNCE_DAMPING
+        elif self._ball_offset_x <= -BALL_ROLL_RANGE:
+            self._ball_offset_x = -BALL_ROLL_RANGE
+            self._ball_vel_x = abs(self._ball_vel_x) * BALL_BOUNCE_DAMPING
+
+        # Eye tracking
         self._eye_frame_override = _compute_eye_frame(
             self._ball_offset_x, self._character.mirror
         )
 
-        # Check if ball reached a boundary
-        if self._ball_direction > 0 and self._ball_offset_x >= BALL_ROLL_RANGE:
-            self._ball_offset_x = BALL_ROLL_RANGE
-            self._ball_passes_left -= 1
-            if self._ball_passes_left <= 0:
-                self._begin_pounce()
-            else:
-                self._ball_direction = -1
+        # Pounce countdown
+        self._ball_pounce_timer -= dt
+        if self._ball_pounce_timer <= 0:
+            self._begin_ball_pounce()
+            return
 
-        elif self._ball_direction < 0 and self._ball_offset_x <= -BALL_ROLL_RANGE:
-            self._ball_offset_x = -BALL_ROLL_RANGE
-            self._ball_passes_left -= 1
-            if self._ball_passes_left <= 0:
-                self._begin_pounce()
-            else:
-                self._ball_direction = 1
+        self._progress = self._ball_pounces_done / self._ball_pounces_total
 
-        # Track overall progress (watching counts as 0-90% to leave room for pounce)
-        total = VARIANTS["ball"].get("passes", 4)
-        done = total - self._ball_passes_left
-        self._progress = min(0.9, done / total)
+    def _begin_ball_pounce(self):
+        """Start a pounce toward the current ball position."""
+        self._ball_pounces_done += 1
+        direction = 1 if self._ball_offset_x >= 0 else -1
+        self._pounce_direction = direction
+        self._character.mirror = direction > 0
+        self._character.set_pose("leaning_forward.side.pounce")
+        self._eye_frame_override = None
+        self._phase = "pouncing"
+        self._phase_timer = 0.0
+
+    def _update_ball_pounce(self, dt):
+        """Slide the cat toward the ball; keep the ball fixed on screen."""
+        slide = self._pounce_direction * POUNCE_SLIDE_SPEED * dt
+        self._character.x += slide
+        self._ball_offset_x -= slide  # keep ball at same screen position
+
+        if self._phase_timer >= POUNCE_SLIDE_DURATION:
+            x_min, x_max = self._get_scene_bounds()
+            self._character.x = max(x_min, min(x_max, self._character.x))
+            self._ball_vel_x = 0.0
+            self._phase = "recovering"
+            self._phase_timer = 0.0
+            self._character.set_pose("sitting_silly.side.happy")
+
+    def _update_ball_recovering(self, dt):
+        """Brief celebration pose after each pounce."""
+        if self._phase_timer >= BALL_RECOVER_DURATION:
+            if self._ball_pounces_done >= self._ball_pounces_total:
+                self._phase = "catching"
+                self._phase_timer = 0.0
+            else:
+                self._ball_pounce_timer = random.uniform(
+                    BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX
+                )
+                self._eye_frame_override = _compute_eye_frame(
+                    self._ball_offset_x, self._character.mirror
+                )
+                self._phase = "watching"
+                self._phase_timer = 0.0
+                self._character.set_pose("playful.forward.wowed")
+
+    # --- String (toy) variant ---
+
+    def _update_string(self, dt):
+        if self._phase == "watching":
+            self._update_string_physics(dt)
+        elif self._phase == "pouncing":
+            self._update_string_pounce(dt)
+        elif self._phase == "recovering":
+            self._update_string_recovering(dt)
+        elif self._phase == "catching":
+            if self._phase_timer >= STRING_CATCH_DURATION:
+                self._progress = 1.0
+                self._character.play_bursts()
+                self.stop(completed=True)
+
+    def _str_init_positions(self, anchor_sx, anchor_sy, floor_y):
+        """Place nodes in a gentle curve then pre-simulate to a settled state."""
+        # Spawn with a sine curve so the string looks naturally draped rather than
+        # snapping from a rigid straight line.  Amplitude tapers toward the tip.
+        curve_amp = random.uniform(4.0, 9.0)
+        curve_dir = random.choice((-1, 1))
+        for i in range(STRING_SEGMENTS):
+            t = i / max(STRING_SEGMENTS - 1, 1)  # 0.0 at anchor, 1.0 at tip
+            x_off = curve_dir * curve_amp * math.sin(t * math.pi)
+            self._str_px[i] = anchor_sx + x_off
+            self._str_py[i] = anchor_sy + i * STRING_SEG_LEN
+            self._str_ox[i] = self._str_px[i]
+            self._str_oy[i] = self._str_py[i]
+        self._str_anchor_x = anchor_sx
+
+        # Run several settling steps so the string appears hanging correctly from frame 1
+        settle_dt = 1.0 / 12.0
+        for _ in range(30):
+            damp = STRING_DAMPING ** settle_dt
+            for i in range(1, STRING_SEGMENTS):
+                px, py = self._str_px[i], self._str_py[i]
+                ox, oy = self._str_ox[i], self._str_oy[i]
+                vx = (px - ox) * damp
+                vy = (py - oy) * damp + STRING_GRAVITY * settle_dt * settle_dt
+                self._str_ox[i] = px
+                self._str_oy[i] = py
+                self._str_px[i] = px + vx
+                self._str_py[i] = py + vy
+            self._str_ox[0] = self._str_px[0]
+            self._str_oy[0] = self._str_py[0]
+            self._str_px[0] = anchor_sx
+            self._str_py[0] = anchor_sy
+            for _ in range(STRING_ITERATIONS):
+                for i in range(STRING_SEGMENTS - 1):
+                    ax, ay = self._str_px[i], self._str_py[i]
+                    bx, by = self._str_px[i + 1], self._str_py[i + 1]
+                    ddx = bx - ax
+                    ddy = by - ay
+                    dist = math.sqrt(ddx * ddx + ddy * ddy)
+                    if dist < 0.001:
+                        dist = 0.001
+                    correction = (dist - STRING_SEG_LEN) / dist * 0.5
+                    cx_ = ddx * correction
+                    cy_ = ddy * correction
+                    if i == 0:
+                        self._str_px[i + 1] -= cx_ * 2
+                        self._str_py[i + 1] -= cy_ * 2
+                    else:
+                        self._str_px[i] += cx_
+                        self._str_py[i] += cy_
+                        self._str_px[i + 1] -= cx_
+                        self._str_py[i + 1] -= cy_
+            # Floor clamp after constraints
+            for i in range(1, STRING_SEGMENTS):
+                if self._str_py[i] > floor_y:
+                    self._str_py[i] = floor_y
+                    self._str_oy[i] = floor_y
+
+        self._str_needs_init = False
+
+    def _update_string_physics(self, dt):
+        """Verlet integration + distance constraints for the dangling string."""
+        # We need the current screen position of the cat.  The behavior receives
+        # it via draw() but update() runs before draw() each frame.  We cache the
+        # last known screen-x from draw() in self._str_last_char_x/y.
+        char_x = getattr(self, '_str_last_char_x', None)
+        char_y = getattr(self, '_str_last_char_y', None)
+        if char_x is None:
+            return  # draw() hasn't run yet; skip until positions are known
+
+        if getattr(self, '_str_needs_init', True):
+            anchor_sy = char_y + STRING_ANCHOR_Y
+            self._str_init_positions(char_x, anchor_sy, char_y)
+
+        # Move anchor based on player input
+        inp = getattr(self._character.context, 'input', None)
+        if inp:
+            if inp.is_pressed('left'):
+                self._str_anchor_x -= STRING_ANCHOR_SPEED * dt
+            if inp.is_pressed('right'):
+                self._str_anchor_x += STRING_ANCHOR_SPEED * dt
+        lo = char_x - STRING_ANCHOR_RANGE
+        hi = char_x + STRING_ANCHOR_RANGE
+        if self._str_anchor_x < lo:
+            self._str_anchor_x = lo
+        elif self._str_anchor_x > hi:
+            self._str_anchor_x = hi
+
+        anchor_sy = char_y + STRING_ANCHOR_Y
+
+        # Verlet integrate all free nodes (skip index 0 = anchor)
+        damp = STRING_DAMPING ** dt
+        for i in range(1, STRING_SEGMENTS):
+            px, py = self._str_px[i], self._str_py[i]
+            ox, oy = self._str_ox[i], self._str_oy[i]
+            # velocity ≈ (current - previous), then damp and add gravity
+            vx = (px - ox) * damp
+            vy = (py - oy) * damp + STRING_GRAVITY * dt * dt
+            self._str_ox[i] = px
+            self._str_oy[i] = py
+            self._str_px[i] = px + vx
+            self._str_py[i] = py + vy
+
+        # Fix the anchor node
+        self._str_ox[0] = self._str_px[0]
+        self._str_oy[0] = self._str_py[0]
+        self._str_px[0] = self._str_anchor_x
+        self._str_py[0] = anchor_sy
+
+        # Constraint solver: enforce segment lengths
+        for _ in range(STRING_ITERATIONS):
+            for i in range(STRING_SEGMENTS - 1):
+                ax, ay = self._str_px[i], self._str_py[i]
+                bx, by = self._str_px[i + 1], self._str_py[i + 1]
+                dx = bx - ax
+                dy = by - ay
+                dist = math.sqrt(dx * dx + dy * dy)
+                if dist < 0.001:
+                    dist = 0.001
+                correction = (dist - STRING_SEG_LEN) / dist * 0.5
+                cx_ = dx * correction
+                cy_ = dy * correction
+                if i == 0:
+                    # Anchor is fixed; push only the child
+                    self._str_px[i + 1] -= cx_ * 2
+                    self._str_py[i + 1] -= cy_ * 2
+                else:
+                    self._str_px[i] += cx_
+                    self._str_py[i] += cy_
+                    self._str_px[i + 1] -= cx_
+                    self._str_py[i + 1] -= cy_
+
+        # Floor clamp after constraints — zeroing velocity at floor prevents bouncing
+        for i in range(1, STRING_SEGMENTS):
+            if self._str_py[i] > char_y:
+                self._str_py[i] = char_y
+                self._str_oy[i] = char_y
+
+        # Eye tracking toward the tip
+        tip_sx = self._str_px[STRING_SEGMENTS - 1]
+        tip_offset = tip_sx - char_x
+        self._eye_frame_override = _compute_eye_frame(tip_offset, self._character.mirror)
+
+        # Pounce countdown — only when actively watching (not during pounce/recover)
+        if self._phase == "watching":
+            self._str_pounce_timer -= dt
+            if self._str_pounce_timer <= 0:
+                self._begin_string_pounce(char_x)
+                return
+            self._progress = self._str_pounces_done / self._str_pounces_total
+
+    def _begin_string_pounce(self, char_x):
+        """Lunge toward the tip of the string."""
+        self._str_pounces_done += 1
+        tip_sx = self._str_px[STRING_SEGMENTS - 1]
+        direction = 1 if tip_sx >= char_x else -1
+        self._pounce_direction = direction
+        self._character.mirror = direction > 0
+        self._character.set_pose("leaning_forward.side.pounce")
+        self._eye_frame_override = None
+        self._phase = "pouncing"
+        self._phase_timer = 0.0
+
+    def _update_string_pounce(self, dt):
+        """Slide the cat forward; string physics keep running so it trails naturally."""
+        self._character.x += self._pounce_direction * POUNCE_SLIDE_SPEED * dt
+        # Keep physics alive (uses cached char positions from last draw)
+        self._update_string_physics(dt)
+
+        if self._phase_timer >= POUNCE_SLIDE_DURATION:
+            x_min, x_max = self._get_scene_bounds()
+            self._character.x = max(x_min, min(x_max, self._character.x))
+            self._phase = "recovering"
+            self._phase_timer = 0.0
+            self._character.set_pose("sitting_silly.side.happy")
+
+    def _update_string_recovering(self, dt):
+        """Brief celebration; string physics keep running."""
+        self._update_string_physics(dt)
+        if self._phase_timer >= STRING_RECOVER_DURATION:
+            if self._str_pounces_done >= self._str_pounces_total:
+                self._phase = "catching"
+                self._phase_timer = 0.0
+            else:
+                self._str_pounce_timer = random.uniform(
+                    STRING_POUNCE_DELAY_MIN, STRING_POUNCE_DELAY_MAX
+                )
+                self._phase = "watching"
+                self._phase_timer = 0.0
+                self._character.set_pose("playful.forward.wowed")
 
     # --- Laser variant ---
 
@@ -422,29 +733,26 @@ class PlayingBehavior(BaseBehavior):
             self._draw_ball(renderer, char_x, char_y)
         elif self._variant == "laser":
             self._draw_laser(renderer, char_x, char_y)
+        elif self._variant == "toy":
+            self._draw_string(renderer, char_x, char_y)
         elif self._bubble and self._phase == "excited":
             progress = min(1.0, self._phase_timer / self.excited_duration)
             draw_bubble(renderer, self._bubble, char_x, char_y, progress, mirror)
 
     def _draw_ball(self, renderer, char_x, char_y):
-        """Draw the rolling yarn ball (visible during watching and pouncing phases)."""
-        if self._phase not in ("watching", "pouncing"):
+        """Draw the rolling yarn ball (visible in all active phases)."""
+        if self._phase not in ("watching", "pouncing", "recovering"):
             return
 
         hw = YARN_BALL["width"] // 2
         hh = YARN_BALL["height"] // 2
-        # char_x is already the screen x (world x minus camera offset), so the
-        # ball's screen x is simply char_x plus its offset from the cat.
         ball_x = char_x + int(self._ball_offset_x) - hw
         ball_y = char_y - BALL_Y_OFFSET - hh
 
-        renderer.draw_sprite_obj(
-            YARN_BALL,
-            ball_x,
-            ball_y,
-            frame=0,
-            rotate=int(self._ball_rotation),
-        )
+        # Map rotation to the nearest pre-baked 90° frame (0°/90°/180°/270°)
+        frame = int(self._ball_rotation // 90) % 4
+
+        renderer.draw_sprite_obj(YARN_BALL, ball_x, ball_y, frame=frame)
 
     def _draw_laser(self, renderer, char_x, char_y):
         """Draw the laser dot and beam line (always together while visible)."""
@@ -462,3 +770,32 @@ class PlayingBehavior(BaseBehavior):
 
         # Draw the 5×5 laser dot as a filled circle
         renderer.draw_circle(dot_x, dot_y, LASER_DOT_RADIUS, filled=True)
+
+    def _draw_string(self, renderer, char_x, char_y):
+        """Draw the dangling string as connected line segments.
+
+        Also caches the current screen position so _update_string_physics() can
+        use real coordinates without needing them passed through update().
+        """
+        if self._phase not in ("watching", "pouncing", "recovering"):
+            return
+
+        # Cache positions for the physics update
+        self._str_last_char_x = char_x
+        self._str_last_char_y = char_y
+
+        if getattr(self, '_str_needs_init', True):
+            return  # positions not ready yet
+
+        # Draw each segment
+        for i in range(STRING_SEGMENTS - 1):
+            x1 = int(self._str_px[i])
+            y1 = int(self._str_py[i])
+            x2 = int(self._str_px[i + 1])
+            y2 = int(self._str_py[i + 1])
+            renderer.draw_line(x1, y1, x2, y2)
+
+        # Small filled circle at the tip to make it visible
+        tx = int(self._str_px[STRING_SEGMENTS - 1])
+        ty = int(self._str_py[STRING_SEGMENTS - 1])
+        renderer.draw_circle(tx, ty, 1, filled=True)

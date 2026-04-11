@@ -322,8 +322,10 @@ class Renderer:
         # If sprite has fill_frames, draw the fill first (in black)
         # Invert so white fill becomes black, use white as transparent color
         if "fill_frames" in sprite:
+            fill_frames = sprite["fill_frames"]
+            fill_frame = fill_frames[frame if frame < len(fill_frames) else 0]
             self.draw_sprite(
-                sprite["fill_frames"][frame],
+                fill_frame,
                 sprite["width"],
                 sprite["height"],
                 x, y,
