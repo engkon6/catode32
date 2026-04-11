@@ -27,6 +27,7 @@ class Game:
         self.input = InputHandler()
         self.context = GameContext()
         self.context.load()
+        self.context.input = self.input  # expose input to behaviors
 
         if config.WIFI_ENABLED:
             espnow = EspNowManager()

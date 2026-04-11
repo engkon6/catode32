@@ -278,8 +278,15 @@ class MainScene(Scene):
             self.menu.open(self._build_menu_items())
             return None
 
+        # Suppress camera panning while the player is steering the laser
+        laser_active = (
+            self.character
+            and getattr(self.character.current_behavior, '_variant', None) == 'laser'
+            and getattr(self.character.current_behavior, 'active', False)
+            and getattr(self.character.current_behavior, '_phase', None) == 'watching'
+        )
         dx, dy = self.input.get_direction()
-        if dx != 0:
+        if dx != 0 and not laser_active:
             self.environment.pan(dx * config.PAN_SPEED)
 
         return None
