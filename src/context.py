@@ -175,7 +175,11 @@ class GameContext:
             if 'food_stock' in data:
                 self.food_stock.update(data['food_stock'])
             if 'toys' in data:
-                self.inventory['toys'] = data['toys']
+                _valid_variants = {'string', 'feather', 'ball', 'laser'}
+                self.inventory['toys'] = [
+                    t for t in data['toys']
+                    if t.get('variant') in _valid_variants
+                ]
             if 'pots' in data:
                 self.inventory['pots'].update(data['pots'])
             if 'seeds' in data:

@@ -9,11 +9,10 @@ from assets.items import YARN_BALL
 
 # Variant configurations
 VARIANTS = {
-    "toy": {
+    "string": {
         "stats": {"playfulness": -8, "energy": -3, "focus": -1},
     },
-    "throw_stick": {
-        "bubble": "star",
+    "feather": {
         "stats": {"playfulness": -6, "energy": -5, "focus": -1},
     },
     "ball": {
@@ -57,7 +56,7 @@ LASER_POUNCE_COUNT_MAX = 4     # most pounces per session
 LASER_DOT_RADIUS = 2           # radius in pixels → 5×5 filled circle
 LASER_LINE_TOP_Y = -64         # y coordinate of the off-screen line origin
 
-# String (toy) variant constants
+# String variant constants
 STRING_SEGMENTS = 8            # number of rope nodes (anchor + 6 free nodes)
 STRING_SEG_LEN = 12           # rest length of each segment in pixels (7×11=77px reach)
 STRING_GRAVITY = 120           # pixels per second² downward pull on each node
@@ -72,6 +71,10 @@ STRING_POUNCE_COUNT_MIN = 2
 STRING_POUNCE_COUNT_MAX = 6
 STRING_RECOVER_DURATION = 0.8
 STRING_CATCH_DURATION = 1.5
+
+# Feather tip constants (used when variant == "feather")
+FEATHER_SEGMENTS = 8   # fewer rope nodes so feather hangs shorter
+FEATHER_WIDTH = 2      # perpendicular vane width in pixels
 
 
 def _compute_eye_frame(ball_offset_x, mirror):
@@ -100,7 +103,7 @@ def _compute_eye_frame(ball_offset_x, mirror):
 class PlayingBehavior(BaseBehavior):
     """Pet plays energetically.
 
-    Default variants (toy / throw_stick) phases:
+    Default variants phases:
     1. excited  - Pet reacts with a speech bubble
     2. playing  - Active play animation
     3. tired    - Pet winds down
@@ -135,7 +138,7 @@ class PlayingBehavior(BaseBehavior):
         self.tired_duration = random.uniform(1.0, 10.0)
 
         # Active variant
-        self._variant = "toy"
+        self._variant = "string"
         self._bubble = None
 
         # Ball variant state
@@ -155,13 +158,14 @@ class PlayingBehavior(BaseBehavior):
         self._laser_pounces_done = 0   # pounces completed so far
         self._laser_line_x_top = 64    # fixed screen-space x for the off-screen line end
 
-        # String (toy) variant state — all positions are screen-space floats
+        # String/feather variant state — all positions are screen-space floats
         # _str_px/py: current positions; _str_ox/oy: positions from previous frame
         self._str_px = [0.0] * STRING_SEGMENTS
         self._str_py = [0.0] * STRING_SEGMENTS
         self._str_ox = [0.0] * STRING_SEGMENTS
         self._str_oy = [0.0] * STRING_SEGMENTS
         self._str_anchor_x = 0.0       # screen-x of the fixed anchor node
+        self._str_node_count = STRING_SEGMENTS  # active node count (fewer for feather)
         self._str_pounce_timer = 0.0
         self._str_pounces_total = 3
         self._str_pounces_done = 0
@@ -194,14 +198,14 @@ class PlayingBehavior(BaseBehavior):
         if self._active:
             return
         super().start(on_complete)
-        self._variant = variant if variant in VARIANTS else "toy"
+        self._variant = variant if variant in VARIANTS else "string"
         self._eye_frame_override = None
 
         if self._variant == "ball":
             self._start_ball()
         elif self._variant == "laser":
             self._start_laser()
-        elif self._variant == "toy":
+        elif self._variant in ("string", "feather"):
             self._start_string()
         else:
             config = VARIANTS[self._variant]
@@ -240,6 +244,7 @@ class PlayingBehavior(BaseBehavior):
 
     def _start_string(self):
         """Initialise the dangling string and enter the watching phase."""
+        self._str_node_count = FEATHER_SEGMENTS if self._variant == "feather" else STRING_SEGMENTS
         self._str_pounces_total = random.randint(STRING_POUNCE_COUNT_MIN, STRING_POUNCE_COUNT_MAX)
         self._str_pounces_done = 0
         self._str_pounce_timer = random.uniform(STRING_POUNCE_DELAY_MIN, STRING_POUNCE_DELAY_MAX)
@@ -265,12 +270,12 @@ class PlayingBehavior(BaseBehavior):
             self._update_ball(dt)
         elif self._variant == "laser":
             self._update_laser(dt)
-        elif self._variant == "toy":
+        elif self._variant in ("string", "feather"):
             self._update_string(dt)
         else:
             self._update_default(dt)
 
-    # --- Default (toy / throw_stick) ---
+    # --- Default ---
 
     def _update_default(self, dt):
         if self._phase == "excited":
@@ -393,7 +398,7 @@ class PlayingBehavior(BaseBehavior):
                 self._phase_timer = 0.0
                 self._character.set_pose("playful.forward.wowed")
 
-    # --- String (toy) variant ---
+    # --- String / feather variant ---
 
     def _update_string(self, dt):
         if self._phase == "watching":
@@ -412,10 +417,11 @@ class PlayingBehavior(BaseBehavior):
         """Place nodes in a gentle curve then pre-simulate to a settled state."""
         # Spawn with a sine curve so the string looks naturally draped rather than
         # snapping from a rigid straight line.  Amplitude tapers toward the tip.
+        n = self._str_node_count
         curve_amp = random.uniform(4.0, 9.0)
         curve_dir = random.choice((-1, 1))
-        for i in range(STRING_SEGMENTS):
-            t = i / max(STRING_SEGMENTS - 1, 1)  # 0.0 at anchor, 1.0 at tip
+        for i in range(n):
+            t = i / max(n - 1, 1)
             x_off = curve_dir * curve_amp * math.sin(t * math.pi)
             self._str_px[i] = anchor_sx + x_off
             self._str_py[i] = anchor_sy + i * STRING_SEG_LEN
@@ -427,7 +433,7 @@ class PlayingBehavior(BaseBehavior):
         settle_dt = 1.0 / 12.0
         for _ in range(30):
             damp = STRING_DAMPING ** settle_dt
-            for i in range(1, STRING_SEGMENTS):
+            for i in range(1, n):
                 px, py = self._str_px[i], self._str_py[i]
                 ox, oy = self._str_ox[i], self._str_oy[i]
                 vx = (px - ox) * damp
@@ -441,7 +447,7 @@ class PlayingBehavior(BaseBehavior):
             self._str_px[0] = anchor_sx
             self._str_py[0] = anchor_sy
             for _ in range(STRING_ITERATIONS):
-                for i in range(STRING_SEGMENTS - 1):
+                for i in range(n - 1):
                     ax, ay = self._str_px[i], self._str_py[i]
                     bx, by = self._str_px[i + 1], self._str_py[i + 1]
                     ddx = bx - ax
@@ -461,7 +467,7 @@ class PlayingBehavior(BaseBehavior):
                         self._str_px[i + 1] -= cx_
                         self._str_py[i + 1] -= cy_
             # Floor clamp after constraints
-            for i in range(1, STRING_SEGMENTS):
+            for i in range(1, n):
                 if self._str_py[i] > floor_y:
                     self._str_py[i] = floor_y
                     self._str_oy[i] = floor_y
@@ -498,9 +504,11 @@ class PlayingBehavior(BaseBehavior):
 
         anchor_sy = char_y + STRING_ANCHOR_Y
 
+        n = self._str_node_count
+
         # Verlet integrate all free nodes (skip index 0 = anchor)
         damp = STRING_DAMPING ** dt
-        for i in range(1, STRING_SEGMENTS):
+        for i in range(1, n):
             px, py = self._str_px[i], self._str_py[i]
             ox, oy = self._str_ox[i], self._str_oy[i]
             # velocity ≈ (current - previous), then damp and add gravity
@@ -519,7 +527,7 @@ class PlayingBehavior(BaseBehavior):
 
         # Constraint solver: enforce segment lengths
         for _ in range(STRING_ITERATIONS):
-            for i in range(STRING_SEGMENTS - 1):
+            for i in range(n - 1):
                 ax, ay = self._str_px[i], self._str_py[i]
                 bx, by = self._str_px[i + 1], self._str_py[i + 1]
                 dx = bx - ax
@@ -541,13 +549,13 @@ class PlayingBehavior(BaseBehavior):
                     self._str_py[i + 1] -= cy_
 
         # Floor clamp after constraints — zeroing velocity at floor prevents bouncing
-        for i in range(1, STRING_SEGMENTS):
+        for i in range(1, n):
             if self._str_py[i] > char_y:
                 self._str_py[i] = char_y
                 self._str_oy[i] = char_y
 
         # Eye tracking toward the tip
-        tip_sx = self._str_px[STRING_SEGMENTS - 1]
+        tip_sx = self._str_px[n - 1]
         tip_offset = tip_sx - char_x
         self._eye_frame_override = _compute_eye_frame(tip_offset, self._character.mirror)
 
@@ -562,7 +570,8 @@ class PlayingBehavior(BaseBehavior):
     def _begin_string_pounce(self, char_x):
         """Lunge toward the tip of the string."""
         self._str_pounces_done += 1
-        tip_sx = self._str_px[STRING_SEGMENTS - 1]
+        n = self._str_node_count
+        tip_sx = self._str_px[n - 1]
         direction = 1 if tip_sx >= char_x else -1
         self._pounce_direction = direction
         self._character.mirror = direction > 0
@@ -733,7 +742,7 @@ class PlayingBehavior(BaseBehavior):
             self._draw_ball(renderer, char_x, char_y)
         elif self._variant == "laser":
             self._draw_laser(renderer, char_x, char_y)
-        elif self._variant == "toy":
+        elif self._variant in ("string", "feather"):
             self._draw_string(renderer, char_x, char_y)
         elif self._bubble and self._phase == "excited":
             progress = min(1.0, self._phase_timer / self.excited_duration)
@@ -787,15 +796,84 @@ class PlayingBehavior(BaseBehavior):
         if getattr(self, '_str_needs_init', True):
             return  # positions not ready yet
 
-        # Draw each segment
-        for i in range(STRING_SEGMENTS - 1):
-            x1 = int(self._str_px[i])
-            y1 = int(self._str_py[i])
-            x2 = int(self._str_px[i + 1])
-            y2 = int(self._str_py[i + 1])
-            renderer.draw_line(x1, y1, x2, y2)
+        n = self._str_node_count
 
-        # Small filled circle at the tip to make it visible
-        tx = int(self._str_px[STRING_SEGMENTS - 1])
-        ty = int(self._str_py[STRING_SEGMENTS - 1])
-        renderer.draw_circle(tx, ty, 1, filled=True)
+        if self._variant == "feather":
+            # Draw all segments except the last, then draw the feather which IS the last segment
+            for i in range(n - 2):
+                renderer.draw_line(
+                    int(self._str_px[i]), int(self._str_py[i]),
+                    int(self._str_px[i + 1]), int(self._str_py[i + 1]),
+                )
+            self._draw_feather_tip(
+                renderer,
+                self._str_px[n - 2], self._str_py[n - 2],
+                self._str_px[n - 1], self._str_py[n - 1],
+            )
+        else:
+            # Draw all segments plus a small dot at the tip
+            for i in range(n - 1):
+                renderer.draw_line(
+                    int(self._str_px[i]), int(self._str_py[i]),
+                    int(self._str_px[i + 1]), int(self._str_py[i + 1]),
+                )
+            tx = int(self._str_px[n - 1])
+            ty = int(self._str_py[n - 1])
+            renderer.draw_circle(tx, ty, 1, filled=True)
+
+    def _draw_feather_tip(self, renderer, base_x, base_y, tip_x, tip_y):
+        """Draw a feather vane at tip_x/y in the quill direction.
+
+        Exact geometry from reference (45° case, f=quill, n=perpendicular):
+          Outline:
+            A(0,0) → B(L,0)           spine
+            C(1.036L, 0.33W) → D(0.964L, W)  tip cap
+            D(0.964L, W) → E(0.32L, W)       far edge (parallel to spine)
+            E(0.32L, W) → F(0.21L, 0)        base cap
+          Fill (black, drawn first):
+            (0.32L,0.33W) → (0.964L,0.33W)   at 1/3 width
+            (0.36L,0.67W) → (0.93L, 0.67W)   at 2/3 width
+        """
+        ddx = tip_x - base_x
+        ddy = tip_y - base_y
+        mag = math.sqrt(ddx * ddx + ddy * ddy)
+        if mag < 0.001:
+            return
+        fx = ddx / mag
+        fy = ddy / mag
+        nx = fy        # right-hand perpendicular
+        ny = -fx
+
+        # L = actual segment length.
+        # All fractions derived directly from the reference pixel coordinates.
+        L = mag
+        W = float(FEATHER_WIDTH)
+
+        def p(fl, wl):
+            return int(base_x + fx*fl + nx*wl), int(base_y + fy*fl + ny*wl)
+
+        # Exact fractions from reference (spine = 14√2, W = 3/√2):
+        # A=(0,0)  B=(14,14)  C=(15,14)  D=(15,12)  E=(6,3)  F=(3,3)
+        # forward fractions of L=14√2:  B=1.0, C=1.036, D=0.964, E=0.321, F=0.214
+        # perp fractions of W=3/√2:     C=0.33, D=1.0, E=1.0, F=0.0
+        A = p(0,        0)
+        B = p(L,        0)
+        C = p(L*1.036,  W*0.33)
+        D = p(L*0.964,  W)
+        E = p(L*0.321,  W)
+        F = p(L*0.214,  0)
+
+        # Fill 1: (5,4)→(14,13) = p(L*0.321, W*0.33) → p(L*0.964, W*0.33)
+        # Fill 2: (6,4)→(14,12) = p(L*0.357, W*0.67) → p(L*0.929, W*0.67)
+        # Fill 3: F→E covers the base-cap triangle (E and F share the same w-strip)
+        G = p(L*0.321, W*0.33);  H = p(L*0.964, W*0.33)
+        I = p(L*0.357, W*0.67);  J = p(L*0.929, W*0.67)
+        renderer.draw_line(F[0], F[1], G[0], G[1], 0)   # base triangle diagonal
+        renderer.draw_line(G[0], G[1], H[0], H[1], 0)   # fill at 1/3 width
+        renderer.draw_line(I[0], I[1], J[0], J[1], 0)   # fill at 2/3 width
+
+        # 4 white outline lines
+        renderer.draw_line(A[0], A[1], B[0], B[1])   # spine
+        renderer.draw_line(C[0], C[1], D[0], D[1])   # tip cap
+        renderer.draw_line(D[0], D[1], E[0], E[1])   # far edge
+        renderer.draw_line(E[0], E[1], F[0], F[1])   # base cap

@@ -42,7 +42,7 @@ _SNACK_ITEMS = (
 # (store_label, full_name, variant, cost)
 _TOY_ITEMS = (
     ("String",  "String",         "string",  20),
-    ("Feather", "Feather",        "toy",     35),
+    ("Feather", "Feather",        "feather", 35),
     ("Yarn",    "Yarn Ball",      "ball",    50),
     ("Laser",   "Laser Pointer",  "laser",   75),
 )
