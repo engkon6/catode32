@@ -1,5 +1,7 @@
 """Eating behavior for the character entity."""
 
+import random
+
 from entities.behaviors.base import BaseBehavior
 
 
@@ -16,38 +18,57 @@ class EatingBehavior(BaseBehavior):
 
     NAME = "eating"
 
-    # Config for each food type: stat effects and how fast it's eaten
+    # Config for each food type: stat effects, eating speed, and appeal.
+    # appeal: 0.0 = easily rejected, 1.0 = cat loves it — shifts the fullness
+    # threshold at which the cat may refuse food.
     FOOD_CONFIG = {
         # Meals
-        "kibble":     {"stats": {"fullness": 45, "energy": 2, "fitness": 2}, "eating_speed": 0.45},
-        "cod":        {"stats": {"fullness": 45, "energy": 2, "affection": 2, "curiosity": 1}, "eating_speed": 0.45},
-        "haddock":    {"stats": {"fullness": 45, "energy": 3, "affection": 2}, "eating_speed": 0.45},
-        "trout":      {"stats": {"fullness": 45, "energy": 3, "affection": 3}, "eating_speed": 0.45},
-        "shrimp":     {"stats": {"fullness": 25, "energy": 2, "affection": 4, "playfulness": 3, "curiosity": 2}, "eating_speed": 0.5},
-        "herring":    {"stats": {"fullness": 45, "energy": 4, "fitness": 2, "affection": 2}, "eating_speed": 0.45},
-        "turkey":     {"stats": {"fullness": 50, "energy": 3, "fitness": 3, "serenity": 3}, "eating_speed": 0.4},
-        "tuna":       {"stats": {"fullness": 40, "energy": 3, "affection": 7, "playfulness": 2, "mischievousness": 1}, "eating_speed": 0.45},
-        "salmon":     {"stats": {"fullness": 50, "energy": 5, "fitness": 4, "affection": 2}, "eating_speed": 0.45},
-        "chicken":    {"stats": {"fullness": 55, "energy": 6, "affection": 4}, "eating_speed": 0.5},
-        "liver":      {"stats": {"fullness": 55, "energy": 5, "fitness": 5, "affection": 3}, "eating_speed": 0.45},
-        "beef":       {"stats": {"fullness": 55, "energy": 4, "fitness": 2, "affection": 4, "comfort": 2}, "eating_speed": 0.45},
-        "lamb":       {"stats": {"fullness": 55, "energy": 3, "affection": 4, "comfort": 4, "serenity": 2}, "eating_speed": 0.45},
+        "kibble":     {"stats": {"fullness": 45, "energy": 2, "fitness": 2}, "eating_speed": 0.45, "appeal": 0.2},
+        "cod":        {"stats": {"fullness": 45, "energy": 2, "affection": 2, "curiosity": 1}, "eating_speed": 0.45, "appeal": 0.4},
+        "haddock":    {"stats": {"fullness": 45, "energy": 3, "affection": 2}, "eating_speed": 0.45, "appeal": 0.5},
+        "trout":      {"stats": {"fullness": 45, "energy": 3, "affection": 3}, "eating_speed": 0.45, "appeal": 0.6},
+        "shrimp":     {"stats": {"fullness": 25, "energy": 2, "affection": 4, "playfulness": 3, "curiosity": 2}, "eating_speed": 0.5, "appeal": 0.65},
+        "herring":    {"stats": {"fullness": 45, "energy": 4, "fitness": 2, "affection": 2}, "eating_speed": 0.45, "appeal": 0.5},
+        "turkey":     {"stats": {"fullness": 50, "energy": 3, "fitness": 3, "serenity": 3}, "eating_speed": 0.4, "appeal": 0.6},
+        "tuna":       {"stats": {"fullness": 40, "energy": 3, "affection": 7, "playfulness": 2, "mischievousness": 1}, "eating_speed": 0.45, "appeal": 0.9},
+        "salmon":     {"stats": {"fullness": 50, "energy": 5, "fitness": 4, "affection": 2}, "eating_speed": 0.45, "appeal": 0.8},
+        "chicken":    {"stats": {"fullness": 55, "energy": 6, "affection": 4}, "eating_speed": 0.5, "appeal": 0.7},
+        "liver":      {"stats": {"fullness": 55, "energy": 5, "fitness": 5, "affection": 3}, "eating_speed": 0.45, "appeal": 0.65},
+        "beef":       {"stats": {"fullness": 55, "energy": 4, "fitness": 2, "affection": 4, "comfort": 2}, "eating_speed": 0.45, "appeal": 0.7},
+        "lamb":       {"stats": {"fullness": 55, "energy": 3, "affection": 4, "comfort": 4, "serenity": 2}, "eating_speed": 0.45, "appeal": 0.85},
 
-        # Hunted / special
-        "caught_snack": {"stats": {"fullness": 20}, "eating_speed": 0.5},
+        # Hunted / special (cat caught it — never rejected)
+        "caught_snack": {"stats": {"fullness": 20}, "eating_speed": 0.5, "appeal": 1.0},
 
         # Snacks
-        "carrots":    {"stats": {"fullness": 2, "affection": 1}, "eating_speed": 1},
-        "pumpkin":    {"stats": {"fullness": 3, "fitness": 2}, "eating_speed": 1},
-        "treats":     {"stats": {"fullness": 2, "affection": 3, "playfulness": 1}, "eating_speed": 1.25},
-        "fish_bite":  {"stats": {"fullness": 4, "affection": 2, "playfulness": 1, "curiosity": 2}, "eating_speed": 1.25},
-        "eggs":       {"stats": {"fullness": 8, "energy": 3, "fitness": 3}, "eating_speed": 1.25},
-        "nugget":     {"stats": {"fullness": 12, "energy": 3, "affection": 2}, "eating_speed": 1.25},
-        "milk":       {"stats": {"fullness": 8, "affection": 3, "comfort": 5, "mischievousness": 1}, "eating_speed": 1.5},
-        "chew_stick": {"stats": {"fullness": 6, "fitness": 1, "playfulness": 2, "comfort": 3}, "eating_speed": 1.0},
-        "puree":      {"stats": {"fullness": 8, "affection": 4, "comfort": 4, "fulfillment": 2}, "eating_speed": 1.5},
+        "carrots":    {"stats": {"fullness": 2, "affection": 1}, "eating_speed": 1, "appeal": 0.15},
+        "pumpkin":    {"stats": {"fullness": 3, "fitness": 2}, "eating_speed": 1, "appeal": 0.25},
+        "treats":     {"stats": {"fullness": 2, "affection": 3, "playfulness": 1}, "eating_speed": 1.25, "appeal": 0.75},
+        "fish_bite":  {"stats": {"fullness": 4, "affection": 2, "playfulness": 1, "curiosity": 2}, "eating_speed": 1.25, "appeal": 0.8},
+        "eggs":       {"stats": {"fullness": 8, "energy": 3, "fitness": 3}, "eating_speed": 1.25, "appeal": 0.5},
+        "nugget":     {"stats": {"fullness": 12, "energy": 3, "affection": 2}, "eating_speed": 1.25, "appeal": 0.55},
+        "milk":       {"stats": {"fullness": 8, "affection": 3, "comfort": 5, "mischievousness": 1}, "eating_speed": 1.5, "appeal": 0.7},
+        "chew_stick": {"stats": {"fullness": 6, "fitness": 1, "playfulness": 2, "comfort": 3}, "eating_speed": 1.0, "appeal": 0.4},
+        "puree":      {"stats": {"fullness": 8, "affection": 4, "comfort": 4, "fulfillment": 2}, "eating_speed": 1.5, "appeal": 0.85},
     }
-    DEFAULT_FOOD_CONFIG = {"stats": {"fullness": 8}, "eating_speed": 0.4}
+    DEFAULT_FOOD_CONFIG = {"stats": {"fullness": 8}, "eating_speed": 0.4, "appeal": 0.5}
+
+    # Snack/treat items (from treat pile) get a higher rejection threshold than meals.
+    SNACK_TYPES = frozenset((
+        "carrots", "pumpkin", "treats", "fish_bite",
+        "eggs", "nugget", "milk", "chew_stick", "puree",
+    ))
+
+    # Poses the cat may use when inspecting but rejecting food.
+    REJECTION_POSES = (
+        "standing.side.neutral_looking_down",
+        "sitting.side.looking_down",
+        "laying.side.neutral2",
+        "laying.side.bored",
+        "sitting_silly.side.neutral",
+    )
+
+    REJECTION_LOOK_DURATION = 4.5  # Seconds cat studies the food before walking away
 
     FOOD_OFFSET_X = 34  # Horizontal offset of food from character anchor
 
@@ -58,10 +79,28 @@ class EatingBehavior(BaseBehavior):
         self._food_frame = 0.0
         self._food_y_progress = 0.0  # 0 = above screen, 1 = ground level
         self._food_type = None
+        self._rejecting = False
 
         self.eating_speed = 0.4   # Food frames per second during eating phase (set per food)
         self.lower_duration = 1.0  # Time for food to lower
         self.pause_duration = 1.5  # Pre/post eating pause
+
+    @classmethod
+    def _rejection_chance(cls, food_type, fullness, is_snack=False):
+        """Return probability (0.0–1.0) that the cat refuses this food at this fullness.
+
+        Uses a linear ramp from 0% at `start` to 100% at fullness=100.
+        The midpoint (50% rejection) is: 76 + appeal*8 for meals,
+        86 + appeal*8 for snacks — so meals are rejected more readily.
+        """
+        config = cls.FOOD_CONFIG.get(food_type, cls.DEFAULT_FOOD_CONFIG)
+        appeal = config.get("appeal", 0.5)
+        base = 86 if is_snack else 76
+        midpoint = base + appeal * 8
+        start = 2 * midpoint - 100
+        if fullness <= start:
+            return 0.0
+        return min(1.0, (fullness - start) / (100.0 - start))
 
     @property
     def progress(self):
@@ -84,9 +123,24 @@ class EatingBehavior(BaseBehavior):
         config = self.FOOD_CONFIG.get(food_type, self.DEFAULT_FOOD_CONFIG)
         self.eating_speed = config["eating_speed"]
 
+        context = self._character.context
+        if context:
+            is_snack = food_type in self.SNACK_TYPES
+            chance = self._rejection_chance(food_type, context.fullness, is_snack)
+            self._rejecting = random.random() < chance
+        else:
+            self._rejecting = False
+
         self._character.set_pose("standing.side.happy")
 
+    def next(self, context):
+        if self._rejecting:
+            return 'meandering'
+        return None
+
     def get_completion_bonus(self, context):
+        if self._rejecting:
+            return {}
         config = self.FOOD_CONFIG.get(self._food_type, self.DEFAULT_FOOD_CONFIG)
         bonus = dict(config["stats"])
         return self.apply_location_bonus(context, bonus)
@@ -119,9 +173,13 @@ class EatingBehavior(BaseBehavior):
             progress = self._phase_timer / self.lower_duration
             self._food_y_progress = min(progress, 1.0)
             if progress >= 1.0:
-                self._phase = "pre_eating"
                 self._phase_timer = 0.0
-                self._character.set_pose("leaning_forward.side.neutral")
+                if self._rejecting:
+                    self._phase = "rejecting"
+                    self._character.set_pose(random.choice(self.REJECTION_POSES))
+                else:
+                    self._phase = "pre_eating"
+                    self._character.set_pose("leaning_forward.side.neutral")
 
         elif phase == "pre_eating":
             if self._phase_timer >= self.pause_duration:
@@ -137,6 +195,10 @@ class EatingBehavior(BaseBehavior):
                 self._phase = "post_eating"
                 self._phase_timer = 0.0
                 self._character.set_pose("leaning_forward.side.neutral")
+
+        elif phase == "rejecting":
+            if self._phase_timer >= self.REJECTION_LOOK_DURATION:
+                self.stop()
 
         elif phase == "post_eating":
             if self._phase_timer >= self.pause_duration:
