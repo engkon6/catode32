@@ -33,7 +33,7 @@ class BeingGroomedBehavior(BaseBehavior):
         "comfort": 2,
 
         # Medium changers
-        "cleanliness": 15,
+        "cleanliness": 20,
         "affection": 2,
         "sociability": 2.5,
         "fulfillment": 2.5,

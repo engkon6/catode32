@@ -41,7 +41,7 @@ STATS_CONFIG = [
     {"name": "Health",        "key": "health",        "icon": ICON_HEALTH,
      "desc": "Overall wellbeing, derived from all other stats. No single action raises it directly. Keep fitness, fullness, energy, comfort, and affection balanced for the best results."},
     {"name": "Fullness",      "key": "fullness",      "icon": ICON_FULLNESS,
-     "desc": "How satisfied your pet's belly is. Feed treats and meals to fill it. Activity burns through it, especially sleep, play, and exercise."},
+     "desc": "How satisfied your pet's belly is. Feed treats and meals to fill it. Activity burns through it, especially sleep and exercise."},
     {"name": "Energy",        "key": "energy",        "icon": ICON_ENERGY,
      "desc": "How rested and ready your pet is. Restored by sleeping and napping. Burns down during active behaviors like playing, zoomies, training, and hunting."},
     {"name": "Comfort",       "key": "comfort",       "icon": ICON_COMFORT,
