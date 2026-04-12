@@ -97,6 +97,7 @@ class StatsScene(Scene):
 
     def load(self):
         super().load()
+        self.write_to_terminal()
 
     def unload(self):
         super().unload()
@@ -112,6 +113,12 @@ class StatsScene(Scene):
 
     def update(self, dt):
         pass
+    
+    def write_to_terminal(self):
+        print("--- Stats ---")
+        for stat in STATS_CONFIG:
+            value = getattr(self.context, stat["key"], 0)
+            print("%s: %d%%" % (stat["name"], int(value)))
 
     # ------------------------------------------------------------------
     # Drawing
