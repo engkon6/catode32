@@ -65,20 +65,20 @@ class NappingBehavior(BaseBehavior):
         if scene in ('outside', 'treehouse') and weather in ('Rain', 'Storm', 'Snow'):
             bonus['comfort'] = bonus.get('comfort', 0) - 7
         if getattr(context, 'in_familiar_location', False):
-            bonus['serenity'] = bonus.get('serenity', 0) + 2
+            bonus['serenity'] = bonus.get('serenity', 0) + 1.5
         else:
             bonus['serenity'] = bonus.get('serenity', 0) - 1
             bonus['comfort'] = bonus.get('comfort', 0) * 0.9
         if context.meteor_shower_happening:
-            bonus['serenity'] = bonus.get('serenity', 0) + 2
-            bonus['fulfillment'] = bonus.get('fulfillment', 0) + 1
+            bonus['serenity'] = bonus.get('serenity', 0) + 1.5
+            bonus['fulfillment'] = bonus.get('fulfillment', 0) + 0.75
         if getattr(context, 'in_cat_bed', False):
             bonus['energy'] = bonus.get('energy', 0) * 1.15
             bonus['comfort'] = bonus.get('comfort', 0) + 5
-            bonus['serenity'] = bonus.get('serenity', 0) + 2
+            bonus['serenity'] = bonus.get('serenity', 0) + 1.5
         ph = getattr(context, 'scene_plant_health', 0)
         if ph != 0:
-            bonus['serenity'] = bonus.get('serenity', 0) + ph * 0.15
+            bonus['serenity'] = bonus.get('serenity', 0) + ph * 0.1
             bonus['comfort'] = bonus.get('comfort', 0) + ph * 0.1
         return bonus
     

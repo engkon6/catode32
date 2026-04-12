@@ -25,7 +25,7 @@ class GiftBringingBehavior(BaseBehavior):
         "affection": 0.25,
 
         # Extra slow changers
-        "loyalty": 0.05,
+        "loyalty": 0.1,
     }
 
     GIFT_OFFSET_X = 30

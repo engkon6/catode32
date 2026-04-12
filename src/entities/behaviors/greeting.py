@@ -30,7 +30,7 @@ class GreetingBehavior(BaseBehavior):
     NAME = 'greeting'
 
     COMPLETION_BONUS = {
-        'sociability': 0.5,
+        'sociability': 0.25,
         'affection':   0.3,
         'serenity':    0.1,
     }

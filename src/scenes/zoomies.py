@@ -135,7 +135,7 @@ class ZoomiesScene(Scene):
             print(f"Reward scale: {progress}")
             self.context.apply_stat_changes({
                 'energy':      -5 * progress,
-                'fitness':      4 * progress,
+                'fitness':      5 * progress,
                 'fulfillment':  3 * progress,
                 'fullness':    -3 * progress,
                 'playfulness':  3 * progress,

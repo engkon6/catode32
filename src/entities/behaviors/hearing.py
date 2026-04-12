@@ -18,7 +18,7 @@ class HearingBehavior(BaseBehavior):
     NAME = "hearing"
 
     COMPLETION_BONUS = {
-        "sociability": 0.4,
+        "sociability": 0.2,
     }
 
     def __init__(self, character):

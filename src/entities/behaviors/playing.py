@@ -170,7 +170,8 @@ class PlayingBehavior(BaseBehavior):
             for stat in ('energy', 'playfulness'):
                 if stat in bonus:
                     bonus[stat] = bonus[stat] * 0.75
-            bonus['fitness'] = bonus.get('fitness', 0) + 0.01
+            bonus['fitness'] = bonus.get('fitness', 0) + 1.0
+        bonus['loyalty'] = bonus.get('loyalty', 0) + 0.2
         return bonus
 
     def next(self, context):
