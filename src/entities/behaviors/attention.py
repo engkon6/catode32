@@ -5,6 +5,9 @@ from entities.behaviors.base import BaseBehavior
 from assets.icons import EXCLAIM
 from ui import draw_bubble
 
+_REJECTION_DURATION = 5.0
+_REJECTION_STAT_MULTIPLIER = 0.5
+
 
 _PHASE1_DURATION = 1.5  # question mark
 _PHASE2_DURATION = 1.5  # exclamation mark
@@ -44,23 +47,56 @@ class AttentionBehavior(BaseBehavior):
     1. noticing  - Question mark bubble, sitting_silly.side.neutral
     2. realizing - Exclamation mark rises, sitting_silly.side.aloof
     3. happy     - No bubble, sitting_silly.side.happy
+
+    Rejection (psst only):
+    - Cat holds a disinterested pose for ~5s, half stat rewards, then meanders.
     """
 
     NAME = "attention"
 
-    def __init__(self, character):
-        """Initialize the attention behavior.
+    REJECTION_POSES = (
+        "standing.side.neutral_looking_down",
+        "sitting.side.looking_down",
+        "laying.side.neutral2",
+        "laying.side.bored",
+        "sitting_silly.side.neutral",
+        "standing.side.annoyed",
+        "laying.side.annoyed",
+        "laying.side.content",
+        "sitting_licking.side.licking_leg",
+    )
 
-        Args:
-            character: The CharacterEntity this behavior belongs to.
-        """
+    _REJECTION_THRESHOLDS = {
+        "affection":   25,
+        "comfort":     30,
+        "sociability": 25,
+        "courage":     20,
+    }
+
+    @classmethod
+    def _rejection_chance(cls, context):
+        complement = 1.0
+        for stat, threshold in cls._REJECTION_THRESHOLDS.items():
+            val = getattr(context, stat, 100)
+            if val < threshold:
+                deficit = (threshold - val) / threshold
+                complement *= (1.0 - deficit)
+        return 1.0 - complement
+
+    def __init__(self, character):
         super().__init__(character)
         self._variant = "psst"
+        self._rejecting = False
 
     def get_completion_bonus(self, context):
-        return dict(VARIANTS[self._variant].get("stats", {}))
+        bonus = dict(VARIANTS[self._variant].get("stats", {}))
+        if self._rejecting:
+            bonus = {k: v * _REJECTION_STAT_MULTIPLIER for k, v in bonus.items()}
+        return bonus
 
     def next(self, context):
+        if self._rejecting:
+            return 'meandering'
         if self._variant == "point_bird" and context:
             chance = 0.25 * ((context.playfulness + context.curiosity) / 100)
             if random.random() < chance:
@@ -72,6 +108,18 @@ class AttentionBehavior(BaseBehavior):
             return
         self._variant = variant if variant in VARIANTS else "psst"
         super().start(on_complete)
+
+        context = self._character.context
+        if context and self._variant == "psst":
+            self._rejecting = random.random() < self._rejection_chance(context)
+        else:
+            self._rejecting = False
+
+        if self._rejecting:
+            self._phase = "rejecting"
+            self._character.set_pose(random.choice(self.REJECTION_POSES))
+            return
+
         self._phase = "noticing"
         self._character.set_pose("sitting_silly.side.neutral")
 
@@ -85,6 +133,11 @@ class AttentionBehavior(BaseBehavior):
             return
 
         self._phase_timer += dt
+
+        if self._phase == "rejecting":
+            if self._phase_timer >= _REJECTION_DURATION:
+                self.stop(completed=True)
+            return
 
         if self._phase == "noticing":
             self._progress = min(1.0, self._phase_timer / _PHASE1_DURATION)

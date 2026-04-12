@@ -1,6 +1,7 @@
 """Affection behavior for kiss and pets interactions."""
 
 import math
+import random
 from entities.behaviors.base import BaseBehavior
 from assets.items import HAND, HAND_SCRATCH
 from ui import draw_bubble
@@ -72,33 +73,64 @@ class AffectionBehavior(BaseBehavior):
     """Handles kiss and pets interactions.
 
     Single "reacting" phase that displays a bubble and reverts pose on completion.
+    When the cat rejects affection, it holds a laying pose for the full duration
+    with no heart bubble, and the hand is drawn lower to match. Stats are awarded
+    at 0.5x so the player can still gradually build affection.
     """
 
     NAME = "affection"
 
-    def __init__(self, character):
-        """Initialize the affection behavior.
+    # Laying-only poses for rejection (hand position adjusts to match).
+    REJECTION_POSES = (
+        "laying.side.neutral2",
+        "laying.side.bored",
+        "laying.side.annoyed",
+        "laying.side.content",
+    )
 
-        Args:
-            character: The CharacterEntity this behavior belongs to.
-        """
+    # Hand y-offset reduction when the cat is laying (tunable).
+    REJECTION_HAND_Y_OFFSET = 30
+
+    REJECTION_STAT_MULTIPLIER = 0.5
+
+    _REJECTION_THRESHOLDS = {
+        "affection":   25,
+        "comfort":     30,
+        "sociability": 25,
+        "courage":     20,
+    }
+
+    @classmethod
+    def _rejection_chance(cls, context):
+        complement = 1.0
+        for stat, threshold in cls._REJECTION_THRESHOLDS.items():
+            val = getattr(context, stat, 100)
+            if val < threshold:
+                deficit = (threshold - val) / threshold
+                complement *= (1.0 - deficit)
+        return 1.0 - complement
+
+    def __init__(self, character):
         super().__init__(character)
         self._bubble = None
         self._duration = 8.0
         self._variant = "pets"
+        self._rejecting = False
 
     def get_completion_bonus(self, context):
         bonus = dict(VARIANTS[self._variant].get("stats", {}))
         if getattr(context, 'in_familiar_location', False):
             bonus['affection'] = bonus.get('affection', 0) * 1.2
-            bonus['serenity'] = bonus.get('serenity', 0) + 0.5  # more open to affection at home
+            bonus['serenity'] = bonus.get('serenity', 0) + 0.5
         else:
-            bonus['affection'] = bonus.get('affection', 0) * 0.85  # distracted away from home
+            bonus['affection'] = bonus.get('affection', 0) * 0.85
         ph = getattr(context, 'scene_plant_health', 0)
         if ph != 0:
             bonus['affection'] = bonus.get('affection', 0) + ph * 0.1
             bonus['comfort'] = bonus.get('comfort', 0) + ph * 0.1
             bonus['fulfillment'] = bonus.get('fulfillment', 0) + ph * 0.05
+        if self._rejecting:
+            bonus = {k: v * self.REJECTION_STAT_MULTIPLIER for k, v in bonus.items()}
         return bonus
 
     def start(self, variant=None, on_complete=None):
@@ -108,11 +140,20 @@ class AffectionBehavior(BaseBehavior):
         config = VARIANTS[self._variant]
         super().start(on_complete)
         self._phase = "reacting"
-        self._bubble = config["bubble"]
         self._duration = config["duration"]
 
-        # Set reaction pose
-        self._character.set_pose(config["pose"])
+        context = self._character.context
+        if context:
+            self._rejecting = random.random() < self._rejection_chance(context)
+        else:
+            self._rejecting = False
+
+        if self._rejecting:
+            self._bubble = None
+            self._character.set_pose(random.choice(self.REJECTION_POSES))
+        else:
+            self._bubble = config["bubble"]
+            self._character.set_pose(config["pose"])
 
     def update(self, dt):
         """Update the reaction.
@@ -136,16 +177,10 @@ class AffectionBehavior(BaseBehavior):
         super().stop(completed=completed)
 
     def draw(self, renderer, char_x, char_y, mirror=False):
-        """Draw the speech bubble.
-
-        Args:
-            renderer: The renderer to draw with.
-            char_x: Character's x position on screen.
-            char_y: Character's y position.
-            mirror: If True, character is facing right.
-        """
         if self._active and self._bubble:
             draw_bubble(renderer, self._bubble, char_x, char_y, self._progress, mirror)
+
+        hand_y_adjust = self.REJECTION_HAND_Y_OFFSET if self._rejecting else 0
 
         if self._active and self._variant == "pets":
             sweep_speed = 1.2
@@ -153,7 +188,7 @@ class AffectionBehavior(BaseBehavior):
             t = raw if raw <= 1.0 else 2.0 - raw  # 0 -> 1 -> 0
 
             arc_span = 30
-            base_height = 50
+            base_height = 50 - hand_y_adjust
             arc_lift = 5
 
             offset = int(arc_span * (t - 0.5))
@@ -168,7 +203,7 @@ class AffectionBehavior(BaseBehavior):
             t = raw if raw <= 1.0 else 2.0 - raw  # 0 -> 1 -> 0
 
             jitter_span = 8
-            base_height = 52
+            base_height = 52 - hand_y_adjust
             vertical_range = 4
 
             offset = int(jitter_span * (t - 0.5))

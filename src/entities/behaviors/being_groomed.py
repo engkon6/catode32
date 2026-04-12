@@ -18,6 +18,10 @@ class BeingGroomedBehavior(BaseBehavior):
     1. accepting  - Pet adjusts and lets the player start
     2. enjoying   - Relaxed, purring, showing a heart bubble
     3. satisfied  - Content shake-out, all done
+
+    Rejection:
+    - Cat holds a laying pose for the full duration; brush still draws at normal
+      height. Half stat rewards so grooming an unhappy cat still helps slowly.
     """
 
     NAME = "being_groomed"
@@ -43,26 +47,57 @@ class BeingGroomedBehavior(BaseBehavior):
         "courage": 0.15,
     }
 
+    REJECTION_POSES = (
+        "laying.side.neutral2",
+        "laying.side.bored",
+        "laying.side.annoyed",
+        "laying.side.content",
+    )
+
+    REJECTION_STAT_MULTIPLIER = 0.5
+
+    _REJECTION_THRESHOLDS = {
+        "affection":   25,
+        "comfort":     30,
+        "sociability": 25,
+        "courage":     20,
+    }
+
+    @classmethod
+    def _rejection_chance(cls, context):
+        complement = 1.0
+        for stat, threshold in cls._REJECTION_THRESHOLDS.items():
+            val = getattr(context, stat, 100)
+            if val < threshold:
+                deficit = (threshold - val) / threshold
+                complement *= (1.0 - deficit)
+        return 1.0 - complement
+
     def __init__(self, character):
         super().__init__(character)
+        self._rejecting = False
         self.accept_duration = 1.5
         self.enjoy_duration = 16.0
         self.satisfy_duration = 1.5
 
     def get_completion_bonus(self, context):
         bonus = dict(super().get_completion_bonus(context))
-        return self.apply_location_bonus(context, bonus)
+        bonus = self.apply_location_bonus(context, bonus)
+        if self._rejecting:
+            bonus = {k: v * self.REJECTION_STAT_MULTIPLIER for k, v in bonus.items()}
+        return bonus
 
     def apply_location_bonus(self, context, bonus):
         if getattr(context, 'in_familiar_location', False):
             bonus['affection'] = bonus.get('affection', 0) * 1.2
-            bonus['serenity'] = bonus.get('serenity', 0) + 0.5   # fully relaxed into grooming at home
+            bonus['serenity'] = bonus.get('serenity', 0) + 0.5
         else:
-            bonus['serenity'] = bonus.get('serenity', 0) * 0.7   # on-edge, can't melt into it
+            bonus['serenity'] = bonus.get('serenity', 0) * 0.7
         return bonus
 
     def next(self, context):
-        # Inline self-grooming trigger: cleanliness < 57 and energy > 30
+        if self._rejecting:
+            return None
         if context.cleanliness < 70 and context.energy > 30 and random.random() < 0.4:
             return 'self_grooming'
         return None
@@ -71,9 +106,21 @@ class BeingGroomedBehavior(BaseBehavior):
         if self._active:
             return
         super().start(on_complete)
+        self.enjoy_duration = random.randint(10, 30)
+
+        context = self._character.context
+        if context:
+            self._rejecting = random.random() < self._rejection_chance(context)
+        else:
+            self._rejecting = False
+
+        if self._rejecting:
+            self._phase = "enjoying"
+            self._character.set_pose(random.choice(self.REJECTION_POSES))
+            return
+
         self._phase = "accepting"
         self._character.set_pose("leaning_forward.side.neutral")
-        self.enjoy_duration = random.randint(10, 30)
 
     def update(self, dt):
         if not self._active:
@@ -90,6 +137,9 @@ class BeingGroomedBehavior(BaseBehavior):
         elif self._phase == "enjoying":
             self._progress = min(1.0, self._phase_timer / self.enjoy_duration)
             if self._phase_timer >= self.enjoy_duration:
+                if self._rejecting:
+                    self.stop(completed=True)
+                    return
                 self._phase = "satisfied"
                 self._phase_timer = 0.0
                 self._character.set_pose("sitting.side.happy")
@@ -104,11 +154,12 @@ class BeingGroomedBehavior(BaseBehavior):
         if not self._active or self._phase != "enjoying":
             return
 
-        bubble_start = self.enjoy_duration / 2
-        bubble_end = bubble_start + 5.0
-        if bubble_start <= self._phase_timer < bubble_end:
-            bubble_progress = (self._phase_timer - bubble_start) / 5.0
-            draw_bubble(renderer, "heart", char_x, char_y, bubble_progress, mirror)
+        if not self._rejecting:
+            bubble_start = self.enjoy_duration / 2
+            bubble_end = bubble_start + 5.0
+            if bubble_start <= self._phase_timer < bubble_end:
+                bubble_progress = (self._phase_timer - bubble_start) / 5.0
+                draw_bubble(renderer, "heart", char_x, char_y, bubble_progress, mirror)
 
         # Brush arc: triangle-wave sweep, parabolic arc lift at the peak
         sweep_speed = 0.7  # sweeps per second

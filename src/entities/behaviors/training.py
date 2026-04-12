@@ -14,6 +14,9 @@ class TrainingBehavior(BaseBehavior):
     1. warming_up   - Gets into position and focused
     2. training     - The active session
     3. cooling_down - Wraps up, catches breath
+
+    Rejection:
+    - Cat holds a disinterested pose for ~5s then meanders away.
     """
 
     NAME = "training"
@@ -46,8 +49,45 @@ class TrainingBehavior(BaseBehavior):
         "begging.side.demanding",
     ]
 
+    REJECTION_POSES = (
+        "standing.side.neutral_looking_down",
+        "sitting.side.looking_down",
+        "laying.side.neutral2",
+        "laying.side.bored",
+        "sitting_silly.side.neutral",
+        "standing.side.annoyed",
+        "laying.side.annoyed",
+        "laying.side.content",
+        "sitting_licking.side.licking_leg",
+    )
+
+    REJECTION_DURATION = 5.0
+
+    _REJECTION_THRESHOLDS = {
+        "energy":      30,
+        "focus":       30,
+        "courage":     25,
+        "sociability": 25,
+    }
+
+    @classmethod
+    def _rejection_chance(cls, context):
+        complement = 1.0
+        for stat, threshold in cls._REJECTION_THRESHOLDS.items():
+            val = getattr(context, stat, 100)
+            if val < threshold:
+                deficit = (threshold - val) / threshold
+                complement *= (1.0 - deficit)
+        return 1.0 - complement
+
+    def get_completion_bonus(self, context):
+        if self._rejecting:
+            return {}
+        return self.COMPLETION_BONUS
+
     def __init__(self, character):
         super().__init__(character)
+        self._rejecting = False
         self.warmup_duration = random.uniform(1.0, 5.0)
         self.train_duration = random.uniform(10.0, 30.0)
         self.cooldown_duration = random.uniform(1.0, 5.0)
@@ -57,6 +97,8 @@ class TrainingBehavior(BaseBehavior):
         self._pose_duration = 0.0
 
     def next(self, context):
+        if self._rejecting:
+            return 'meandering'
         if random.random() < 0.5:
             return 'playing'
         return None
@@ -65,6 +107,18 @@ class TrainingBehavior(BaseBehavior):
         if self._active:
             return
         super().start(on_complete)
+
+        context = self._character.context
+        if context:
+            self._rejecting = random.random() < self._rejection_chance(context)
+        else:
+            self._rejecting = False
+
+        if self._rejecting:
+            self._phase = "rejecting"
+            self._character.set_pose(random.choice(self.REJECTION_POSES))
+            return
+
         self._phase = "warming_up"
         idx = random.randint(0, 2)
         offset = random.randint(1, 2)
@@ -82,6 +136,11 @@ class TrainingBehavior(BaseBehavior):
             return
 
         self._phase_timer += dt
+
+        if self._phase == "rejecting":
+            if self._phase_timer >= self.REJECTION_DURATION:
+                self.stop(completed=True)
+            return
 
         if self._phase == "warming_up":
             if self._phase_timer >= self.warmup_duration:
