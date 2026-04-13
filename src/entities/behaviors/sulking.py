@@ -40,6 +40,16 @@ class SulkingBehavior(BaseBehavior):
         "courage": -0.005,
     }
 
+    def get_completion_bonus(self, context):
+        bonus = dict(super().get_completion_bonus(context))
+        hungry_factor = max(0.0, (30 - context.fullness) / 30.0)
+        if hungry_factor > 0:
+            bonus["loyalty"] = bonus.get("loyalty", 0) - 0.05 * hungry_factor
+            bonus["affection"] = bonus.get("affection", 0) - 0.05 * hungry_factor
+            bonus["serenity"] = bonus.get("serenity", 0) - 0.75 * hungry_factor
+            bonus["fulfillment"] = bonus.get("fulfillment", 0) - 0.05 * hungry_factor
+        return bonus
+
     def __init__(self, character):
         super().__init__(character)
         self.settle_duration = random.uniform(1.0, 5.0)

@@ -53,6 +53,17 @@ class NappingBehavior(BaseBehavior):
             bonus["focus"] = bonus.get("focus", 0) / 2
         elif context.focus < 25:
             bonus["focus"] = bonus.get("focus", 0) * 2.0
+
+        hungry_factor = max(0.0, (30 - context.fullness) / 30.0)
+        fed_factor = max(0.0, (context.fullness - 90) / 10.0)
+        if hungry_factor > 0:
+            bonus["focus"] = bonus.get("focus", 0) - 2 * hungry_factor
+            bonus["serenity"] = bonus.get("serenity", 0) - 0.75 * hungry_factor
+        if fed_factor > 0:
+            bonus["focus"] = bonus.get("focus", 0) + 1.5 * fed_factor
+            bonus["serenity"] = bonus.get("serenity", 0) + 0.75 * fed_factor
+            bonus["fulfillment"] = bonus.get("fulfillment", 0) + 0.25 * fed_factor
+
         return self.apply_location_bonus(context, bonus)
 
     def apply_location_bonus(self, context, bonus):

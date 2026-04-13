@@ -119,6 +119,11 @@ class AffectionBehavior(BaseBehavior):
 
     def get_completion_bonus(self, context):
         bonus = dict(VARIANTS[self._variant].get("stats", {}))
+        fed_factor = max(0.0, (context.fullness - 90) / 10.0)
+        if fed_factor > 0:
+            bonus["affection"] = bonus.get("affection", 0) + 2 * fed_factor
+            bonus["loyalty"] = bonus.get("loyalty", 0) + 0.2 * fed_factor
+            bonus["fulfillment"] = bonus.get("fulfillment", 0) + 0.5 * fed_factor
         if getattr(context, 'in_familiar_location', False):
             bonus['affection'] = bonus.get('affection', 0) * 1.2
             bonus['serenity'] = bonus.get('serenity', 0) + 0.5

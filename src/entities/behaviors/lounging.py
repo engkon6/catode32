@@ -53,6 +53,14 @@ class LoungeingBehavior(BaseBehavior):
 
     def get_completion_bonus(self, context):
         bonus = dict(super().get_completion_bonus(context))
+        hungry_factor = max(0.0, (30 - context.fullness) / 30.0)
+        fed_factor = max(0.0, (context.fullness - 90) / 10.0)
+        if hungry_factor > 0:
+            bonus["comfort"] = bonus.get("comfort", 0) * (1 - 0.5 * hungry_factor)
+        if fed_factor > 0:
+            bonus["comfort"] = bonus.get("comfort", 0) + 0.8 * fed_factor
+            bonus["fulfillment"] = bonus.get("fulfillment", 0) + 0.25 * fed_factor
+            bonus["loyalty"] = bonus.get("loyalty", 0) + 0.03 * fed_factor
         return self.apply_location_bonus(context, bonus)
 
     def apply_location_bonus(self, context, bonus):

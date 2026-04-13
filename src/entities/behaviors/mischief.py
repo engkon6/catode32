@@ -36,6 +36,16 @@ class MischiefBehavior(BaseBehavior):
         "loyalty": -0.1,
     }
 
+    def get_completion_bonus(self, context):
+        bonus = dict(super().get_completion_bonus(context))
+        hungry_factor = max(0.0, (30 - context.fullness) / 30.0)
+        if hungry_factor > 0:
+            bonus["loyalty"] = bonus.get("loyalty", 0) - 0.15 * hungry_factor
+            bonus["focus"] = bonus.get("focus", 0) - 0.5 * hungry_factor
+            bonus["affection"] = bonus.get("affection", 0) - 0.03 * hungry_factor
+            bonus["mischievousness"] = bonus.get("mischievousness", 0) + 0.04 * hungry_factor
+        return bonus
+
     def __init__(self, character):
         super().__init__(character)
         self.plot_duration = 1.5

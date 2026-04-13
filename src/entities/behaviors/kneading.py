@@ -38,6 +38,10 @@ class KneadingBehavior(BaseBehavior):
 
     def get_completion_bonus(self, context):
         bonus = dict(super().get_completion_bonus(context))
+        fed_factor = max(0.0, (context.fullness - 90) / 10.0)
+        if fed_factor > 0:
+            bonus["comfort"] = bonus.get("comfort", 0) + 1 * fed_factor
+            bonus["serenity"] = bonus.get("serenity", 0) + 0.1 * fed_factor
         return self.apply_location_bonus(context, bonus)
 
     def apply_location_bonus(self, context, bonus):
