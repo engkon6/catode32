@@ -3,7 +3,7 @@ Hanjie (Nonogram) minigame - fill the grid using row/column clues.
 
 Layout (128x64 screen):
   x=0..23   row clue area (right-aligned, up to "111" = 3 chars, no spaces)
-  x=24..79  7-column grid  (7 cols * 8px)
+  x=24..71  6-column grid  (6 cols * 8px, grows to 7/8/9 by round 3/6/9)
   x=80..99  timer / spare
   x=100..127 cat
 
@@ -17,7 +17,7 @@ from scene import Scene
 from entities.character import CharacterEntity
 from ui import Popup
 
-COLS = 7
+COLS = 6
 ROWS = 6
 CELL = 8
 
@@ -56,48 +56,48 @@ def _run_lengths(cells, length):
     return groups if groups else [0]
 
 
-def _compute_clues(sol):
+def _compute_clues(sol, cols):
     """Compute row and column clues from a solution bytearray."""
     row_clues = []
     for r in range(ROWS):
         row_clues.append(_run_lengths(
-            [sol[r * COLS + c] for c in range(COLS)], COLS))
+            [sol[r * cols + c] for c in range(cols)], cols))
 
     col_clues = []
-    for c in range(COLS):
+    for c in range(cols):
         col_clues.append(_run_lengths(
-            [sol[r * COLS + c] for r in range(ROWS)], ROWS))
+            [sol[r * cols + c] for r in range(ROWS)], ROWS))
 
     return row_clues, col_clues
 
 
-def _generate_puzzle():
+def _generate_puzzle(cols):
     """Generate a random solution + clues satisfying display constraints:
        - each column has at most 2 clue groups
        - each row has at most 3 clue groups
        - at least 5 cells filled (non-trivial)
     """
     for _ in range(200):
-        sol = bytearray(COLS * ROWS)
-        for i in range(COLS * ROWS):
+        sol = bytearray(cols * ROWS)
+        for i in range(cols * ROWS):
             sol[i] = 1 if random.randint(0, 1) else 0
 
         filled = sum(sol)
-        if filled < 5 or filled > COLS * ROWS - 3:
+        if filled < 5 or filled > cols * ROWS - 3:
             continue
 
-        row_clues, col_clues = _compute_clues(sol)
+        row_clues, col_clues = _compute_clues(sol, cols)
 
         if (all(len(r) <= 3 for r in row_clues) and
                 all(len(c) <= 2 for c in col_clues)):
             return sol, row_clues, col_clues
 
     # Fallback: guaranteed-valid checkerboard-ish puzzle
-    sol = bytearray(COLS * ROWS)
+    sol = bytearray(cols * ROWS)
     for r in range(ROWS):
-        for c in range(COLS):
-            sol[r * COLS + c] = 1 if (r + c) % 2 == 0 else 0
-    row_clues, col_clues = _compute_clues(sol)
+        for c in range(cols):
+            sol[r * cols + c] = 1 if (r + c) % 2 == 0 else 0
+    row_clues, col_clues = _compute_clues(sol, cols)
     return sol, row_clues, col_clues
 
 
@@ -105,18 +105,18 @@ def _generate_puzzle():
 # Win checking
 # ---------------------------------------------------------------------------
 
-def _check_win(board, row_clues, col_clues):
+def _check_win(board, row_clues, col_clues, cols):
     """Return True if the board's filled cells match all clues."""
     for r in range(ROWS):
         groups = _run_lengths(
-            [1 if board[r * COLS + c] == FILLED else 0 for c in range(COLS)],
-            COLS)
+            [1 if board[r * cols + c] == FILLED else 0 for c in range(cols)],
+            cols)
         if groups != row_clues[r]:
             return False
 
-    for c in range(COLS):
+    for c in range(cols):
         groups = _run_lengths(
-            [1 if board[r * COLS + c] == FILLED else 0 for r in range(ROWS)],
+            [1 if board[r * cols + c] == FILLED else 0 for r in range(ROWS)],
             ROWS)
         if groups != col_clues[c]:
             return False
@@ -149,6 +149,7 @@ class HanjieScene(Scene):
         self.board = None
         self.row_clues = None
         self.col_clues = None
+        self.cols = COLS
         self.cursor = 0
         self.state = STATE_PLAYING
         self.elapsed = 0.0
@@ -194,13 +195,24 @@ class HanjieScene(Scene):
             prev_best = getattr(self, '_session_best_time', 0.0)
             self._session_best_time = t if prev_best == 0.0 else min(prev_best, t)
 
-        self.solution, self.row_clues, self.col_clues = _generate_puzzle()
-        self.board = bytearray(COLS * ROWS)  # all UNKNOWN
+        completions = getattr(self, '_session_completions', 0)
+        if completions >= 8:
+            self.cols = 9
+        elif completions >= 5:
+            self.cols = 8
+        elif completions >= 2:
+            self.cols = 7
+        else:
+            self.cols = COLS  # 6
+
+        self.solution, self.row_clues, self.col_clues = _generate_puzzle(self.cols)
+        self.board = bytearray(self.cols * ROWS)  # all UNKNOWN
         self.cursor = 0
         self.state = STATE_PLAYING
         self.elapsed = 0.0
         self.win_timer = 0.0
         if self.character:
+            self.character.x = 108 if self.cols >= 9 else 100
             self.character.set_pose("sitting.side.neutral")
 
     # ------------------------------------------------------------------
@@ -215,16 +227,16 @@ class HanjieScene(Scene):
                 self._init_game()
             return
 
-        col = self.cursor % COLS
-        row = self.cursor // COLS
+        col = self.cursor % self.cols
+        row = self.cursor // self.cols
 
         if inp.was_just_pressed('up') and row > 0:
-            self.cursor -= COLS
+            self.cursor -= self.cols
         elif inp.was_just_pressed('down') and row < ROWS - 1:
-            self.cursor += COLS
+            self.cursor += self.cols
         elif inp.was_just_pressed('left') and col > 0:
             self.cursor -= 1
-        elif inp.was_just_pressed('right') and col < COLS - 1:
+        elif inp.was_just_pressed('right') and col < self.cols - 1:
             self.cursor += 1
 
         if inp.was_just_pressed('a'):
@@ -244,7 +256,7 @@ class HanjieScene(Scene):
             self._check_win_state()
 
     def _check_win_state(self):
-        if not _check_win(self.board, self.row_clues, self.col_clues):
+        if not _check_win(self.board, self.row_clues, self.col_clues, self.cols):
             return
 
         self.state = STATE_WIN
@@ -287,11 +299,7 @@ class HanjieScene(Scene):
         r = self.renderer
         self._draw_col_clues(r)
         self._draw_row_clues(r)
-        if self.state == STATE_PLAYING and self.input.is_pressed('menu2'):
-            self._draw_solution(r)
-        else:
-            self._draw_grid(r)
-        self._draw_timer(r)
+        self._draw_grid(r)
         if self.character:
             self.character.draw(r)
         if self.state == STATE_WIN:
@@ -299,7 +307,7 @@ class HanjieScene(Scene):
 
     def _draw_col_clues(self, r):
         """Draw column clues above the grid (y=0..15)."""
-        for c in range(COLS):
+        for c in range(self.cols):
             cx = GRID_X + c * CELL
             clue = self.col_clues[c]
             if len(clue) == 2:
@@ -327,9 +335,9 @@ class HanjieScene(Scene):
 
     def _draw_grid(self, r):
         """Draw all cells with cursor highlight."""
-        for i in range(COLS * ROWS):
-            col = i % COLS
-            row = i // COLS
+        for i in range(self.cols * ROWS):
+            col = i % self.cols
+            row = i // self.cols
             cx = GRID_X + col * CELL
             cy = GRID_Y + row * CELL
             state = self.board[i]
@@ -356,18 +364,3 @@ class HanjieScene(Scene):
                 else:
                     r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=False)
 
-    def _draw_solution(self, r):
-        """Draw the hidden solution (hold menu2 to peek)."""
-        for i in range(COLS * ROWS):
-            col = i % COLS
-            row = i // COLS
-            cx = GRID_X + col * CELL
-            cy = GRID_Y + row * CELL
-            if self.solution[i]:
-                r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=True)
-            else:
-                r.draw_rect(cx + 1, cy + 1, CELL - 2, CELL - 2, filled=False)
-
-    def _draw_timer(self, r):
-        if self.state == STATE_PLAYING:
-            r.draw_text(_format_time(self.elapsed), 82, 2)
