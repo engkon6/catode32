@@ -129,7 +129,7 @@ class MainScene(Scene):
             self._plant_selection.update(dt)
         prev_x = self.character.x
         self.on_update(dt)
-        if not (self.input.is_pressed('left') or self.input.is_pressed('right')):
+        if not (self.input.is_pressed('left') or self.input.is_pressed('right')) and not self._plant_selection.active:
             if int(prev_x) != int(self.character.x):
                 margin = 32
                 screen_x = int(self.character.x) - int(self.environment.camera_x)
