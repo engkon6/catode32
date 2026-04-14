@@ -2,6 +2,7 @@
 Maze scene - Find the fish minigame
 """
 import random
+import math
 import framebuf
 import config
 from scene import Scene
@@ -80,6 +81,13 @@ class MazeScene(Scene):
         # Generate maze with reserved open areas for sprites
         self.maze = self.generate_maze()
 
+        # On even rounds, carve reward rooms into the generated maze
+        self._reward_cells = []
+        self._reward_collected = set()
+        if self._session_round % 2 == 0:
+            count = 3 if self._session_round >= 12 else (2 if self._session_round >= 8 else 1)
+            self._setup_reward_areas(count)
+
         # Pre-render static maze walls into a FrameBuffer so draw_maze is a
         # single blit instead of ~1200 draw_line calls every frame.
         self._build_maze_cache()
@@ -108,6 +116,8 @@ class MazeScene(Scene):
 
         self._anim_t = 0.0
         self.win_display_timer = 0.0
+        self._b_held_time = 0.0
+        self._b_rewind_timer = 0.0
 
         # Game state
         self.state = self.STATE_PLAYING
@@ -140,6 +150,37 @@ class MazeScene(Scene):
                 if walls & WALL_W:
                     fb.line(px, py, px, py + ch1, 1)
         self._maze_fb = fb
+
+    def _setup_reward_areas(self, count):
+        """Carve `count` 3×3 reward rooms at non-overlapping random spots."""
+        placed = []  # top-left corners already placed
+
+        for _ in range(count):
+            for _attempt in range(100):
+                rx = random.randint(1, self._grid_width - 4)
+                ry = random.randint(1, self._grid_height - 4)
+                in_start = (rx < self.START_CLEAR_WIDTH and
+                            ry + 2 >= self._grid_height - self.START_CLEAR_HEIGHT)
+                in_goal = (rx + 2 >= self._grid_width - self.GOAL_CLEAR_WIDTH and
+                           ry < self.GOAL_CLEAR_HEIGHT)
+                # Require at least 4-cell separation from other reward areas
+                too_close = any(abs(rx - px) < 4 and abs(ry - py) < 4 for px, py in placed)
+                if not in_start and not in_goal and not too_close:
+                    placed.append((rx, ry))
+                    break
+
+        for rx, ry in placed:
+            # Clear internal walls of the 3×3 block
+            for dy in range(3):
+                for dx in range(3):
+                    cx, cy = rx + dx, ry + dy
+                    if dy > 0:
+                        self.maze[cy][cx] &= ~WALL_N
+                        self.maze[cy - 1][cx] &= ~WALL_S
+                    if dx > 0:
+                        self.maze[cy][cx] &= ~WALL_W
+                        self.maze[cy][cx - 1] &= ~WALL_E
+            self._reward_cells.append((rx + 1, ry + 1))
 
     def generate_maze(self):
         """Generate a perfect maze using Prim's algorithm (more branching, harder mazes)"""
@@ -258,6 +299,14 @@ class MazeScene(Scene):
             elif screen_px > self.SCROLL_RIGHT:
                 self._camera_x = min(self._max_camera_x, player_px - self.SCROLL_RIGHT)
 
+    def _rewind_step(self):
+        """Remove the last step from the path, moving the player back one cell."""
+        if len(self.path) <= 1:
+            return
+        self.path_set.discard(self.path.pop())
+        self.player_x, self.player_y = self.path[-1]
+        self._update_camera()
+
     def move_player(self, dx, dy):
         """Move player and update path"""
         if not self.can_move(dx, dy):
@@ -279,6 +328,12 @@ class MazeScene(Scene):
         self.player_y = new_y
 
         self._update_camera()
+
+        # Check reward collection
+        pos = (self.player_x, self.player_y)
+        if pos in self._reward_cells and pos not in self._reward_collected:
+            self._reward_collected.add(pos)
+            self._reward_coins_earned = getattr(self, '_reward_coins_earned', 0) + 1
 
         # Check win - player enters the goal area (top-right clear zone)
         in_goal_x = self.player_x >= self._grid_width - self.GOAL_CLEAR_WIDTH
@@ -308,13 +363,24 @@ class MazeScene(Scene):
                 'focus':        3 * scale,
                 'sociability':   2,
             })
-            coins = int(5 * scale)
+            coins = int(5 * scale) + getattr(self, '_reward_coins_earned', 0)
             if coins > 0:
                 self.context.coins += coins
                 print(f"[Maze] Awarded {coins} coins (total: {self.context.coins})")
 
     def update(self, dt):
         self._anim_t += dt
+        if self.state == self.STATE_PLAYING and self.input.is_pressed('b'):
+            if len(self.path) > 1:
+                self._b_held_time += dt
+                self._b_rewind_timer += dt
+                interval = max(0.05, 0.3 - self._b_held_time * 0.12)
+                if self._b_rewind_timer >= interval:
+                    self._b_rewind_timer -= interval
+                    self._rewind_step()
+        else:
+            self._b_held_time = 0.0
+            self._b_rewind_timer = 0.0
         if self.state == self.STATE_WIN:
             self.win_display_timer += dt
             if self.win_display_timer >= self.WIN_DISPLAY_DURATION:
@@ -327,6 +393,9 @@ class MazeScene(Scene):
 
         # Draw path trail
         self.draw_path()
+
+        # Draw reward diamond (if present and not yet collected)
+        self.draw_reward()
 
         # Draw goal (fish)
         self.draw_goal()
@@ -362,6 +431,28 @@ class MazeScene(Scene):
             px2, py2 = centers[y2 * gw + x2]
             draw_line(px1 - cam_x, py1 - cam_y, px2 - cam_x, py2 - cam_y)
 
+    def draw_reward(self):
+        """Draw bobbing hollow diamonds at uncollected reward cells."""
+        if not self._reward_cells:
+            return
+        bob = int(math.sin(self._anim_t * 3.14) * 2)
+        gw = self._grid_width
+        cam_x = self._camera_x
+        cam_y = self._camera_y
+        r = 2
+        draw_line = self.renderer.draw_line
+        for cell in self._reward_cells:
+            if cell in self._reward_collected:
+                continue
+            rx, ry = cell
+            cx, cy = self._cell_centers[ry * gw + rx]
+            cx -= cam_x
+            cy -= cam_y + bob
+            draw_line(cx,     cy - r, cx + r, cy    )
+            draw_line(cx + r, cy,     cx,     cy + r)
+            draw_line(cx,     cy + r, cx - r, cy    )
+            draw_line(cx - r, cy,     cx,     cy - r)
+
     def draw_goal(self):
         """Draw fish at goal position (may be off-screen until player scrolls there)"""
         self.renderer.draw_sprite_obj(FISH1, 108 + self._max_camera_x - self._camera_x, 4 - self._camera_y)
@@ -389,7 +480,11 @@ class MazeScene(Scene):
                 self.reset_game()
             return None
 
-        if self.input.was_just_pressed('up'):
+        if self.input.was_just_pressed('b'):
+            self._rewind_step()
+            self._b_held_time = 0.0
+            self._b_rewind_timer = 0.0
+        elif self.input.was_just_pressed('up'):
             self.move_player(0, -1)
         elif self.input.was_just_pressed('down'):
             self.move_player(0, 1)
