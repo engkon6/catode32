@@ -72,6 +72,7 @@ class MainScene(Scene):
                 self.character.x = saved_x
             else:
                 self.character.x = self.ENTRY_X
+            self.environment.set_camera(int(self.character.x) - config.DISPLAY_WIDTH // 2)
 
         # Offset cats to opposite sides when a visit is active
         if self.context.visit is not None:
