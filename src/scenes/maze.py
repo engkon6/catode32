@@ -34,6 +34,20 @@ class MazeScene(Scene):
     STATE_PLAYING = 0
     STATE_WIN = 1
 
+    # Hard mode: starting on round 3, the maze extends upward and the fish
+    # is hidden above the top of the screen until the player scrolls up.
+    EXTRA_ROWS_PER_STEP = 3   # 3 rows × 5px = 15px added each step
+    HARD_MODE_ROUND = 3
+    SCROLL_TOP = 16           # top 25% of 64px screen — scroll up when player crosses this
+    SCROLL_BOT = 48           # bottom 75% of 64px screen — scroll down when player crosses this
+
+    # Wide mode: every 5th round the maze grows one fish-width to the right.
+    EXTRA_COLS_PER_STEP = 3   # 3 cols × 5px = 15px = 1 fish width
+    WIDE_MODE_ROUND = 5
+    MAX_SCALING_ROUND = 15    # both 3 and 5 meet here; maze size is capped beyond this
+    SCROLL_LEFT = 32          # left 25% of 128px screen
+    SCROLL_RIGHT = 96         # right 75% of 128px screen
+
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
         # Win message popup - centered on screen
@@ -50,9 +64,18 @@ class MazeScene(Scene):
         # Accumulate completion stats before resetting state
         if getattr(self, 'state', self.STATE_PLAYING) == self.STATE_WIN:
             self._session_completions = getattr(self, '_session_completions', 0) + 1
-            t = getattr(self, 'elapsed_time', 0.0)
-            prev_best = getattr(self, '_session_best_time', 0.0)
-            self._session_best_time = t if prev_best == 0.0 else min(prev_best, t)
+
+        # Advance round counter and compute hard/wide-mode parameters
+        self._session_round = getattr(self, '_session_round', 0) + 1
+        scaled_round = min(self._session_round, self.MAX_SCALING_ROUND)
+        self._extra_rows = (scaled_round // self.HARD_MODE_ROUND) * self.EXTRA_ROWS_PER_STEP
+        self._grid_height = self.GRID_HEIGHT + self._extra_rows
+        self._max_camera_y = self._extra_rows * self.CELL_HEIGHT
+        self._camera_y = self._max_camera_y  # start showing the bottom (cat area)
+        self._extra_cols = (scaled_round // self.WIDE_MODE_ROUND) * self.EXTRA_COLS_PER_STEP
+        self._grid_width = self.GRID_WIDTH + self._extra_cols
+        self._max_camera_x = self._extra_cols * self.CELL_WIDTH
+        self._camera_x = 0  # start showing the left (cat area)
 
         # Generate maze with reserved open areas for sprites
         self.maze = self.generate_maze()
@@ -61,19 +84,19 @@ class MazeScene(Scene):
         # single blit instead of ~1200 draw_line calls every frame.
         self._build_maze_cache()
 
-        # Precompute cell center pixel coords (flat, row-major) for path/indicator
+        # Precompute cell center pixel coords (maze-space, row-major) for path/indicator
         cx_base = self.GRID_OFFSET_X + self.CELL_WIDTH // 2
         cy_base = self.GRID_OFFSET_Y + self.CELL_HEIGHT // 2
-        gw = self.GRID_WIDTH
+        gw = self._grid_width
         self._cell_centers = [
             (cx_base + (i % gw) * self.CELL_WIDTH,
              cy_base + (i // gw) * self.CELL_HEIGHT)
-            for i in range(gw * self.GRID_HEIGHT)
+            for i in range(gw * self._grid_height)
         ]
 
-        # Player state (bottom-left)
+        # Player state (bottom-left of extended maze)
         self.player_x = 4
-        self.player_y = self.GRID_HEIGHT - 1
+        self.player_y = self._grid_height - 1
 
         # Goal state (top-right)
         self.goal_x = self.GRID_WIDTH - 1
@@ -83,28 +106,28 @@ class MazeScene(Scene):
         self.path = [(self.player_x, self.player_y)]
         self.path_set = {(self.player_x, self.player_y)}
 
-        # Timer
-        self.elapsed_time = 0.0
+        self._anim_t = 0.0
         self.win_display_timer = 0.0
-        self.is_new_best = False
 
         # Game state
         self.state = self.STATE_PLAYING
 
     def _build_maze_cache(self):
         """Pre-render maze walls into a FrameBuffer (runs once per generation)."""
-        # 128 * 64 / 8 = 1024 bytes for MONO_HLSB
-        buf = bytearray(1024)
-        fb = framebuf.FrameBuffer(buf, 128, 64, framebuf.MONO_HLSB)
+        fb_height = 64 + self._extra_rows * self.CELL_HEIGHT
+        maze_px_wide = self.GRID_OFFSET_X + self._grid_width * self.CELL_WIDTH
+        fb_width = (maze_px_wide + 7) & ~7  # round up to multiple of 8 for MONO_HLSB
+        buf = bytearray((fb_width // 8) * fb_height)
+        fb = framebuf.FrameBuffer(buf, fb_width, fb_height, framebuf.MONO_HLSB)
         cw1 = self.CELL_WIDTH - 1
         ch1 = self.CELL_HEIGHT - 1
         ox = self.GRID_OFFSET_X
         oy = self.GRID_OFFSET_Y
         cw = self.CELL_WIDTH
         ch = self.CELL_HEIGHT
-        for cy in range(self.GRID_HEIGHT):
+        for cy in range(self._grid_height):
             row = self.maze[cy]
-            for cx in range(self.GRID_WIDTH):
+            for cx in range(self._grid_width):
                 walls = row[cx]
                 px = ox + cx * cw
                 py = oy + cy * ch
@@ -122,17 +145,17 @@ class MazeScene(Scene):
         """Generate a perfect maze using Prim's algorithm (more branching, harder mazes)"""
         # Initialize grid: each cell is a bitmask of present walls (all walls = 15)
         all_walls = WALL_N | WALL_S | WALL_E | WALL_W
-        maze = [[all_walls] * self.GRID_WIDTH for _ in range(self.GRID_HEIGHT)]
+        maze = [[all_walls] * self._grid_width for _ in range(self._grid_height)]
 
-        visited = [[False] * self.GRID_WIDTH for _ in range(self.GRID_HEIGHT)]
+        visited = [[False] * self._grid_width for _ in range(self._grid_height)]
 
         # Define start area (bottom-left) and goal area (top-right)
         start_area = {
-            'x': 0, 'y': self.GRID_HEIGHT - self.START_CLEAR_HEIGHT,
+            'x': 0, 'y': self._grid_height - self.START_CLEAR_HEIGHT,
             'w': self.START_CLEAR_WIDTH, 'h': self.START_CLEAR_HEIGHT
         }
         goal_area = {
-            'x': self.GRID_WIDTH - self.GOAL_CLEAR_WIDTH, 'y': 0,
+            'x': self._grid_width - self.GOAL_CLEAR_WIDTH, 'y': 0,
             'w': self.GOAL_CLEAR_WIDTH, 'h': self.GOAL_CLEAR_HEIGHT
         }
 
@@ -157,7 +180,7 @@ class MazeScene(Scene):
 
         # Prim's algorithm: maintain a frontier of walls to potentially remove
         start_gen_x = self.START_CLEAR_WIDTH
-        start_gen_y = self.GRID_HEIGHT - 1
+        start_gen_y = self._grid_height - 1
         visited[start_gen_y][start_gen_x] = True
 
         # Connect the start area to the maze
@@ -170,7 +193,7 @@ class MazeScene(Scene):
         def add_frontier(x, y):
             for dx, dy, wall, opposite in directions:
                 nx, ny = x + dx, y + dy
-                if 0 <= nx < self.GRID_WIDTH and 0 <= ny < self.GRID_HEIGHT:
+                if 0 <= nx < self._grid_width and 0 <= ny < self._grid_height:
                     if not visited[ny][nx]:
                         frontier.append((x, y, nx, ny, wall, opposite))
 
@@ -213,6 +236,28 @@ class MazeScene(Scene):
             return not (cell & WALL_S)
         return False
 
+    def _update_camera(self):
+        """Adjust camera to keep the player within the scroll dead zones.
+
+        Tracks the player in lockstep when they cross the 25%/75% boundary
+        on either axis. Clamped so the maze never scrolls past its edges.
+        """
+        if self._max_camera_y:
+            player_py = self.GRID_OFFSET_Y + self.player_y * self.CELL_HEIGHT + self.CELL_HEIGHT // 2
+            screen_py = player_py - self._camera_y
+            if screen_py < self.SCROLL_TOP:
+                self._camera_y = max(0, player_py - self.SCROLL_TOP)
+            elif screen_py > self.SCROLL_BOT:
+                self._camera_y = min(self._max_camera_y, player_py - self.SCROLL_BOT)
+
+        if self._max_camera_x:
+            player_px = self.GRID_OFFSET_X + self.player_x * self.CELL_WIDTH + self.CELL_WIDTH // 2
+            screen_px = player_px - self._camera_x
+            if screen_px < self.SCROLL_LEFT:
+                self._camera_x = max(0, player_px - self.SCROLL_LEFT)
+            elif screen_px > self.SCROLL_RIGHT:
+                self._camera_x = min(self._max_camera_x, player_px - self.SCROLL_RIGHT)
+
     def move_player(self, dx, dy):
         """Move player and update path"""
         if not self.can_move(dx, dy):
@@ -233,20 +278,14 @@ class MazeScene(Scene):
         self.player_x = new_x
         self.player_y = new_y
 
+        self._update_camera()
+
         # Check win - player enters the goal area (top-right clear zone)
-        in_goal_x = self.player_x >= self.GRID_WIDTH - self.GOAL_CLEAR_WIDTH
+        in_goal_x = self.player_x >= self._grid_width - self.GOAL_CLEAR_WIDTH
         in_goal_y = self.player_y < self.GOAL_CLEAR_HEIGHT
         if in_goal_x and in_goal_y:
             self.state = self.STATE_WIN
             self.win_display_timer = 0.0
-            # Update best time
-            if not hasattr(self.context, 'maze_best_time'):
-                self.context.maze_best_time = 0
-            if self.context.maze_best_time == 0 or self.elapsed_time < self.context.maze_best_time:
-                self.context.maze_best_time = self.elapsed_time
-                self.is_new_best = True
-            else:
-                self.is_new_best = False
 
     def load(self):
         super().load()
@@ -255,18 +294,16 @@ class MazeScene(Scene):
         super().unload()
 
     def enter(self):
+        self._session_round = 0  # restart round count each visit
         self.reset_game()
 
     def exit(self):
         completions = getattr(self, '_session_completions', 0)
         if completions > 0:
             scale = (completions / 2.0) ** 0.5
-            best_time = getattr(self, '_session_best_time', 0.0)
-            time_bonus = max(0.0, 1.0 - best_time / 30.0) if best_time > 0.0 else 0.0
             print(f"Reward scale: {scale}")
-            print(f"Time bonus: {time_bonus}")
             self.context.apply_stat_changes({
-                'intelligence': 3 * scale + 2 * time_bonus,
+                'intelligence': 3 * scale,
                 'curiosity':    3 * scale,
                 'focus':        3 * scale,
                 'sociability':   2,
@@ -277,9 +314,8 @@ class MazeScene(Scene):
                 print(f"[Maze] Awarded {coins} coins (total: {self.context.coins})")
 
     def update(self, dt):
-        if self.state == self.STATE_PLAYING:
-            self.elapsed_time += dt
-        elif self.state == self.STATE_WIN:
+        self._anim_t += dt
+        if self.state == self.STATE_WIN:
             self.win_display_timer += dt
             if self.win_display_timer >= self.WIN_DISPLAY_DURATION:
                 self.reset_game()
@@ -306,8 +342,8 @@ class MazeScene(Scene):
             self.draw_win_message()
 
     def draw_maze(self):
-        """Blit pre-rendered maze framebuf — one C-level call instead of ~1200 draw_line calls."""
-        self.renderer.display.blit(self._maze_fb, 0, 0, 0)
+        """Blit pre-rendered maze framebuf with camera offset applied."""
+        self.renderer.display.blit(self._maze_fb, -self._camera_x, -self._camera_y, 0)
 
     def draw_path(self):
         """Draw breadcrumb trail connecting visited cells"""
@@ -315,39 +351,36 @@ class MazeScene(Scene):
             return
 
         centers = self._cell_centers
-        gw = self.GRID_WIDTH
+        gw = self._grid_width
+        cam_x = self._camera_x
+        cam_y = self._camera_y
         draw_line = self.renderer.draw_line
         for i in range(len(self.path) - 1):
             x1, y1 = self.path[i]
             x2, y2 = self.path[i + 1]
             px1, py1 = centers[y1 * gw + x1]
             px2, py2 = centers[y2 * gw + x2]
-            draw_line(px1, py1, px2, py2)
+            draw_line(px1 - cam_x, py1 - cam_y, px2 - cam_x, py2 - cam_y)
 
     def draw_goal(self):
-        """Draw fish at goal position"""
-        self.renderer.draw_sprite_obj(FISH1, 108, 4)
+        """Draw fish at goal position (may be off-screen until player scrolls there)"""
+        self.renderer.draw_sprite_obj(FISH1, 108 + self._max_camera_x - self._camera_x, 4 - self._camera_y)
 
     def draw_player(self):
-        """Draw cat at start position (fixed marker)"""
-        self.renderer.draw_sprite_obj(SITCAT1, 3, 44)
+        """Draw cat at the start-area position, offset by camera"""
+        self.renderer.draw_sprite_obj(SITCAT1, 3 - self._camera_x, 44 + self._max_camera_y - self._camera_y)
 
     def draw_position_indicator(self):
         """Draw blinking 3x3 square at player's current cell center"""
-        if self.elapsed_time % 0.5 >= 0.25:
+        if self._anim_t % 0.5 >= 0.25:
             return
 
-        cx, cy = self._cell_centers[self.player_y * self.GRID_WIDTH + self.player_x]
-        self.renderer.draw_rect(cx - 1, cy - 1, 3, 3)
+        cx, cy = self._cell_centers[self.player_y * self._grid_width + self.player_x]
+        self.renderer.draw_rect(cx - 1 - self._camera_x, cy - 1 - self._camera_y, 3, 3)
 
     def draw_win_message(self):
         """Draw win screen overlay"""
-        if self.is_new_best:
-            title = "NEW BEST!"
-        else:
-            title = "Found it!"
-        time_text = f"Time: {self.elapsed_time:.1f}s"
-        self.win_popup.set_text(f"{title}\n{time_text}", wrap=False, center=True)
+        self.win_popup.set_text("Found it!", wrap=False, center=True)
         self.win_popup.draw(show_scroll_indicators=False)
 
     def handle_input(self):
