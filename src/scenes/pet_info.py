@@ -1,4 +1,4 @@
-"""pet_info.py - View and edit pet name and genome seed."""
+"""pet_info.py - View and edit pet name; view pet info."""
 
 from scene import Scene
 from menu import Menu, MenuItem
@@ -11,9 +11,8 @@ class PetInfoScene(Scene):
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
         self._menu    = Menu(renderer, input)
-        self._editing = None
+        self._editing = False
         self._kb_name = OnScreenKeyboard(renderer, input, charset='full', max_len=12)
-        self._kb_seed = OnScreenKeyboard(renderer, input, charset='hex',  max_len=16)
 
     def load(self):
         super().load()
@@ -22,7 +21,7 @@ class PetInfoScene(Scene):
         super().unload()
 
     def enter(self):
-        self._editing = None
+        self._editing = False
         self._rebuild_menu()
 
     def exit(self):
@@ -32,20 +31,19 @@ class PetInfoScene(Scene):
         return None
 
     def draw(self):
-        if self._editing == 'name':
+        if self._editing:
             self._kb_name.draw()
-        elif self._editing == 'seed':
-            self._kb_seed.draw()
         else:
             self._menu.draw()
 
     def handle_input(self):
-        if self._editing is not None:
-            kb = self._kb_name if self._editing == 'name' else self._kb_seed
-            result = kb.handle_input()
+        if self._editing:
+            result = self._kb_name.handle_input()
             if result is not None:
-                self._apply(self._editing, result)
-                self._editing = None
+                value = result.strip()
+                if value:
+                    self.context.pet_name = value
+                self._editing = False
                 self._rebuild_menu()
             return None
 
@@ -53,14 +51,8 @@ class PetInfoScene(Scene):
         if result == 'closed':
             return ('change_scene', 'last_main')
         if result is not None:
-            _, field = result
-            if field == 'name':
-                self._kb_name.open('', self.context.pet_name or '')
-                self._editing = 'name'
-            else:
-                seed_hex = ('%016X' % self.context.pet_seed) if self.context.pet_seed else ''
-                self._kb_seed.open('', seed_hex)
-                self._editing = 'seed'
+            self._kb_name.open('', self.context.pet_name or '')
+            self._editing = True
         return None
 
     # ------------------------------------------------------------------
@@ -68,20 +60,9 @@ class PetInfoScene(Scene):
     # ------------------------------------------------------------------
 
     def _rebuild_menu(self):
-        seed_hex = ('%016X' % self.context.pet_seed) if self.context.pet_seed else '?'
+        days = self.context.environment.get('day_number', 0)
+        days_str = str(min(days, 9999999))
         self._menu.open([
-            MenuItem('Name: ' + (self.context.pet_name or '?'), action=('edit', 'name')),
-            MenuItem('Seed: ' + seed_hex,                       action=('edit', 'seed')),
+            MenuItem('Name: ' + (self.context.pet_name or '?'), action=('edit',)),
+            MenuItem('Days: ' + days_str),
         ])
-
-    def _apply(self, field, value):
-        value = value.strip()
-        if not value:
-            return
-        if field == 'name':
-            self.context.pet_name = value
-        elif field == 'seed':
-            try:
-                self.context.pet_seed = int(value, 16)
-            except ValueError:
-                pass

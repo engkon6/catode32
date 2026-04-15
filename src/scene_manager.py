@@ -337,32 +337,33 @@ class SceneManager:
         # Pet info
         items.append(MenuItem("Pet info", icon=CAT_ICON, action=('scene', 'pet_info')))
 
-        # Debug submenu
-        debug_items = []
-        debug_items.append(MenuItem("Environment", icon=SUN_ICON, action=('scene', 'environment_settings')))
-        debug_items.append(MenuItem("Poses", icon=CAT_ICON, action=('scene', 'debug_poses')))
-        debug_items.append(MenuItem("Behaviors", icon=CAT_ICON, action=('scene', 'debug_behaviors')))
-        debug_items.append(MenuItem("Stats", icon=CAT_ICON, action=('scene', 'debug_stats')))
-        debug_items.append(MenuItem("Plants", icon=TREES_ICON, action=('scene', 'debug_plants')))
-        debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('scene', 'time_settings')))
-        debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
-        debug_items.append(MenuItem("RGB LED", icon=WRENCH_ICON, action=('scene', 'debug_led')))
-        debug_items.append(MenuItem("Power", icon=POWER_ICON, action=('scene', 'debug_power')))
+        # Debug submenu (gated on config flag)
+        if config.SHOW_DEBUG_MENUS:
+            debug_items = []
+            debug_items.append(MenuItem("Environment", icon=SUN_ICON, action=('scene', 'environment_settings')))
+            debug_items.append(MenuItem("Poses", icon=CAT_ICON, action=('scene', 'debug_poses')))
+            debug_items.append(MenuItem("Behaviors", icon=CAT_ICON, action=('scene', 'debug_behaviors')))
+            debug_items.append(MenuItem("Stats", icon=CAT_ICON, action=('scene', 'debug_stats')))
+            debug_items.append(MenuItem("Plants", icon=TREES_ICON, action=('scene', 'debug_plants')))
+            debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('scene', 'time_settings')))
+            debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
+            debug_items.append(MenuItem("RGB LED", icon=WRENCH_ICON, action=('scene', 'debug_led')))
+            debug_items.append(MenuItem("Power", icon=POWER_ICON, action=('scene', 'debug_power')))
 
-        context_save_items = []
-        context_save_items.append(MenuItem("Context", icon=WRENCH_ICON, action=('scene', 'debug_context')))
-        context_save_items.append(MenuItem("Save now", icon=WRENCH_ICON, action=('context', 'save'), confirm="Save and reboot?"))
-        context_save_items.append(MenuItem("Reset stats", icon=WRENCH_ICON, action=('context', 'reset'), confirm="Reset all stats to defaults?"))
-        debug_items.append(MenuItem("Context", icon=WRENCH_ICON, submenu=context_save_items))
+            context_save_items = []
+            context_save_items.append(MenuItem("Context", icon=WRENCH_ICON, action=('scene', 'debug_context')))
+            context_save_items.append(MenuItem("Save now", icon=WRENCH_ICON, action=('context', 'save'), confirm="Save and reboot?"))
+            context_save_items.append(MenuItem("Reset stats", icon=WRENCH_ICON, action=('context', 'reset'), confirm="Reset all stats to defaults?"))
+            debug_items.append(MenuItem("Context", icon=WRENCH_ICON, submenu=context_save_items))
 
-        wireless_items = []
-        wireless_items.append(MenuItem("Wifi", icon=WIFI_ICON, action=('scene', 'debug_wifi')))
-        wireless_items.append(MenuItem("ESP-NOW", icon=WIFI_ICON, action=('scene', 'debug_espnow')))
-        debug_items.append(MenuItem("Wireless", icon=WIFI_ICON, submenu=wireless_items))
+            wireless_items = []
+            wireless_items.append(MenuItem("Wifi", icon=WIFI_ICON, action=('scene', 'debug_wifi')))
+            wireless_items.append(MenuItem("ESP-NOW", icon=WIFI_ICON, action=('scene', 'debug_espnow')))
+            debug_items.append(MenuItem("Wireless", icon=WIFI_ICON, submenu=wireless_items))
 
-        debug_items.append(MenuItem("Credits", icon=CREDITS_ICON, action=('scene', 'credits')))
+            items.append(MenuItem("Debug", icon=WRENCH_ICON, submenu=debug_items))
 
-        items.append(MenuItem("Debug", icon=WRENCH_ICON, submenu=debug_items))
+        items.append(MenuItem("Credits", icon=CREDITS_ICON, action=('scene', 'credits')))
 
         return items
 

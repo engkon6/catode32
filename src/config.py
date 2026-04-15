@@ -74,6 +74,9 @@ del _ESP32_C6_CONFIG, _ESP32_C3_CONFIG, _CONFIG
 # Disable if wlan.scan() causes hard freezes on your firmware/board combination.
 WIFI_ENABLED = True
 
+# Debug Features
+SHOW_DEBUG_MENUS = True
+
 # Game Constants
 FPS = 12  # Target frames per second
 FRAME_TIME_MS = 1000 // FPS  # Milliseconds per frame

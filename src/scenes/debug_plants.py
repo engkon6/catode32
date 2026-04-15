@@ -150,9 +150,8 @@ class DebugPlantsScene(Scene):
             for i, pt in enumerate(_PLANT_TYPES)
         ]
         return [
-            MenuItem("Pot type",      icon=TREES_ICON, submenu=pot_items),
-            MenuItem("Plant type",    icon=TREES_ICON, submenu=plant_items),
-            MenuItem("Reset Plants",  icon=TREES_ICON, action=('reset_plants',), confirm="Reset all plants?"),
+            MenuItem("Pot type",   icon=TREES_ICON, submenu=pot_items),
+            MenuItem("Plant type", icon=TREES_ICON, submenu=plant_items),
         ]
 
     def _handle_menu_action(self, action):
@@ -160,5 +159,3 @@ class DebugPlantsScene(Scene):
             self._pot_idx = action[1]
         elif action[0] == 'set_plant':
             self._plant_idx = action[1]
-        elif action[0] == 'reset_plants':
-            self.context.reset_plants()

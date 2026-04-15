@@ -1,18 +1,19 @@
+"""debug_context.py - Debug scene for editing key context values."""
+
 from scene import Scene
-from ui import Scrollbar
+from settings import Settings, SettingItem
+from ui_keyboard import OnScreenKeyboard
+from menu import Menu, MenuItem
 
 
 class DebugContextScene(Scene):
-    """Debug scene that displays all context values"""
-
-    LINES_VISIBLE = 8  # 64px / 8px per line
-    LINE_HEIGHT = 8
 
     def __init__(self, context, renderer, input):
         super().__init__(context, renderer, input)
-        self.scrollbar = Scrollbar(renderer)
-        self.scroll_offset = 0
-        self.lines = []
+        self._settings = Settings(renderer, input)
+        self._kb_seed  = OnScreenKeyboard(renderer, input, charset='hex', max_len=16)
+        self._menu     = Menu(renderer, input)
+        self._mode     = 'settings'
 
     def load(self):
         super().load()
@@ -21,68 +22,76 @@ class DebugContextScene(Scene):
         super().unload()
 
     def enter(self):
-        self.scroll_offset = 0
-        self._build_lines()
+        self._mode = 'settings'
+        self._open_settings()
 
     def exit(self):
         pass
 
-    def _build_lines(self):
-        """Build display lines from context"""
-        self.lines = []
-
-        # Dynamically get all context attributes
-        for name, value in self.context.__dict__.items():
-            if name.startswith('_'):
-                continue
-
-            if isinstance(value, (int, float)):
-                self.lines.append(f"{name}: {value}")
-            elif isinstance(value, dict):
-                self.lines.append(f"{name}:")
-                for key, items in value.items():
-                    if isinstance(items, list):
-                        self.lines.append(f"  {key}:")
-                        for item in items:
-                            self.lines.append(f"    {item}")
-                    else:
-                        self.lines.append(f"  {key}: {items}")
-            elif value is not None:
-                self.lines.append(f"{name}: {value}")
-
     def update(self, dt):
-        # Refresh values periodically
-        self._build_lines()
+        pass
 
     def draw(self):
-        """Draw the debug info"""
-
-        visible_end = min(self.scroll_offset + self.LINES_VISIBLE, len(self.lines))
-
-        for i, line in enumerate(self.lines[self.scroll_offset:visible_end]):
-            y = i * self.LINE_HEIGHT
-            self.renderer.draw_text(line[:21], 0, y)  # Truncate to fit screen
-
-        # Draw scroll indicator if needed
-        if len(self.lines) > self.LINES_VISIBLE:
-            self._draw_scroll_indicator()
-
-    def _draw_scroll_indicator(self):
-        """Draw a simple scroll indicator on the right"""
-        self.scrollbar.draw(len(self.lines), self.LINES_VISIBLE, self.scroll_offset)
+        if self._mode == 'seed':
+            self._kb_seed.draw()
+        elif self._mode == 'confirm_reset':
+            self._menu.draw()
+        else:
+            self._settings.draw()
 
     def handle_input(self):
-        """Handle scrolling input"""
-        max_scroll = max(0, len(self.lines) - self.LINES_VISIBLE)
+        if self._mode == 'seed':
+            result = self._kb_seed.handle_input()
+            if result is not None:
+                value = result.strip()
+                if value:
+                    try:
+                        self.context.pet_seed = int(value, 16)
+                    except ValueError:
+                        pass
+                self._mode = 'settings'
+                self._open_settings()
+            return None
 
-        if self.input.was_just_pressed('up'):
-            self.scroll_offset = max(0, self.scroll_offset - 1)
+        if self._mode == 'confirm_reset':
+            result = self._menu.handle_input()
+            if result == ('reset_plants',):
+                self.context.reset_plants()
+            if result is not None or not self._menu.pending_confirmation:
+                self._mode = 'settings'
+            return None
 
-        if self.input.was_just_pressed('down'):
-            self.scroll_offset = min(max_scroll, self.scroll_offset + 1)
+        # Settings mode — intercept A for non-numeric items before passing to Settings
+        if self.input.was_just_pressed('a') and self._settings.items:
+            item = self._settings.items[self._settings.selected_index]
+            if item.key == 'seed':
+                seed_hex = ('%016X' % self.context.pet_seed) if self.context.pet_seed else ''
+                self._kb_seed.open('', seed_hex)
+                self._mode = 'seed'
+                return None
+            if item.key == 'reset_plants':
+                reset_item = MenuItem("Reset Plants", action=('reset_plants',),
+                                      confirm="Reset all plants?")
+                self._menu.open([reset_item])
+                self._menu.pending_confirmation = reset_item
+                self._mode = 'confirm_reset'
+                return None
 
-        # B button or menu1 to go back (will be caught by SceneManager for menu1)
-        if self.input.was_just_pressed('b'):
+        result = self._settings.handle_input()
+        if result is not None:
+            self.context.coins = result['coins']
             return ('change_scene', 'last_main')
-
         return None
+
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
+
+    def _open_settings(self):
+        seed_hex = ('%016X' % self.context.pet_seed) if self.context.pet_seed else '?'
+        self._settings.open([
+            SettingItem("Coins",        "coins",        min_val=0, max_val=99999, step=1,
+                        value=int(self.context.coins)),
+            SettingItem("Reset Plants", "reset_plants", value=""),
+            SettingItem("Seed",         "seed",         value=""),
+        ])
