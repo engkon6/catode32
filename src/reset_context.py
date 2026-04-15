@@ -200,6 +200,9 @@ def do_reset(ctx, delete_save):
     # Recent completed behavior names for loop prevention (most recent first, not persisted)
     ctx.recent_behaviors = []
 
+    # Recent meals for variety tracking (most recent first, persisted)
+    ctx.recent_meals = []
+
     # Name of the most recently started behavior (not persisted, used to restore on scene re-entry)
     ctx.current_behavior_name = None
 

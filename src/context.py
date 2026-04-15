@@ -125,7 +125,8 @@ class GameContext:
                 'next_plant_id': self.next_plant_id,
                 'pet_seed': self.pet_seed,
                 'wifi_familiar': self.wifi_familiar, 'wifi_recent': self.wifi_recent,
-                'pet_name': self.pet_name, 'friends': self.friends}
+                'pet_name': self.pet_name, 'friends': self.friends,
+                'recent_meals': self.recent_meals}
         for key in _STAT_KEYS:
             data[key] = getattr(self, key)
         try:
@@ -199,6 +200,7 @@ class GameContext:
             self.wifi_familiar = data.get('wifi_familiar', [])
             self.wifi_recent   = data.get('wifi_recent',   [])
             self.friends       = data.get('friends',       {})
+            self.recent_meals  = data.get('recent_meals',  [])
             self.recompute_health()
             import time
             self.last_save_time = time.ticks_ms()
@@ -220,6 +222,12 @@ class GameContext:
         self.recent_behaviors.insert(0, name)
         if len(self.recent_behaviors) > 5:
             self.recent_behaviors.pop()
+
+    def record_meal(self, food_type):
+        """Prepend a completed meal; keeps the 5 most recent."""
+        self.recent_meals.insert(0, food_type)
+        if len(self.recent_meals) > 5:
+            self.recent_meals.pop()
 
     def get_friendship_level(self, mac_hex):
         """Return 0.0-1.0 familiarity with a peer (by MAC hex string).

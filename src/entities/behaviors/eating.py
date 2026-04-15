@@ -138,11 +138,26 @@ class EatingBehavior(BaseBehavior):
             return 'meandering'
         return None
 
+    # Stats that always receive full credit regardless of meal variety.
+    _VARIETY_EXEMPT = frozenset(('fullness', 'energy'))
+
     def get_completion_bonus(self, context):
         if self._rejecting:
             return {}
         config = self.FOOD_CONFIG.get(self._food_type, self.DEFAULT_FOOD_CONFIG)
         bonus = dict(config["stats"])
+
+        recent = context.recent_meals
+        repeat_count = sum(1 for m in recent if m == self._food_type)
+        if repeat_count > 0:
+            appeal = config.get("appeal", 0.5)
+            multiplier = max(0.25, 1.0 - repeat_count * 0.18 * (1.0 - appeal))
+            for stat in bonus:
+                if stat not in self._VARIETY_EXEMPT:
+                    bonus[stat] = bonus[stat] * multiplier
+            print("[Eating] variety multiplier %.2f (repeat=%d, appeal=%.2f)" % (multiplier, repeat_count, appeal))
+
+        context.record_meal(self._food_type)
         return self.apply_location_bonus(context, bonus)
 
     def apply_location_bonus(self, context, bonus):
