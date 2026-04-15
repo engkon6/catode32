@@ -280,7 +280,12 @@ class BehaviorManager:
         chosen = random.choice(top)
         if len(top) > 1:
             print(f">> Selected: {chosen} (from bin tied at {best_bin}: {top})")
-        return chosen, {}
+        kwargs = {}
+        if chosen == 'playing':
+            toys = context.inventory.get('toys', [])
+            solo = [t['variant'] for t in toys if t.get('variant') in self._SOLO_PLAY_VARIANTS]
+            kwargs = {'variant': random.choice(solo)}
+        return chosen, kwargs
 
     # ------------------------------------------------------------------
     # Scene exit selection
@@ -423,8 +428,16 @@ class BehaviorManager:
             print("Skipping hunting. " + ", ".join(failures))
         return trigger
 
+    _SOLO_PLAY_VARIANTS = frozenset(('ball', 'string', 'feather'))
+
     def can_trigger_playing(self, ctx):
-        return ctx.playfulness >= 40
+        if ctx.playfulness < 40:
+            return False
+        toys = ctx.inventory.get('toys', [])
+        has_solo_toy = any(t.get('variant') in self._SOLO_PLAY_VARIANTS for t in toys)
+        if not has_solo_toy:
+            print("Skipping playing. No solo toys in inventory.")
+        return has_solo_toy
 
     def can_trigger_investigating(self, ctx):
         trigger = ctx.curiosity >= 40
