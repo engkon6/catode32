@@ -6,7 +6,7 @@ import config
 import random
 from scene import Scene
 from assets.minigame_character import RUNCAT1, SITCAT1, SMALL_BIRD1
-from assets.nature import SMALLTREE1, CLOUD1, CLOUD2, CLOUD3
+from assets.nature import SMALLTREE1, CLOUD1, CLOUD2, CLOUD3, SUN, MOON
 from assets.plants import PLANT1, PLANT2, PLANT6, SUNFLOWER_YOUNG, ROSE_GROWING, FREESIA_GROWING, ROSE_MATURE, FREESIA_MATURE, FREESIA_THRIVING
 from ui import Popup
 
@@ -14,6 +14,132 @@ from ui import Popup
 DECOR_DOT = 0
 DECOR_LINE = 1
 DECOR_BUMP = 2
+
+
+class ZoomiesSky:
+    """Accelerated day/night sky for the zoomies minigame.
+
+    One full arc (sun or moon crossing) takes ARC_DURATION real seconds.
+    sky_progress: 0.0→1.0 = sun crossing, 1.0→2.0 = moon crossing, loops.
+    Starts at 0.45 so the sun is near its peak when the game begins.
+    """
+
+    ARC_DURATION = 90.0   # real seconds per celestial arc
+    STAR_SPEED   = 4.0    # px/sec stars drift left
+
+    # Screen-space arc endpoints (sprite enters from left, exits right)
+    _X_START   = -17      # off left edge (SUN/MOON widths are 17/16)
+    _X_END     = 128      # just off right edge
+    _Y_HORIZON = 12       # y where body appears at horizon
+    _Y_PEAK    = 2        # y at zenith
+
+    # Moon phase frame indices; None = New Moon (not drawn)
+    _MOON_PHASES = [None, 0, 1, 2, 3, 4, 5, 6]
+
+    _TWINKLE_PERIOD = 0.15  # seconds per twinkle step (12-step cycle)
+
+    # Static star field: [x, y, twinkle_offset]
+    # Spread across ~1.75 screen widths so wrap is seamless.
+    # y range 2-50 fills the sky above the ground (GROUND_Y=54).
+    _STAR_DATA = [
+        [6,   4, 0],  [14, 31, 3],  [23, 14, 6],  [33, 42, 2],  [44,  8, 9],
+        [52, 26, 5],  [61, 47, 1],  [70, 18, 8],  [79, 36, 4],  [90,  3, 7],
+        [98, 50, 2],  [107, 22, 10], [118, 11, 3], [127, 40, 8], [9,  48, 1],
+        [29, 34, 5],  [48,  6, 7],  [68, 44, 0],  [88, 17, 9],  [122, 29, 6],
+    ]
+
+    def __init__(self):
+        self._moon_phase_idx = 0
+        self._sun_anim_timer = 0.0
+        self._sun_anim_frame = 0
+        self._twinkle_timer  = 0.0
+        self._twinkle_phase  = 0
+        self._stars = [list(s) for s in self._STAR_DATA]
+        self.sky_progress = 0.45  # set last so reset() can be called instead
+
+    def reset(self):
+        self.sky_progress    = 0.45
+        self._moon_phase_idx = 0
+        self._sun_anim_timer = 0.0
+        self._sun_anim_frame = 0
+        self._twinkle_timer  = 0.0
+        self._twinkle_phase  = 0
+        for i, s in enumerate(self._STAR_DATA):
+            self._stars[i][0] = float(s[0])
+
+    def update(self, dt):
+        prev = self.sky_progress
+        self.sky_progress += dt / self.ARC_DURATION
+
+        # Moon just finished a crossing → advance lunar phase
+        if prev < 2.0 and self.sky_progress >= 2.0:
+            self._moon_phase_idx = (self._moon_phase_idx + 1) % len(self._MOON_PHASES)
+        self.sky_progress %= 2.0
+
+        # Sun ray animation at ~2 fps
+        self._sun_anim_timer += dt
+        if self._sun_anim_timer >= 0.5:
+            self._sun_anim_timer -= 0.5
+            self._sun_anim_frame = (self._sun_anim_frame + 1) % len(SUN["frames"])
+
+        # Scroll stars left; wrap off-left back onto right
+        scroll = self.STAR_SPEED * dt
+        w = config.DISPLAY_WIDTH
+        for star in self._stars:
+            star[0] -= scroll
+            if star[0] < -5:
+                star[0] += w + 10
+
+        # Advance 12-step twinkle phase
+        self._twinkle_timer += dt
+        if self._twinkle_timer >= self._TWINKLE_PERIOD:
+            self._twinkle_timer -= self._TWINKLE_PERIOD
+            self._twinkle_phase = (self._twinkle_phase + 1) % 12
+
+    def draw(self, renderer):
+        if self.sky_progress >= 1.0:
+            self._draw_stars(renderer)
+            self._draw_moon(renderer)
+        else:
+            self._draw_sun(renderer)
+
+    # ------------------------------------------------------------------
+    def _arc_xy(self, t):
+        x = self._X_START + t * (self._X_END - self._X_START)
+        y = self._Y_HORIZON - (self._Y_HORIZON - self._Y_PEAK) * 4.0 * t * (1.0 - t)
+        return int(x), int(y)
+
+    def _draw_sun(self, renderer):
+        x, y = self._arc_xy(self.sky_progress)
+        renderer.draw_sprite_obj(SUN, x, y, frame=self._sun_anim_frame, transparent=True)
+
+    def _draw_moon(self, renderer):
+        t = self.sky_progress - 1.0
+        x, y = self._arc_xy(t)
+        frame = self._MOON_PHASES[self._moon_phase_idx]
+        if frame is not None:
+            renderer.draw_sprite_obj(MOON, x, y, frame=frame, transparent=True)
+
+    def _draw_stars(self, renderer):
+        phase = self._twinkle_phase
+        w = config.DISPLAY_WIDTH
+        for star in self._stars:
+            sx = int(star[0])
+            if sx < 0 or sx >= w:
+                continue
+            sy = star[1]
+            p = (phase + star[2]) % 12
+            renderer.draw_pixel(sx, sy)
+            if p == 10:
+                # Large twinkle: 4-point cross
+                renderer.draw_pixel(sx - 1, sy)
+                renderer.draw_pixel(sx + 1, sy)
+                renderer.draw_pixel(sx, sy - 1)
+                renderer.draw_pixel(sx, sy + 1)
+            elif p == 8 or p == 9 or p == 11:
+                # Small twinkle: horizontal bar
+                renderer.draw_pixel(sx - 1, sy)
+                renderer.draw_pixel(sx + 1, sy)
 
 
 class ZoomiesScene(Scene):
@@ -41,6 +167,7 @@ class ZoomiesScene(Scene):
         self.start_popup = Popup(renderer, x=14, y=10, width=100, height=48)
         self._session_score = 0
         self.score = 0
+        self.sky = ZoomiesSky()
         self.reset_game()
 
     def reset_game(self):
@@ -82,6 +209,9 @@ class ZoomiesScene(Scene):
 
         # Game state
         self.game_started = False
+
+        # Sky
+        self.sky.reset()
 
     def _init_ground_decor(self):
         """Initialize ground decoration elements"""
@@ -145,6 +275,8 @@ class ZoomiesScene(Scene):
                 print(f"[Zoomies] Awarded {coins} coins (total: {self.context.coins})")
 
     def update(self, dt):
+        self.sky.update(dt)
+
         if not self.game_started or self.is_hit:
             return
 
@@ -323,6 +455,9 @@ class ZoomiesScene(Scene):
         self.bonus_texts.append([text_x, float(int(self.player_y) - 2), 0.8])
 
     def draw(self):
+
+        # Draw sky (behind everything — sun/moon/stars)
+        self.sky.draw(self.renderer)
 
         # Draw clouds (background, behind everything)
         self._draw_clouds()
