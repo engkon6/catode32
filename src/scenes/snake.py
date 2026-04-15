@@ -50,9 +50,31 @@ class SnakeScene(Scene):
                 self.context.coins += coins
                 print(f"[Snake] Awarded {coins} coins (total: {self.context.coins})")
 
+    def _generate_dirt(self):
+        W, H = 128, 64
+        EDGE = 13  # zone thickness for edge bias
+        dirt = []
+        for _ in range(random.randint(4, 7)):
+            edge = random.randrange(4)
+            if edge == 0:    cx, cy = random.randint(4, W-5), random.randint(1, EDGE)
+            elif edge == 1:  cx, cy = random.randint(4, W-5), random.randint(H-EDGE-1, H-2)
+            elif edge == 2:  cx, cy = random.randint(1, EDGE), random.randint(4, H-5)
+            else:            cx, cy = random.randint(W-EDGE-1, W-2), random.randint(4, H-5)
+            placed = 0
+            attempts = 0
+            while placed < random.randint(2, 6) and attempts < 20:
+                attempts += 1
+                px = max(0, min(W-1, cx + random.randint(-4, 4)))
+                py = max(0, min(H-1, cy + random.randint(-4, 4)))
+                if all(abs(px-ex) > 2 or abs(py-ey) > 2 for ex, ey in dirt):
+                    dirt.append((px, py))
+                    placed += 1
+        self.dirt = dirt
+
     def _init_game(self):
         # Accumulate score from the run that just ended before resetting
         self._session_score = getattr(self, '_session_score', 0) + getattr(self, 'score', 0)
+        self._generate_dirt()
 
         mid_x = GRID_W // 2
         mid_y = GRID_H // 2
@@ -158,6 +180,10 @@ class SnakeScene(Scene):
             r.draw_text(f"SCORE:{self.score}", 28, 30)
             r.draw_text("A: RETRY", 32, 44)
             return
+
+        # Dirt pixels
+        for px, py in self.dirt:
+            r.draw_rect(px, py, 1, 1, filled=True)
 
         # Food
         if self.food is not None:
