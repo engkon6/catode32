@@ -12,6 +12,8 @@ from assets.icons import WRENCH_ICON, SUN_ICON, HOUSE_ICON, STATS_ICON, MINIGAME
 class SceneManager:
     """Manages scene loading, unloading, and transitions"""
 
+    _IDLE_TIMEOUT = 300.0  # seconds of inactivity before reverting to main scene
+
     # Modules that survive every scene transition once loaded.
     # Includes heavy asset data and the shared infrastructure that every
     # location scene depends on — purging and reimporting these each transition
@@ -66,6 +68,9 @@ class SceneManager:
         self.transitions = TransitionManager(renderer, duration=config.TRANSITION_DURATION)
         self.pending_scene_class = None
         self.pending_scene_name = None
+
+        # Idle timeout tracking
+        self._idle_timer = 0.0
 
         # Snapshot of sys.modules after all core infrastructure is loaded.
         # Anything not in this set is fair game to purge on scene exit.
@@ -235,6 +240,15 @@ class SceneManager:
         if self.transitions.update(dt):
             return  # Don't update scene during transition
 
+        # Idle timeout: after inactivity, close overlays and/or revert to main scene
+        self._idle_timer += dt
+        if self._idle_timer >= self._IDLE_TIMEOUT:
+            self._idle_timer = 0.0
+            if self.overlays.active:
+                self.overlays.clear()
+            if getattr(self.current_scene, 'SCENE_NAME', None) is None:
+                self.change_scene_by_name(self.context.last_main_scene)
+
         # Update current scene
         if self.current_scene:
             result = self.current_scene.update(dt)
@@ -267,6 +281,10 @@ class SceneManager:
     
     def handle_input(self):
         """Handle input for current scene"""
+        # Any button activity resets the idle timer
+        if self.input.any_button_pressed():
+            self._idle_timer = 0.0
+
         # Block input during transitions
         if self.transitions.active:
             return
