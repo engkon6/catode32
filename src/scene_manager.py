@@ -400,6 +400,22 @@ class SceneManager:
             elif action[1] == 'reset':
                 self.context.reset()
 
+    def sleep_update(self, dt):
+        """Minimal scene update for use during basic sleep mode.
+
+        Updates the current scene's logic (keeping behaviors and needs ticking)
+        without advancing transitions, triggering idle timeout, or processing
+        pending scene-change requests.  Scene-change results from behaviors are
+        intentionally ignored so the device doesn't silently switch scenes while
+        the screen is off.
+        """
+        if self.current_scene:
+            self.current_scene.update(dt)
+
+    def reset_idle_timer(self):
+        """Reset the inactivity timer (e.g. immediately after waking from sleep)."""
+        self._idle_timer = 0.0
+
     def unload_all(self):
         """Unload current scene - call this on shutdown"""
         if self.current_scene:

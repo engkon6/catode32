@@ -29,6 +29,19 @@ class TransitionManager:
         self._midpoint_called = False
         self._ready_for_midpoint = False  # True after one fully-black frame, before callback fires
 
+    def start_in_only(self):
+        """Start just the opening (in) phase — no out phase, no midpoint callback.
+
+        Used after waking from sleep: the screen has been off, so we skip the
+        closing phase and go straight to revealing the scene.
+        """
+        self.active = True
+        self.phase = 'in'
+        self.progress = 0.0
+        self._midpoint_callback = None
+        self._midpoint_called = True
+        self._ready_for_midpoint = False
+
     def start(self, on_midpoint=None):
         """Start a transition.
 

@@ -86,3 +86,13 @@ TRANSITION_DURATION = 0.25      # seconds per half-transition (total is 2x this)
 
 # Panning Settings
 PAN_SPEED = 2  # pixels per frame when D-pad held
+
+# Sleep / Power Saving
+# SLEEP_MODE controls the device sleep behaviour when idle:
+#   None    - sleep disabled
+#   "basic" - screen off, reduced game tick rate, CPU still running
+#   "deep"  - (not yet implemented) true deep sleep with hardware wake-up
+SLEEP_MODE = "basic"
+SLEEP_TIMEOUT_SEC = 900      # Seconds of inactivity before sleeping (15 minutes)
+SLEEP_FPS = 2                # Game update rate while in basic sleep
+SLEEP_FRAME_TIME_MS = 1000 // SLEEP_FPS

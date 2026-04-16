@@ -95,3 +95,14 @@ class InputHandler:
     def get_pressed_buttons(self):
         """Get list of all currently pressed button names"""
         return [name for name in self.buttons if self.is_pressed(name)]
+
+    def consume_all(self):
+        """Mark all currently-pressed buttons as already seen.
+
+        Call after waking from sleep so the button that triggered the wake
+        is not passed through to game logic as a fresh press.
+        """
+        now = time.ticks_ms()
+        for btn_name in self.buttons:
+            self.button_states[btn_name] = self.is_pressed(btn_name)
+            self.last_press_time[btn_name] = now

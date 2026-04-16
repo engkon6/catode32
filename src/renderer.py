@@ -42,6 +42,14 @@ class Renderer:
                                            config.DISPLAY_HEIGHT,
                                            self.i2c)
 
+    def power_off(self):
+        """Cut display panel power (~1–2 mA saving)."""
+        self.display.poweroff()
+
+    def power_on(self):
+        """Restore display panel power."""
+        self.display.poweron()
+
     def clear(self):
         """Clear the display buffer"""
         self.display.fill(0)
