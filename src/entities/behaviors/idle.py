@@ -15,15 +15,37 @@ class IdleBehavior(BaseBehavior):
     """
 
     NAME = "idle"
-    POSES = (
+
+    # Always available regardless of stats
+    NEUTRAL_POSES = (
         "sitting.side.neutral",
+        "sitting.side.looking_down",
+        "sitting.forward.neutral",
+        "sitting.forward.sleepy",
+        "sitting.forward.content",
+        "sitting_silly.side.neutral",
+        "standing.side.neutral",
+        "standing.side.neutral_looking_down",
+    )
+
+    # Added when fullness>=65, comfort>=50, affection>=75, serenity>=70 (all)
+    HAPPY_POSES = NEUTRAL_POSES + (
+        "standing.side.happy",
+        "sitting.forward.aloof",
+        "sitting.forward.happy",
         "sitting.side.happy",
         "sitting.side.aloof",
-        "sitting.forward.neutral",
-        "sitting.forward.happy",
-        "sitting.forward.aloof",
-        "standing.side.neutral",
-        "standing.side.happy",
+        "sitting_silly.side.happy",
+        "sitting_silly.side.aloof",
+    )
+
+    # Added when fullness<=25, comfort<=20, affection<=25, or serenity<=15 (any)
+    UPSET_POSES = NEUTRAL_POSES + (
+        "standing.side.angry",
+        "sitting.side.angry",
+        "sitting.side.annoyed",
+        "sitting_silly.side.annoyed",
+        "sitting_silly.side.angry",
     )
 
     COMPLETION_BONUS = {
@@ -99,9 +121,20 @@ class IdleBehavior(BaseBehavior):
         # Auto-selection is handled by BehaviorManager._auto_select().
         return None
 
+    def _get_pose_set(self):
+        ctx = self._character.context
+        if ctx is not None:
+            if (ctx.fullness >= 65 and ctx.comfort >= 50
+                    and ctx.affection >= 75 and ctx.serenity >= 70):
+                return self.HAPPY_POSES
+            if (ctx.fullness <= 25 or ctx.comfort <= 20
+                    or ctx.affection <= 25 or ctx.serenity <= 15):
+                return self.UPSET_POSES
+        return self.NEUTRAL_POSES
+
     def _pick_new_pose(self):
         """Select a new random idle pose and reset the timer."""
-        poses = list(self.POSES)
+        poses = list(self._get_pose_set())
         if self._current_idle_pose and len(poses) > 1:
             poses = [p for p in poses if p != self._current_idle_pose]
 

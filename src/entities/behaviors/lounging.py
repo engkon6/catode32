@@ -36,12 +36,16 @@ class LoungeingBehavior(BaseBehavior):
         "fitness": -0.025,
     }
 
-    LOUNGE_POSES = [
+    NEUTRAL_LOUNGE_POSES = (
         "laying.side.neutral",
         "laying.side.neutral2",
+    )
+
+    # Added when fullness>=65, comfort>=50, affection>=75, serenity>=70 (all)
+    HAPPY_LOUNGE_POSES = NEUTRAL_LOUNGE_POSES + (
         "laying.side.aloof",
         "laying.side.happy",
-    ]
+    )
 
     def __init__(self, character):
         super().__init__(character)
@@ -49,7 +53,7 @@ class LoungeingBehavior(BaseBehavior):
         self.settle_duration = random.uniform(4.0, 10.0)
         self.lounge_duration = random.uniform(30.0, 120.0)
         self.rouse_duration = random.uniform(1.0, 5.0)
-        self._lounge_pose = random.choice(self.LOUNGE_POSES)
+        self._lounge_pose = None
 
     def get_completion_bonus(self, context):
         bonus = dict(super().get_completion_bonus(context))
@@ -102,10 +106,20 @@ class LoungeingBehavior(BaseBehavior):
             return 'napping'
         return None
 
+    def _pick_lounge_pose(self):
+        ctx = self._character.context
+        if ctx is not None and (ctx.fullness >= 65 and ctx.comfort >= 50
+                and ctx.affection >= 75 and ctx.serenity >= 70):
+            poses = self.HAPPY_LOUNGE_POSES
+        else:
+            poses = self.NEUTRAL_LOUNGE_POSES
+        return random.choice(poses)
+
     def start(self, on_complete=None):
         if self._active:
             return
         super().start(on_complete)
+        self._lounge_pose = self._pick_lounge_pose()
         self._phase = "settling"
         self._character.set_pose("kneading.side.neutral")
 
