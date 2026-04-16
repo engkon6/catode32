@@ -26,7 +26,7 @@ class VocalizingBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         # Rapid changers
         "energy": -0.75,
-        "comfort": -0.5,
+        "comfort": -0.3,
 
         # Slow changers
         "serenity": -0.015,

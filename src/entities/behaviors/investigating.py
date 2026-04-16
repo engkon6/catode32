@@ -32,7 +32,7 @@ class InvestigatingBehavior(BaseBehavior):
     COMPLETION_BONUS = {
         # Rapid changers
         "focus": -0.25,
-        "comfort": -0.3,
+        "comfort": -0.2,
         "playfulness": -0.25,
         "serenity": -0.02,
 

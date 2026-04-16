@@ -52,18 +52,18 @@ class IdleBehavior(BaseBehavior):
         # Rapid changers
         "fullness": -0.05,
         "energy": -0.1,
-        "comfort": -0.7,
+        "comfort": -0.4,
         "playfulness": -0.05,
         "focus": -0.05,
 
         # Medium changers
         "fulfillment": -0.02,
         "curiosity": 0.02,
-        "cleanliness": -0.1,
+        "cleanliness": -0.06,
         "intelligence": -0.005,
 
         # Slow changers
-        "fitness": -0.025,
+        "fitness": -0.015,
         "serenity": 0.0075,
     }
 

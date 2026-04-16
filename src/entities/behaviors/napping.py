@@ -29,11 +29,11 @@ class NappingBehavior(BaseBehavior):
 
         # Medium changers
         "curiosity": 0.1,
-        "cleanliness": -2,
+        "cleanliness": -1.2,
         "intelligence": -0.025,
 
         # Slow changers
-        "fitness": -0.25,
+        "fitness": -0.1,
     }
 
     NAP_POSES = [

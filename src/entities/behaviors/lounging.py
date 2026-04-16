@@ -33,7 +33,7 @@ class LoungeingBehavior(BaseBehavior):
         "maturity": 0.02,
 
         # Slow changers
-        "fitness": -0.025,
+        "fitness": -0.015,
     }
 
     NEUTRAL_LOUNGE_POSES = (

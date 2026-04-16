@@ -29,13 +29,13 @@ class HuntingBehavior(BaseBehavior):
         # Rapid changers
         "fullness": -0.5,
         "energy": -2,
-        "comfort": -1,
+        "comfort": -0.6,
         "playfulness": -0.25,
 
         # Medium changers
         "fulfillment": 0.05,
         "intelligence": 0.015,
-        "cleanliness": -0.5,
+        "cleanliness": -0.3,
 
         # Slow changers
         "fitness": 0.02,
