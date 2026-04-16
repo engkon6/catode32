@@ -6,7 +6,7 @@ from scene import Scene
 from ui import Popup
 
 YEAR = "2026"
-VERSION = "0.0.4"
+VERSION = "0.1.0"
 
 CREDITS = """\
    Catode 32   

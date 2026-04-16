@@ -49,23 +49,30 @@ class ZoomiesSky:
     ]
 
     def __init__(self):
-        self._moon_phase_idx = 0
+        self._moon_phase_idx = 1
         self._sun_anim_timer = 0.0
         self._sun_anim_frame = 0
         self._twinkle_timer  = 0.0
         self._twinkle_phase  = 0
         self._stars = [list(s) for s in self._STAR_DATA]
+        self._shuffle_stars()
         self.sky_progress = 0.45  # set last so reset() can be called instead
+
+    def _shuffle_stars(self):
+        stars = self._stars
+        for i in range(len(stars) - 1, 0, -1):
+            j = random.randint(0, i)
+            stars[i], stars[j] = stars[j], stars[i]
 
     def reset(self):
         self.sky_progress    = 0.45
-        self._moon_phase_idx = 0
+        self._moon_phase_idx = 1
         self._sun_anim_timer = 0.0
         self._sun_anim_frame = 0
         self._twinkle_timer  = 0.0
         self._twinkle_phase  = 0
-        for i, s in enumerate(self._STAR_DATA):
-            self._stars[i][0] = float(s[0])
+        self._stars = [list(s) for s in self._STAR_DATA]
+        self._shuffle_stars()
 
     def update(self, dt):
         prev = self.sky_progress
@@ -121,9 +128,20 @@ class ZoomiesSky:
             renderer.draw_sprite_obj(MOON, x, y, frame=frame, transparent=True)
 
     def _draw_stars(self, renderer):
+        # Gradually reveal stars at dusk and hide them at dawn
+        t = self.sky_progress - 1.0  # 0.0 -> 1.0 across the full night
+        n = len(self._stars)
+        fade = 0.15  # fraction of night used for fade in/out
+        if t < fade:
+            visible = int(t / fade * n)
+        elif t > 1.0 - fade:
+            visible = int((1.0 - t) / fade * n)
+        else:
+            visible = n
+
         phase = self._twinkle_phase
         w = config.DISPLAY_WIDTH
-        for star in self._stars:
+        for star in self._stars[:visible]:
             sx = int(star[0])
             if sx < 0 or sx >= w:
                 continue
@@ -276,7 +294,8 @@ class ZoomiesScene(Scene):
                 print(f"[Zoomies] Awarded {coins} coins (total: {self.context.coins})")
 
     def update(self, dt):
-        self.sky.update(dt)
+        if not self.is_hit:
+            self.sky.update(dt)
 
         if not self.game_started or self.is_hit:
             return
