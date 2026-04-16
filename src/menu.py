@@ -120,7 +120,7 @@ class Menu:
             elif selected.confirm:
                 # Show confirmation dialog
                 self.pending_confirmation = selected
-            else:
+            elif selected.action is not None:
                 # Execute action
                 self.close()
                 return selected.action

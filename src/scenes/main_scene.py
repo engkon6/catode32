@@ -69,7 +69,7 @@ class MainScene(Scene):
             x_min = getattr(self.context, 'scene_x_min', 10)
             x_max = getattr(self.context, 'scene_x_max', 118)
             if saved_x is not None and x_min <= saved_x <= x_max:
-                self.character.x = saved_x
+                self.character.x = 100 if saved_x < 60 else saved_x
             else:
                 self.character.x = self.ENTRY_X
             self.environment.set_camera(int(self.character.x) - config.DISPLAY_WIDTH // 2)
@@ -440,6 +440,14 @@ class MainScene(Scene):
 
         return items
 
+    def _orient_for_eating(self):
+        """Set character mirror so food appears on the inward side of the screen."""
+        screen_x = int(self.character.x) - int(self.environment.camera_x)
+        if screen_x < 64:
+            self.character.mirror = True   # face right; food appears to the right
+        else:
+            self.character.mirror = False  # face left; food appears to the left
+
     def _handle_menu_action(self, action):
         if not action:
             return
@@ -448,6 +456,7 @@ class MainScene(Scene):
 
         if action_type == "meal":
             food_type = action[1]
+            self._orient_for_eating()
             self.character.trigger('eating', food_sprite=FOOD_BOWL, food_type=food_type)
             self.context.food_stock[food_type] = max(0, self.context.food_stock.get(food_type, 0) - 1)
         elif action_type == "kiss":
@@ -460,6 +469,7 @@ class MainScene(Scene):
             self.character.trigger('attention', variant='psst')
         elif action_type == "snack":
             snack_key = action[1]
+            self._orient_for_eating()
             self.character.trigger('eating', food_sprite=TREAT_PILE, food_type=snack_key)
             self.context.food_stock[snack_key] = max(0, self.context.food_stock.get(snack_key, 0) - 1)
         elif action_type == "toy":
