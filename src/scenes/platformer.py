@@ -25,8 +25,12 @@ BLOCK_H = 8
 PLAT_H  = 4
 
 # World dimensions
-WORLD_W  = 400
+WORLD_W  = 800
 GROUND_Y = 64   # hard-floor fallback; also == world bottom
+
+# Chunk dimensions — match screen size so at most 4 chunks are ever on screen
+CHUNK_W = 128
+CHUNK_H = 64
 
 # Camera scroll thresholds (screen pixels)
 LEFT_SCROLL_PX  = 57   # ~45% of 128
@@ -35,50 +39,104 @@ TOP_SCROLL_PX   = 22   # ~35% of 64
 BOT_SCROLL_PX   = 42   # ~65% of 64
 
 # Camera speed and bounds
-CAM_LERP  = 5.0    # lerp factor (higher = snappier follow)
+CAM_LERP  = 5.0
 CAM_X_MIN = 0
-CAM_X_MAX = WORLD_W - 128   # 272
+CAM_X_MAX = WORLD_W - 128   # 672
 CAM_Y_MIN = -128             # max upward scroll
-CAM_Y_MAX = 0                # floor stays at screen bottom; never scroll down past start
+CAM_Y_MAX = 0
 
 # Animation
-IDLE_FPS       = 6
-RUN_FPS        = 10
+IDLE_FPS        = 6
+RUN_FPS         = 10
 JUMP_PEAK_RANGE = 70
 
 
 def _make_level():
-    """Build and return (solid_blocks, platforms) for the test level."""
-    solid = []
+    """Build and return (solid_chunks, platforms).
 
-    # Full-width bottom row
+    solid_chunks: dict {(chunk_col, chunk_row): tuple of (bx, by)}
+    platforms:    indexed tuple of (px, py, pw) for one-way platforms
+
+    All block positions are at 8-px offsets, so no block ever straddles
+    two chunks — each block belongs to exactly one chunk bucket.
+    """
+    solid = {}
+
+    def add_solid(bx, by):
+        key = (bx // CHUNK_W, by // CHUNK_H)
+        if key not in solid:
+            solid[key] = []
+        solid[key].append((bx, by))
+
+    # --- Ground floor (y=56, chunk row 0, cols 0-6) ---
     x = 0
     while x < WORLD_W:
-        solid.append((x, 56))
+        add_solid(x, 56)
         x += BLOCK_W
 
-    # Elevated solid group A — right of start
+    # --- Chunk col 0 (x: 0..127) ---
+    # Elevated solid group A
     for i in range(8):
-        solid.append((56 + i * BLOCK_W, 20))
+        add_solid(56 + i * BLOCK_W, 20)
 
-    # Elevated solid group B — further right
+    # --- Chunks col 1-2 (x: 128..383) ---
+    # Elevated solid group B — straddles cols 1 and 2
     for i in range(6):
-        solid.append((240 + i * BLOCK_W, 28))
+        add_solid(240 + i * BLOCK_W, 28)
+
+    # --- Chunk col 2 (x: 256..383) ---
+    for i in range(5):
+        add_solid(304 + i * BLOCK_W, 12)
+
+    # --- Chunk col 3 (x: 384..511) ---
+    for i in range(6):
+        add_solid(392 + i * BLOCK_W, 36)
+    for i in range(4):
+        add_solid(456 + i * BLOCK_W, 16)
+
+    # --- Chunk col 4 (x: 512..639) ---
+    for i in range(5):
+        add_solid(528 + i * BLOCK_W, 44)
+    for i in range(4):
+        add_solid(576 + i * BLOCK_W, 24)
+
+    # --- Chunk col 5 (x: 640..767) ---
+    for i in range(5):
+        add_solid(648 + i * BLOCK_W, 36)
+    # High shelf — row -1 (y: -64..−1)
+    for i in range(5):
+        add_solid(680 + i * BLOCK_W, -8)
+
+    # --- Chunk col 6 (x: 768..800) ---
+    for i in range(4):
+        add_solid(768 + i * BLOCK_W, 40)
+
+    # Freeze into tuples for efficient per-frame iteration
+    solid_chunks = {k: tuple(v) for k, v in solid.items()}
 
     platforms = (
-        (8,   28, 32),   # Left side, near start (moved up 16px)
-        (148, 36, 32),   # Mid-level
-        (192, 20, 32),   # Mid-high
-        (244,  4, 24),   # Near top of screen
-        (272, -16, 32),  # Above screen top — requires scrolling up to reach
-        (320, 36, 32),   # Far right
+        # --- Left section ---
+        (8,   28, 32),   # near start
+        (148, 36, 32),   # mid-level
+        (192, 20, 32),   # mid-high
+        (244,  4, 24),   # near screen top
+        (272, -16, 32),  # above screen — requires scrolling up
+        (320, 36, 32),   # far right of first section
+        # --- Extended sections ---
+        (384,  8, 32),   # col 3 entry
+        (448, -8, 32),   # col 3 high
+        (520, 36, 32),   # col 4 low
+        (576,  4, 32),   # col 4 high
+        (640, -24, 40),  # col 5 very high
+        (720, 36, 32),   # col 5 low
+        (760, 16, 24),   # col 6 near end
     )
 
-    return tuple(solid), platforms
+    return solid_chunks, platforms
 
 
 # Build once at import time; freed when scene module is unloaded
-SOLID_BLOCKS, PLATFORMS = _make_level()
+SOLID_CHUNKS, PLATFORMS = _make_level()
 
 
 def _precompute_frames(sprite):
@@ -106,7 +164,7 @@ class PlatformerScene(Scene):
         self.just_landed  = False
         self.facing_right = True
 
-        self._on_platform   = -1  # platform index cat stands on  (-1 = solid/none)
+        self._on_platform   = -1  # platform index cat stands on (-1 = solid/none)
         self._drop_platform = -1  # platform index being dropped through
 
         self.anim_timer = 0.0
@@ -174,9 +232,16 @@ class PlatformerScene(Scene):
         cl = int(self.x) - CAT_HALF_W
         cr = int(self.x) + CAT_HALF_W
 
-        for bx, by in SOLID_BLOCKS:
-            if by == fy and cl < bx + BLOCK_W and cr > bx:
-                return True
+        # Query only the chunk row that has blocks at y == fy
+        row = fy // CHUNK_H
+        col0 = (cl - BLOCK_W + 1) // CHUNK_W
+        col1 = (cr - 1) // CHUNK_W
+        for col in range(col0, col1 + 1):
+            bucket = SOLID_CHUNKS.get((col, row))
+            if bucket:
+                for bx, by in bucket:
+                    if by == fy and cl < bx + BLOCK_W and cr > bx:
+                        return True
 
         if self._on_platform >= 0:
             px, py, pw = PLATFORMS[self._on_platform]
@@ -191,41 +256,62 @@ class PlatformerScene(Scene):
         ct = int(self.feet_y) - CAT_H
         cb = int(self.feet_y)
 
-        for bx, by in SOLID_BLOCKS:
-            br = bx + BLOCK_W
-            bb = by + BLOCK_H
-            if ct >= bb or cb <= by:
-                continue
-            if cl >= br or cr <= bx:
-                continue
-            if self.vx > 0:
-                self.x = float(bx - CAT_HALF_W)
-            elif self.vx < 0:
-                self.x = float(br + CAT_HALF_W)
-            else:
-                if cr - bx < br - cl:
-                    self.x = float(bx - CAT_HALF_W)
-                else:
-                    self.x = float(br + CAT_HALF_W)
-            self.vx = 0.0
-            cl = int(self.x) - CAT_HALF_W
-            cr = int(self.x) + CAT_HALF_W
+        # Tight chunk bounds: blocks that can overlap [cl,cr) × [ct,cb)
+        col0 = (cl - BLOCK_W + 1) // CHUNK_W
+        col1 = (cr - 1) // CHUNK_W
+        row0 = (ct - BLOCK_H + 1) // CHUNK_H
+        row1 = (cb - 1) // CHUNK_H
+
+        for col in range(col0, col1 + 1):
+            for row in range(row0, row1 + 1):
+                bucket = SOLID_CHUNKS.get((col, row))
+                if not bucket:
+                    continue
+                for bx, by in bucket:
+                    br = bx + BLOCK_W
+                    bb = by + BLOCK_H
+                    if ct >= bb or cb <= by:
+                        continue
+                    if cl >= br or cr <= bx:
+                        continue
+                    if self.vx > 0:
+                        self.x = float(bx - CAT_HALF_W)
+                    elif self.vx < 0:
+                        self.x = float(br + CAT_HALF_W)
+                    else:
+                        if cr - bx < br - cl:
+                            self.x = float(bx - CAT_HALF_W)
+                        else:
+                            self.x = float(br + CAT_HALF_W)
+                    self.vx = 0.0
+                    cl = int(self.x) - CAT_HALF_W
+                    cr = int(self.x) + CAT_HALF_W
 
     def _resolve_y(self, prev_feet):
         cl = int(self.x) - CAT_HALF_W
         cr = int(self.x) + CAT_HALF_W
 
+        col0 = (cl - BLOCK_W + 1) // CHUNK_W
+        col1 = (cr - 1) // CHUNK_W
+
         if self.vy >= 0:  # descending
-            for bx, by in SOLID_BLOCKS:
-                if cl >= bx + BLOCK_W or cr <= bx:
-                    continue
-                if prev_feet <= by <= self.feet_y:
-                    self.feet_y   = float(by)
-                    self.vy       = 0.0
-                    self.on_ground    = True
-                    self._on_platform = -1
-                    self.just_landed  = True
-                    return
+            row0 = prev_feet // CHUNK_H
+            row1 = int(self.feet_y) // CHUNK_H
+            for col in range(col0, col1 + 1):
+                for row in range(row0, row1 + 1):
+                    bucket = SOLID_CHUNKS.get((col, row))
+                    if not bucket:
+                        continue
+                    for bx, by in bucket:
+                        if cl >= bx + BLOCK_W or cr <= bx:
+                            continue
+                        if prev_feet <= by <= self.feet_y:
+                            self.feet_y   = float(by)
+                            self.vy       = 0.0
+                            self.on_ground    = True
+                            self._on_platform = -1
+                            self.just_landed  = True
+                            return
 
             for i, (px, py, pw) in enumerate(PLATFORMS):
                 if i == self._drop_platform:
@@ -250,14 +336,22 @@ class PlatformerScene(Scene):
         else:  # ascending — solid block ceilings only
             prev_head = prev_feet - CAT_H
             curr_head = self.feet_y - CAT_H
-            for bx, by in SOLID_BLOCKS:
-                bb = by + BLOCK_H
-                if cl >= bx + BLOCK_W or cr <= bx:
-                    continue
-                if prev_head >= bb > curr_head:
-                    self.feet_y = float(bb + CAT_H)
-                    self.vy     = 0.0
-                    break
+            # by = bb - BLOCK_H; bb in (curr_head, prev_head]
+            row0 = int(curr_head - BLOCK_H + 1) // CHUNK_H
+            row1 = int(prev_head - BLOCK_H) // CHUNK_H
+            for col in range(col0, col1 + 1):
+                for row in range(row0, row1 + 1):
+                    bucket = SOLID_CHUNKS.get((col, row))
+                    if not bucket:
+                        continue
+                    for bx, by in bucket:
+                        bb = by + BLOCK_H
+                        if cl >= bx + BLOCK_W or cr <= bx:
+                            continue
+                        if prev_head >= bb > curr_head:
+                            self.feet_y = float(bb + CAT_H)
+                            self.vy     = 0.0
+                            return
 
     def _update_camera(self, dt):
         cat_sx = self.x      - self.camera_x
@@ -343,13 +437,24 @@ class PlatformerScene(Scene):
         cam_x = int(self.camera_x)
         cam_y = int(self.camera_y)
 
-        # Terrain — cull anything fully off-screen
-        for bx, by in SOLID_BLOCKS:
-            sx = bx - cam_x
-            sy = by - cam_y
-            if -BLOCK_W < sx < 128 and -BLOCK_H < sy < 64:
-                self.renderer.draw_rect(sx, sy, BLOCK_W, BLOCK_H, filled=True, color=1)
+        # Solid terrain — only iterate chunks that overlap the viewport
+        col0 = cam_x // CHUNK_W
+        col1 = (cam_x + 127) // CHUNK_W
+        row0 = cam_y // CHUNK_H
+        row1 = (cam_y + 63) // CHUNK_H
+        for col in range(col0, col1 + 1):
+            for row in range(row0, row1 + 1):
+                bucket = SOLID_CHUNKS.get((col, row))
+                if not bucket:
+                    continue
+                for bx, by in bucket:
+                    sx = bx - cam_x
+                    sy = by - cam_y
+                    if -BLOCK_W < sx < 128 and -BLOCK_H < sy < 64:
+                        self.renderer.draw_rect(sx, sy, BLOCK_W, BLOCK_H,
+                                                filled=True, color=1)
 
+        # Platforms — only 13 total, cheap to iterate flat
         for px, py, pw in PLATFORMS:
             sx = px - cam_x
             sy = py - cam_y
