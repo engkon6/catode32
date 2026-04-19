@@ -1,0 +1,94 @@
+"""
+Terrain tile sprites for the Prowl platformer minigame.
+All tiles are 8x8 pixels.
+
+Tile type constants are used in SOLID_CHUNKS block tuples:
+  (block_x, block_y, tile_type, variant_idx)
+
+TERRAIN_TILES[tile_type][variant_idx] gives the sprite to draw.
+Adding variants never changes the TILE_* constant values.
+"""
+
+TILE_TOP          = 0
+TILE_TOP_LEFT     = 1
+TILE_TOP_RIGHT    = 2
+TILE_SIDE_LEFT    = 3
+TILE_SIDE_RIGHT   = 4
+TILE_BOTTOM       = 5
+TILE_BOTTOM_LEFT  = 6
+TILE_BOTTOM_RIGHT = 7
+# Single-cell-tall floating terrain: top and bottom edges both visible
+TILE_TOP_BOTTOM       = 8
+TILE_TOP_LEFT_BOTTOM  = 9
+TILE_TOP_RIGHT_BOTTOM = 10
+
+TERRAIN_TOP = {
+    "width": 8, "height": 8,
+    "frames": [b"\xff\x00\x77\x77\x00\xa1\x00\x00"],
+}
+
+TERRAIN_CORNER_TOP_LEFT = {
+    "width": 8, "height": 8,
+    "frames": [b"\x7f\x80\xb7\xb7\x80\x88\x40\x20"],
+}
+
+TERRAIN_CORNER_TOP_RIGHT = {
+    "width": 8, "height": 8,
+    "frames": [b"\xfe\x01\x75\x75\x01\xa1\x02\x04"],
+}
+
+TERRAIN_SIDE_LEFT = {
+    "width": 8, "height": 8,
+    "frames": [b"\x20\x28\x20\x20\x22\x20\x24\x20"],
+}
+
+TERRAIN_SIDE_RIGHT = {
+    "width": 8, "height": 8,
+    "frames": [b"\x04\x14\x84\x04\x04\x04\x24\x04"],
+}
+
+TERRAIN_CORNER_BOTTOM = {
+    "width": 8, "height": 8,
+    "frames": [b"\x00\x40\x00\x02\x00\x00\x67\x98"],
+}
+
+TERRAIN_CORNER_BOTTOM_LEFT = {
+    "width": 8, "height": 8,
+    "frames": [b"\x20\x20\x20\x12\x10\x08\x08\x07"],
+}
+
+TERRAIN_CORNER_BOTTOM_RIGHT = {
+    "width": 8, "height": 8,
+    "frames": [b"\x04\x14\x04\x08\x08\x10\x10\xe0"],
+}
+
+TERRAIN_TOP_BOTTOM = {
+    "width": 8, "height": 8,
+    "frames": [b"\xff\x00\x77\x77\x00\xa1\x0c\xf3"],
+}
+
+TERRAIN_CORNER_TOP_LEFT_BOTTOM = {
+    "width": 8, "height": 8,
+    "frames": [b"\x7f\x80\xb7\xb7\x80\x88\x60\x1f"],
+}
+
+TERRAIN_CORNER_TOP_RIGHT_BOTTOM = {
+    "width": 8, "height": 8,
+    "frames": [b"\xfe\x01\x75\x75\x01\xa1\x06\xf8"],
+}
+
+# Indexed by TILE_* constants — TERRAIN_TILES[tile_type][variant_idx] gives the sprite.
+# Add more sprites to an inner tuple to introduce variants for that tile type.
+TERRAIN_TILES = (
+    (TERRAIN_TOP,),
+    (TERRAIN_CORNER_TOP_LEFT,),
+    (TERRAIN_CORNER_TOP_RIGHT,),
+    (TERRAIN_SIDE_LEFT,),
+    (TERRAIN_SIDE_RIGHT,),
+    (TERRAIN_CORNER_BOTTOM,),
+    (TERRAIN_CORNER_BOTTOM_LEFT,),
+    (TERRAIN_CORNER_BOTTOM_RIGHT,),
+    (TERRAIN_TOP_BOTTOM,),
+    (TERRAIN_CORNER_TOP_LEFT_BOTTOM,),
+    (TERRAIN_CORNER_TOP_RIGHT_BOTTOM,),
+)

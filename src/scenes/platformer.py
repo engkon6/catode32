@@ -6,6 +6,20 @@ Combat: cat swipe attack, slime enemies.
 import random
 from scene import Scene
 from sprite_transform import mirror_sprite_h
+from assets.platformer_terrain import (
+    TERRAIN_TILES,
+    TILE_TOP,
+    TILE_TOP_LEFT,
+    TILE_TOP_RIGHT,
+    TILE_SIDE_LEFT,
+    TILE_SIDE_RIGHT,
+    TILE_BOTTOM,
+    TILE_BOTTOM_LEFT,
+    TILE_BOTTOM_RIGHT,
+    TILE_TOP_BOTTOM,
+    TILE_TOP_LEFT_BOTTOM,
+    TILE_TOP_RIGHT_BOTTOM,
+)
 from assets.plants import (
     GRASS_SEEDLING,
     GRASS_YOUNG,
@@ -115,68 +129,70 @@ SLIME_SPAWNS = (
 def _make_level():
     """Build and return (solid_chunks, platforms).
 
-    solid_chunks: dict {(chunk_col, chunk_row): tuple of (bx, by)}
+    solid_chunks: dict {(chunk_col, chunk_row): tuple of (bx, by, tile_type, variant_idx)}
     platforms:    indexed tuple of (px, py, pw) for one-way platforms
 
     All block positions are at 8-px offsets, so no block ever straddles
     two chunks — each block belongs to exactly one chunk bucket.
+    Tile types are specified explicitly per block (see TILE_* constants).
     """
     solid = {}
 
-    def add_solid(bx, by):
+    def add_solid(bx, by, tile_type, variant=0):
         key = (bx // CHUNK_W, by // CHUNK_H)
         if key not in solid:
             solid[key] = []
-        solid[key].append((bx, by))
+        solid[key].append((bx, by, tile_type, variant))
 
-    # --- Ground floor (y=56, chunk row 0, cols 0-6) — gaps skipped ---
-    x = 0
-    while x < WORLD_W:
-        in_gap = False
-        for g0, g1 in GROUND_GAPS:
-            if g0 <= x < g1:
-                in_gap = True
-                break
-        if not in_gap:
-            add_solid(x, 56)
-        x += BLOCK_W
+    def add_run(start_x, by, count, has_bottom=False):
+        """Add a horizontal run of blocks: left cap, interior tops, right cap.
+        has_bottom=True for single-cell-tall floating terrain where the bottom edge is visible.
+        """
+        tl = TILE_TOP_LEFT_BOTTOM  if has_bottom else TILE_TOP_LEFT
+        tr = TILE_TOP_RIGHT_BOTTOM if has_bottom else TILE_TOP_RIGHT
+        tm = TILE_TOP_BOTTOM       if has_bottom else TILE_TOP
+        if count == 1:
+            add_solid(start_x, by, tl)
+            return
+        add_solid(start_x, by, tl)
+        for i in range(1, count - 1):
+            add_solid(start_x + i * BLOCK_W, by, tm)
+        add_solid(start_x + (count - 1) * BLOCK_W, by, tr)
+
+    # --- Ground floor (y=56) — runs between GROUND_GAPS ---
+    # Bottom edge not visible (terrain extends to screen edge)
+    add_run(0,   56, 16)   # 0..120    (gap 128..168)
+    add_run(168, 56, 16)   # 168..288  (gap 296..328)
+    add_run(328, 56, 21)   # 328..488  (gap 496..544)
+    add_run(544, 56, 13)   # 544..640  (gap 648..680)
+    add_run(680, 56, 15)   # 680..792
 
     # --- Chunk col 0 (x: 0..127) ---
     # Elevated solid group A
-    for i in range(8):
-        add_solid(56 + i * BLOCK_W, 20)
+    add_run(56, 20, 8, has_bottom=True)
 
     # --- Chunks col 1-2 (x: 128..383) ---
     # Elevated solid group B — straddles cols 1 and 2
-    for i in range(6):
-        add_solid(240 + i * BLOCK_W, 28)
+    add_run(240, 28, 6, has_bottom=True)
 
     # --- Chunk col 2 (x: 256..383) ---
-    for i in range(5):
-        add_solid(304 + i * BLOCK_W, 12)
+    add_run(304, 12, 5, has_bottom=True)
 
     # --- Chunk col 3 (x: 384..511) ---
-    for i in range(6):
-        add_solid(392 + i * BLOCK_W, 36)
-    for i in range(4):
-        add_solid(456 + i * BLOCK_W, 16)
+    add_run(392, 36, 6, has_bottom=True)
+    add_run(456, 16, 4, has_bottom=True)
 
     # --- Chunk col 4 (x: 512..639) ---
-    for i in range(5):
-        add_solid(528 + i * BLOCK_W, 44)
-    for i in range(4):
-        add_solid(576 + i * BLOCK_W, 24)
+    add_run(528, 44, 5, has_bottom=True)
+    add_run(576, 24, 4, has_bottom=True)
 
     # --- Chunk col 5 (x: 640..767) ---
-    for i in range(5):
-        add_solid(648 + i * BLOCK_W, 36)
+    add_run(648, 36, 5, has_bottom=True)
     # High shelf — row -1 (y: -64..−1)
-    for i in range(5):
-        add_solid(680 + i * BLOCK_W, -8)
+    add_run(680, -8, 5, has_bottom=True)
 
     # --- Chunk col 6 (x: 768..800) ---
-    for i in range(4):
-        add_solid(768 + i * BLOCK_W, 40)
+    add_run(768, 40, 4, has_bottom=True)
 
     # Freeze into tuples for efficient per-frame iteration
     solid_chunks = {k: tuple(v) for k, v in solid.items()}
@@ -274,7 +290,7 @@ def _supported(x, feet_y, half_w):
     for col in range(col0, col1 + 1):
         bucket = SOLID_CHUNKS.get((col, row))
         if bucket:
-            for bx, by in bucket:
+            for bx, by, _, __ in bucket:
                 if by == fy and cl < bx + BLOCK_W and cr > bx:
                     return True
     for px, py, pw in PLATFORMS:
@@ -640,7 +656,7 @@ class PlatformerScene(Scene):
         for col in range(col0, col1 + 1):
             bucket = SOLID_CHUNKS.get((col, row))
             if bucket:
-                for bx, by in bucket:
+                for bx, by, _, __ in bucket:
                     if by == fy and cl < bx + BLOCK_W and cr > bx:
                         return True
 
@@ -667,7 +683,7 @@ class PlatformerScene(Scene):
                 bucket = SOLID_CHUNKS.get((col, row))
                 if not bucket:
                     continue
-                for bx, by in bucket:
+                for bx, by, _, __ in bucket:
                     br = bx + BLOCK_W
                     bb = by + BLOCK_H
                     if ct >= bb or cb <= by:
@@ -702,7 +718,7 @@ class PlatformerScene(Scene):
                     bucket = SOLID_CHUNKS.get((col, row))
                     if not bucket:
                         continue
-                    for bx, by in bucket:
+                    for bx, by, _, __ in bucket:
                         if cl >= bx + BLOCK_W or cr <= bx:
                             continue
                         if prev_feet <= by <= self.feet_y:
@@ -738,7 +754,7 @@ class PlatformerScene(Scene):
                     bucket = SOLID_CHUNKS.get((col, row))
                     if not bucket:
                         continue
-                    for bx, by in bucket:
+                    for bx, by, _, __ in bucket:
                         bb = by + BLOCK_H
                         if cl >= bx + BLOCK_W or cr <= bx:
                             continue
@@ -864,11 +880,12 @@ class PlatformerScene(Scene):
                 bucket = SOLID_CHUNKS.get((col, row))
                 if not bucket:
                     continue
-                for bx, by in bucket:
+                for bx, by, tt, vi in bucket:
                     sx = bx - cam_x
                     sy = by - cam_y
                     if -BLOCK_W < sx < 128 and -BLOCK_H < sy < 64:
-                        self.renderer.draw_rect(sx, sy, BLOCK_W, BLOCK_H, color=1)
+                        tile = TERRAIN_TILES[tt][vi]
+                        self.renderer.draw_sprite(tile["frames"][0], BLOCK_W, BLOCK_H, sx, sy)
 
         # Platforms — 13 total, cheap to iterate flat
         for px, py, pw in PLATFORMS:
