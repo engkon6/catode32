@@ -6,6 +6,13 @@ Combat: cat swipe attack, slime enemies.
 import random
 from scene import Scene
 from sprite_transform import mirror_sprite_h
+from assets.plants import (
+    GRASS_SEEDLING,
+    GRASS_YOUNG,
+    GRASS_GROWING,
+    GRASS_MATURE,
+    GRASS_THRIVING,
+)
 from assets.minigame_character import (
     PLATFORMER_CAT_RUN,
     PLATFORMER_CAT_SIT,
@@ -194,8 +201,65 @@ def _make_level():
     return solid_chunks, platforms
 
 
+# Grass sprite variants: index 0..4 used in GRASS_PLACEMENTS
+# (SEEDLING=0, YOUNG=1, GROWING=2, MATURE=3, THRIVING=4)
+GRASS_SPRITES = (GRASS_SEEDLING, GRASS_YOUNG, GRASS_GROWING, GRASS_MATURE, GRASS_THRIVING)
+
+# Fixed decoration placements: (world_x, surface_y, sprite_idx)
+# world_x is the horizontal centre; grass bottom sits at surface_y.
+# ~4 per chunk column → at most ~8 visible at once (2 chunks wide viewport).
+GRASS_PLACEMENTS = (
+    # chunk col 0
+    (20,  56, 1),   # ground — near start
+    (72,  56, 0),   # ground
+    (24,  28, 0),   # platform (8, 28)
+    (88,  20, 3),   # elevated group A
+    # chunk col 1
+    (176, 56, 2),   # ground (after first gap)
+    (160, 36, 1),   # platform (148, 36)
+    (208, 20, 0),   # platform (192, 20)
+    (252, 28, 4),   # elevated group B — thriving on wide ledge
+    # chunk col 2
+    (336, 56, 3),   # ground (after second gap)
+    (256,  4, 1),   # platform (244, 4)
+    (316, 12, 2),   # elevated (304..344, y=12)
+    (332, 36, 0),   # platform (320, 36)
+    # chunk col 3
+    (404, 56, 0),   # ground
+    (468, 56, 2),   # ground
+    (396,  8, 1),   # platform (384, 8)
+    (460, -8, 0),   # platform (448, -8)
+    # chunk col 4
+    (552, 56, 1),   # ground (after third gap)
+    (532, 36, 2),   # platform (520, 36)
+    (548, 44, 3),   # elevated (528..560, y=44)
+    (588,  4, 0),   # platform (576, 4)
+    # chunk col 5
+    (644, 56, 2),   # ground (before gap)
+    (688, 56, 0),   # ground (after gap)
+    (656, -24, 1),  # platform (640, -24) — very high
+    (660, 36, 3),   # elevated (648..680, y=36)
+    (692,  -8, 2),  # elevated (680..712, y=-8)
+    # chunk col 6
+    (776, 56, 1),   # ground
+    (780, 40, 0),   # elevated (768..792, y=40)
+)
+
+
+def _make_grass_chunks():
+    """Bucket GRASS_PLACEMENTS into the same (chunk_col, chunk_row) scheme as SOLID_CHUNKS."""
+    chunks = {}
+    for wx, sy, si in GRASS_PLACEMENTS:
+        key = (wx // CHUNK_W, sy // CHUNK_H)
+        if key not in chunks:
+            chunks[key] = []
+        chunks[key].append((wx, sy, si))
+    return {k: tuple(v) for k, v in chunks.items()}
+
+
 # Build once at import time; freed when scene module is unloaded
 SOLID_CHUNKS, PLATFORMS = _make_level()
+GRASS_CHUNKS = _make_grass_chunks()
 
 
 def _supported(x, feet_y, half_w):
@@ -810,6 +874,20 @@ class PlatformerScene(Scene):
             sy = py - cam_y
             if -pw < sx < 128 and -PLAT_H < sy < 64:
                 self.renderer.draw_rect(sx, sy, pw, PLAT_H, color=1)
+
+        # Grass decorations — chunk-culled, drawn above terrain
+        for col in range(col0, col1 + 1):
+            for row in range(row0, row1 + 1):
+                bucket = GRASS_CHUNKS.get((col, row))
+                if not bucket:
+                    continue
+                for wx, surface_y, si in bucket:
+                    sprite = GRASS_SPRITES[si]
+                    sw = sprite["width"]
+                    sh = sprite["height"]
+                    gx = wx - sw // 2 - cam_x
+                    gy = surface_y - sh - cam_y
+                    self.renderer.draw_sprite(sprite["frames"][0], sw, sh, gx, gy)
 
         # Slimes — only those in visible chunks
         sw = PLATFORMER_SLIME_IDLE["width"]
