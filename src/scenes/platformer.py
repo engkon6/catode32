@@ -56,10 +56,10 @@ CHUNK_W = 128
 CHUNK_H = 64
 
 # Camera scroll thresholds (screen pixels)
-LEFT_SCROLL_PX  = 57   # ~45% of 128
-RIGHT_SCROLL_PX = 83   # ~65% of 128
-TOP_SCROLL_PX   = 22   # ~35% of 64
-BOT_SCROLL_PX   = 42   # ~65% of 64
+LEFT_SCROLL_PX  = 50
+RIGHT_SCROLL_PX = 75
+TOP_SCROLL_PX   = 24
+BOT_SCROLL_PX   = 42
 
 # Camera speed and bounds
 CAM_LERP  = 5.0
@@ -88,7 +88,8 @@ SWIPE_FPS         = 12   # frames per second for swipe animation
 ATTACK_FRAME      = 2    # frame index (0-based) that deals damage
 SIT_SWIPE_FRAMES  = 5    # total frames in PLATFORMER_CAT_SIT_SWIPE
 RUN_SWIPE_FRAMES  = 3    # total frames in PLATFORMER_CAT_RUN_SWIPE
-ATK_REACH    = 16          # px of reach ahead of the cat body edge
+ATK_REACH     = 16         # px of reach ahead of the cat body edge (standing swipe)
+RUN_ATK_REACH = 28         # px of reach for run/jump swipe
 STRIKE_VX    = 55          # px/s the strike effect drifts forward
 
 # Slime
@@ -525,12 +526,13 @@ class PlatformerScene(Scene):
         """Deal 1 damage to every slime inside the attack zone on swipe frame 2."""
         # Cat body is left-aligned (facing right) or right-aligned (facing left)
         # during a swipe; attack zone is ATK_REACH px beyond that edge.
+        reach = RUN_ATK_REACH if self._swipe_is_run else ATK_REACH
         if self.facing_right:
             atk_cl = int(self.x) + CAT_H          # body right edge
-            atk_cr = atk_cl + ATK_REACH
+            atk_cr = atk_cl + reach
         else:
             atk_cr = int(self.x) - CAT_H          # body left edge
-            atk_cl = atk_cr - ATK_REACH
+            atk_cl = atk_cr - reach
 
         # Spawn strike effect at the start of the attack zone, drifting forward
         self._strike_active = True
