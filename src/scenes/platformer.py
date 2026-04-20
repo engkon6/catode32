@@ -34,6 +34,7 @@ from assets.minigame_character import (
     PLATFORMER_CAT_SIT_SWIPE,
     PLATFORMER_CAT_RUN_SWIPE,
     PLATFORMER_SLIME_IDLE,
+    PLATFORMER_SLIME_BURST,
     PLATFORMER_STRIKE,
 )
 
@@ -113,6 +114,7 @@ SLIME_H              = 8
 SLIME_START_HP       = 2
 SLIME_HIT_FLASH      = 0.15   # seconds to show fill frame after being hit
 SLIME_ANIM_SPF       = 0.5    # seconds per frame (2 FPS)
+SLIME_BURST_SPF      = 1.0 / 12   # seconds per frame for death burst
 SLIME_PATROL_RADIUS  = 48
 
 # Slime spawn positions: (world_x, feet_y)
@@ -320,8 +322,11 @@ class Slime:
         self.vx        = float(SLIME_SPEED)
         self.hp        = SLIME_START_HP
         self.alive     = True
+        self.dying     = False
         self.anim_frame = 0
         self.anim_timer = 0.0
+        self.burst_frame = 0
+        self.burst_timer = 0.0
         self.hit_timer  = 0.0   # > 0: show fill frame (white flash)
         self.dir_timer  = 1.0 + random.random() * 2.0
 
@@ -503,6 +508,15 @@ class PlatformerScene(Scene):
     # ------------------------------------------------------------------
 
     def _update_slime(self, slime, dt):
+        if slime.dying:
+            slime.burst_timer += dt
+            if slime.burst_timer >= SLIME_BURST_SPF:
+                slime.burst_timer -= SLIME_BURST_SPF
+                slime.burst_frame += 1
+            if slime.burst_frame >= len(PLATFORMER_SLIME_BURST["frames"]):
+                slime.alive = False
+            return
+
         # Random direction change
         slime.dir_timer -= dt
         if slime.dir_timer <= 0:
@@ -575,7 +589,7 @@ class PlatformerScene(Scene):
             slime.hp -= 1
             slime.hit_timer = SLIME_HIT_FLASH
             if slime.hp <= 0:
-                slime.alive = False
+                slime.dying = True
 
     def _check_slime_cat_contact(self):
         """If any live slime touches the cat, deal 1 damage and knock the cat back."""
@@ -588,7 +602,7 @@ class PlatformerScene(Scene):
         ccb = int(self.feet_y)
 
         for slime in self._slimes:
-            if not slime.alive:
+            if not slime.alive or slime.dying:
                 continue
             scl = int(slime.x) - SLIME_HALF_W
             scr = int(slime.x) + SLIME_HALF_W
@@ -899,10 +913,18 @@ class PlatformerScene(Scene):
         # Slimes — only those in visible chunks
         sw = PLATFORMER_SLIME_IDLE["width"]
         sh = PLATFORMER_SLIME_IDLE["height"]
+        bw = PLATFORMER_SLIME_BURST["width"]
+        bh = PLATFORMER_SLIME_BURST["height"]
         for slime in self._slimes:
             if not slime.alive:
                 continue
             if not (col0 <= slime.chunk_col <= col1):
+                continue
+            if slime.dying:
+                fi = slime.burst_frame
+                sx = int(slime.x) - bw // 2 - cam_x
+                sy = int(slime.feet_y) - bh - cam_y
+                self.renderer.draw_sprite(PLATFORMER_SLIME_BURST["frames"][fi], bw, bh, sx, sy)
                 continue
             sx = int(slime.x) - sw // 2 - cam_x
             sy = int(slime.feet_y) - sh - cam_y
