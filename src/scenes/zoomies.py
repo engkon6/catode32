@@ -165,7 +165,9 @@ class ZoomiesScene(Scene):
 
     # Game constants
     GROUND_Y = 54  # Y position of the ground line
-    PLAYER_X = 2  # Fixed X position of player
+    PLAYER_X = 2  # Starting/minimum X position of player
+    PLAYER_X_MAX = 89  # Maximum X position (~70% of screen width)
+    PLAYER_MOVE_SPEED = 60  # Horizontal movement speed on ground (px/s)
     GRAVITY = 207  # Pixels per second squared
     JUMP_VELOCITY = -136  # Initial jump velocity (negative = up)
     BASE_SPEED = 48  # Starting speed (pixels per second)
@@ -191,6 +193,7 @@ class ZoomiesScene(Scene):
     def reset_game(self):
         """Reset all game state for a new game"""
         # Player state
+        self.player_x = float(self.PLAYER_X)
         self.player_y = self.GROUND_Y - RUNCAT1["height"]
         self.player_vy = 0  # Vertical velocity
         self.is_jumping = False
@@ -314,7 +317,12 @@ class ZoomiesScene(Scene):
 
         # Update player physics
         if self.is_jumping:
-            gravity_mult = 1.0 if (self.input.is_pressed('a') or self.input.is_pressed('up')) else 2.0
+            if self.input.is_pressed('a') or self.input.is_pressed('up'):
+                gravity_mult = 1.0
+            elif self.input.is_pressed('down'):
+                gravity_mult = 1.5
+            else:
+                gravity_mult = 2.0
             self.player_vy += self.GRAVITY * gravity_mult * dt
             self.player_y += self.player_vy * dt
 
@@ -324,6 +332,12 @@ class ZoomiesScene(Scene):
                 self.player_y = ground_level
                 self.player_vy = 0
                 self.is_jumping = False
+        else:
+            # Horizontal movement on the ground
+            if self.input.is_pressed('left'):
+                self.player_x = max(float(self.PLAYER_X), self.player_x - self.PLAYER_MOVE_SPEED * dt)
+            elif self.input.is_pressed('right'):
+                self.player_x = min(float(self.PLAYER_X_MAX), self.player_x + self.PLAYER_MOVE_SPEED * dt)
 
         # Update running animation
         if not self.is_jumping:
@@ -342,7 +356,7 @@ class ZoomiesScene(Scene):
                 # Mark if player was jumping while bird overlapped player's x-range
                 if not obs[4] and self.is_jumping:
                     bird_right = obs[1] + obs[0]["width"]
-                    if obs[1] < self.PLAYER_X + RUNCAT1["width"] and bird_right > self.PLAYER_X:
+                    if obs[1] < self.player_x + RUNCAT1["width"] and bird_right > self.player_x:
                         obs[4] = True
             if obs[1] > -20:
                 keep.append(obs)
@@ -435,8 +449,8 @@ class ZoomiesScene(Scene):
 
     def _check_collisions(self):
         """Check for collisions between player and obstacles"""
-        player_left = self.PLAYER_X + 4
-        player_right = self.PLAYER_X + RUNCAT1["width"] - 4
+        player_left = int(self.player_x) + 4
+        player_right = int(self.player_x) + RUNCAT1["width"] - 4
         player_top = int(self.player_y) + 2
         player_bottom = int(self.player_y) + RUNCAT1["height"]
         ground_y = self.GROUND_Y
@@ -471,7 +485,7 @@ class ZoomiesScene(Scene):
         """Award +100 score bonus for jumping over a bird and spawn floating text"""
         self.score += 100
         # Center "+100" (4 chars * 8px = 32px wide) on the player
-        text_x = float(self.PLAYER_X + RUNCAT1["width"] // 2 - 16)
+        text_x = self.player_x + RUNCAT1["width"] // 2 - 16
         self.bonus_texts.append([text_x, float(int(self.player_y) - 2), 0.8])
 
     def draw(self):
@@ -561,7 +575,7 @@ class ZoomiesScene(Scene):
 
     def _draw_player(self):
         """Draw the player sprite based on state"""
-        x = self.PLAYER_X
+        x = int(self.player_x)
         y = int(self.player_y)
 
         if self.is_hit:
