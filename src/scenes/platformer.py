@@ -582,20 +582,8 @@ class PlatformerScene(Scene):
         if self._cat_blink_timer > 0:
             return  # invincible during blink
 
-        # During a swipe the cat's damage hitbox shifts:
-        #   facing right → left-aligned  (cl = self.x,   cr = self.x + CAT_H)
-        #   facing left  → right-aligned (cl = self.x - CAT_H, cr = self.x)
-        # This gives a margin so the cat isn't trivially hit while attacking.
-        if self._swipe_frame >= 0:
-            if self.facing_right:
-                ccl = int(self.x)
-                ccr = int(self.x) + CAT_H
-            else:
-                ccl = int(self.x) - CAT_H
-                ccr = int(self.x)
-        else:
-            ccl = int(self.x) - CAT_HALF_W
-            ccr = int(self.x) + CAT_HALF_W
+        ccl = int(self.x) - CAT_HALF_W
+        ccr = int(self.x) + CAT_HALF_W
         cct = int(self.feet_y) - CAT_H
         ccb = int(self.feet_y)
 
