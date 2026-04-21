@@ -76,8 +76,8 @@ CAM_X_MIN = 0
 DOUBLE_JUMP_ENABLED = True
 
 # Animation
-IDLE_FPS        = 6
-RUN_FPS         = 10
+IDLE_FPS        = 4
+RUN_FPS         = 12
 JUMP_PEAK_RANGE = 70
 
 # Cat combat
@@ -94,7 +94,8 @@ SIT_SWIPE_FRAMES  = 5    # total frames in PLATFORMER_CAT_SIT_SWIPE
 RUN_SWIPE_FRAMES  = 3    # total frames in PLATFORMER_CAT_RUN_SWIPE
 ATK_REACH     = 16         # px of reach ahead of the cat body edge (standing swipe)
 RUN_ATK_REACH = 28         # px of reach for run/jump swipe
-STRIKE_VX    = 55          # px/s the strike effect drifts forward
+STRIKE_VX          = 55   # px/s the strike effect drifts forward
+RUN_STRIKE_OFFSET  = 10   # extra px ahead for the run/jump strike spawn
 
 # Slime
 SLIME_SPEED          = 18
@@ -309,11 +310,16 @@ class PlatformerScene(Scene):
         # Enemies
         self._slimes = [Slime(x, fy) for x, fy in SLIME_SPAWNS]
 
-        # Camera: world coord of top-left of screen
-        self.camera_x      = 0.0
-        self.camera_y      = 0.0
-        self.target_cam_x  = 0.0
-        self.target_cam_y  = 0.0
+        # Camera: world coord of top-left of screen — snapped to player spawn
+        # so there's no lerp from the top-left corner on entry.
+        init_cam_x = max(float(CAM_X_MIN),
+                         min(float(px) - RIGHT_SCROLL_PX, float(self._cam_x_max)))
+        init_cam_y = max(float(self._cam_y_min),
+                         min(float(py) - BOT_SCROLL_PX, float(self._cam_y_max)))
+        self.camera_x      = init_cam_x
+        self.camera_y      = init_cam_y
+        self.target_cam_x  = init_cam_x
+        self.target_cam_y  = init_cam_y
 
     def exit(self):
         self._run_r   = self._run_l   = None
@@ -336,6 +342,10 @@ class PlatformerScene(Scene):
         if self._door_fade_phase == 'out':
             self._door_fade_prog += dt / DOOR_FADE_DURATION
             if self._door_fade_prog >= 1.0:
+                # Flush a fully-black frame before the load stall so the display
+                # doesn't stay on the last partially-faded scanline image.
+                self.renderer.clear()
+                self.renderer.show()
                 dest = self._door_dest
                 self._transition_to_level(dest)   # calls exit() + enter(), resets state
                 self._door_fade_phase = 'in'
@@ -525,8 +535,11 @@ class PlatformerScene(Scene):
             atk_cl = atk_cr - reach
 
         # Spawn strike effect at the start of the attack zone, drifting forward
+        # Run/jump swipes spawn the effect further ahead.
+        strike_offset = RUN_STRIKE_OFFSET if self._swipe_is_run else 0
         self._strike_active = True
-        self._strike_x      = float(atk_cl if self.facing_right else atk_cr)
+        self._strike_x      = float((atk_cl + strike_offset) if self.facing_right
+                                    else (atk_cr - strike_offset))
         self._strike_y      = float(int(self.feet_y) - CAT_H // 2)
         self._strike_vx     = STRIKE_VX if self.facing_right else -STRIKE_VX
         self._strike_right  = self.facing_right
@@ -546,7 +559,7 @@ class PlatformerScene(Scene):
                 continue
             if sct >= atk_cb or scb <= atk_ct:
                 continue
-            slime.hp -= 1
+            slime.hp -= 2 if self._swipe_is_run else 1
             slime.hit_timer = SLIME_HIT_FLASH
             if slime.hp <= 0:
                 slime.dying = True
