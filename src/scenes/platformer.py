@@ -129,6 +129,15 @@ DOOR_H = 19
 # Grass sprite variants: index 0..4 (SEEDLING=0, YOUNG=1, GROWING=2, MATURE=3, THRIVING=4)
 GRASS_SPRITES = (GRASS_SEEDLING, GRASS_YOUNG, GRASS_GROWING, GRASS_MATURE, GRASS_THRIVING)
 
+# Precomputed draw lookups — avoids dict key access inside hot draw loops.
+# These are just references to existing frame bytes objects; no copies are made.
+_TERRAIN_FRAMES = [[t["frames"][0] for t in variants] for variants in TERRAIN_TILES]
+_BG_FRAMES      = [[t["frames"][0] for t in variants] for variants in PLATFORMER_BG_TILES]
+_GRASS_DATA     = tuple((s["frames"][0], s["width"], s["height"]) for s in GRASS_SPRITES)
+_VINE_FRAME     = PLATFORMER_VINES["frames"][0]
+_VINE_W         = PLATFORMER_VINES["width"]
+_VINE_H         = PLATFORMER_VINES["height"]
+
 # ── Level data globals ────────────────────────────────────────────────────────
 # Populated by load_level(); kept at module scope so _supported() and the draw
 # loop can reference them without threading level data through every call.
@@ -232,14 +241,12 @@ class PlatformerScene(Scene):
 
     def enter(self):
         load_level(getattr(self, '_current_level', 'level_01'))
+        self._load_sprites()
+        self._init_level_state()
 
-        # Camera and kill-zone limits derived from loaded world size
-        self._cam_x_max = max(0, WORLD_W - 128)
-        self._cam_y_min = 0
-        self._cam_y_max = max(0, WORLD_H - 64)
-        self._kill_y    = WORLD_H + 24
-
-        # Precompute mirrored frames — no per-frame allocation
+    def _load_sprites(self):
+        """Allocate precomputed mirrored sprite frames. Called once per platformer
+        session — kept alive across level transitions to avoid heap fragmentation."""
         self._run_r,   self._run_l   = _precompute_frames(PLATFORMER_CAT_RUN)
         self._sit_r,   self._sit_l   = _precompute_frames(PLATFORMER_CAT_SIT)
         self._jump_r,  self._jump_l  = _precompute_frames(PLATFORMER_CAT_JUMP)
@@ -264,6 +271,15 @@ class PlatformerScene(Scene):
         # fill (un-inverted): white blob used for the hit flash
         self._slime_fill_r = [bytearray(f) for f in PLATFORMER_SLIME_IDLE["fill_frames"]]
         self._slime_fill_l = [mirror_sprite_h(f, sw, sh) for f in self._slime_fill_r]
+
+    def _init_level_state(self):
+        """Reset all per-level state from the currently loaded level globals.
+        Called on initial enter and on every level transition."""
+        # Camera and kill-zone limits derived from loaded world size
+        self._cam_x_max = max(0, WORLD_W - 128)
+        self._cam_y_min = 0
+        self._cam_y_max = max(0, WORLD_H - 64)
+        self._kill_y    = WORLD_H + 24
 
         # self.x = hitbox centre x;  self.feet_y = hitbox bottom
         px, py = PLAYER_SPAWN
@@ -479,6 +495,10 @@ class PlatformerScene(Scene):
             if slime.alive and cam_col0 <= slime.chunk_col <= cam_col1:
                 self._update_slime(slime, dt)
 
+        # Prune fully-dead slimes (burst animation complete) to shrink future loops
+        if any(not s.alive for s in self._slimes):
+            self._slimes = [s for s in self._slimes if s.alive]
+
         # Check slime-cat contact damage
         self._check_slime_cat_contact()
 
@@ -640,9 +660,12 @@ class PlatformerScene(Scene):
         self._can_double_jump = DOUBLE_JUMP_ENABLED
 
     def _transition_to_level(self, name):
-        self.exit()
+        # Sprite frames are intentionally kept alive across transitions — they
+        # are the same for every level and freeing/reallocating them each time
+        # fragments the heap.  Only level data and game state are reset.
         self._current_level = name
-        self.enter()
+        load_level(name)
+        self._init_level_state()
 
     def _check_checkpoints(self):
         ccl = int(self.x) - CAT_HALF_W
@@ -950,8 +973,7 @@ class PlatformerScene(Scene):
                     sx = wx - cam_x
                     sy = wy - cam_y
                     if -BLOCK_W < sx < 128 and -BLOCK_H < sy < 64:
-                        tile = PLATFORMER_BG_TILES[gi][vi]
-                        self.renderer.draw_sprite(tile["frames"][0], BLOCK_W, BLOCK_H, sx, sy)
+                        self.renderer.draw_sprite(_BG_FRAMES[gi][vi], BLOCK_W, BLOCK_H, sx, sy)
 
         # Solid terrain — only iterate chunks that overlap the viewport
         for col in range(col0, col1 + 1):
@@ -963,8 +985,7 @@ class PlatformerScene(Scene):
                     sx = bx - cam_x
                     sy = by - cam_y
                     if -BLOCK_W < sx < 128 and -BLOCK_H < sy < 64:
-                        tile = TERRAIN_TILES[tt][vi]
-                        self.renderer.draw_sprite(tile["frames"][0], BLOCK_W, BLOCK_H, sx, sy)
+                        self.renderer.draw_sprite(_TERRAIN_FRAMES[tt][vi], BLOCK_W, BLOCK_H, sx, sy)
 
         # Platforms — 13 total, cheap to iterate flat
         for px, py, pw in PLATFORMS:
@@ -980,26 +1001,22 @@ class PlatformerScene(Scene):
                 if not bucket:
                     continue
                 for wx, surface_y, si in bucket:
-                    sprite = GRASS_SPRITES[si]
-                    sw = sprite["width"]
-                    sh = sprite["height"]
+                    gframe, sw, sh = _GRASS_DATA[si]
                     gx = wx - sw // 2 - cam_x
                     gy = surface_y - sh - cam_y
-                    self.renderer.draw_sprite(sprite["frames"][0], sw, sh, gx, gy)
+                    self.renderer.draw_sprite(gframe, sw, sh, gx, gy)
 
         # Vines — chunk-culled, hang downward from top anchor
-        vw = PLATFORMER_VINES["width"]
-        vh = PLATFORMER_VINES["height"]
         for col in range(col0, col1 + 1):
             for row in range(row0, row1 + 1):
                 bucket = VINE_CHUNKS.get((col, row))
                 if not bucket:
                     continue
                 for wx, ty in bucket:
-                    vx = wx - vw // 2 - cam_x
+                    vx = wx - _VINE_W // 2 - cam_x
                     vy = ty - cam_y
-                    if -vw < vx < 128 and -vh < vy < 64:
-                        self.renderer.draw_sprite(PLATFORMER_VINES["frames"][0], vw, vh, vx, vy)
+                    if -_VINE_W < vx < 128 and -_VINE_H < vy < 64:
+                        self.renderer.draw_sprite(_VINE_FRAME, _VINE_W, _VINE_H, vx, vy)
 
         # Checkpoints
         for i, (cx, cy) in enumerate(CHECKPOINTS):
