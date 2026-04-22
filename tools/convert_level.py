@@ -23,6 +23,7 @@ Character key
   #   level exit door (paired with destination lines at the bottom of the file)
   X   locked door — requires the key to open (also paired with a destination line)
   K   key pickup (bobbing collectible; obtaining it unlocks all locked doors)
+  o   coin pickup (bobbing, animated collectible; tracked as a score)
   .   empty (any other character is also treated as empty)
 
 Door destinations
@@ -77,6 +78,7 @@ Binary format
   0x08 DOORS         (count = num entries):  HHB+bytes per entry (x, y, dest_len, dest_ascii)
   0x09 LOCKED_DOORS  (count = num entries):  same as DOORS
   0x0A KEY_SPAWNS    (count = num entries):  HH per entry (x, y)
+  0x0B COIN_SPAWNS   (count = num entries):  HH per entry (x, y)
 
   All integers are little-endian.  Sections with zero entries are omitted.
 """
@@ -181,7 +183,8 @@ def _tile_type(grid, r, c, num_rows, num_cols):
 
 def _write_binary(out_path, world_w, world_h, player_spawn, slime_spawns,
                   solid_chunks, bg_chunks, grass_chunks, vine_chunks,
-                  checkpoints, platforms, doors, locked_doors, key_spawns):
+                  checkpoints, platforms, doors, locked_doors, key_spawns,
+                  coin_spawns):
     buf = bytearray()
 
     # Header: version(B) WORLD_W(H) WORLD_H(H) SPAWN_X(H) SPAWN_Y(H) = 9 bytes
@@ -280,6 +283,14 @@ def _write_binary(out_path, world_w, world_h, player_spawn, slime_spawns,
         buf += struct.pack('<BH', 0x0A, len(key_spawns))
         buf += sec
 
+    # 0x0B COIN_SPAWNS
+    if coin_spawns:
+        sec = bytearray()
+        for x, y in coin_spawns:
+            sec += struct.pack('<HH', x, y)
+        buf += struct.pack('<BH', 0x0B, len(coin_spawns))
+        buf += sec
+
     with open(out_path, 'wb') as fh:
         fh.write(buf)
 
@@ -288,7 +299,7 @@ def _write_binary(out_path, world_w, world_h, player_spawn, slime_spawns,
 
 # ── Main converter ────────────────────────────────────────────────────────────
 
-def convert(txt_path, out_name, out_dir=None):
+def convert(txt_path, out_name, out_dir=None, quiet=False):
     with open(txt_path) as fh:
         all_lines = fh.read().splitlines()
 
@@ -324,6 +335,7 @@ def convert(txt_path, out_name, out_dir=None):
     checkpoints  = []   # (wx_left, wy_bottom) — bottom-left of sprite
     all_door_positions = []  # (wx_left, wy_bottom, is_locked) — reading order, paired with dest_lines
     key_spawns   = []   # (wx_center, wy_feet)
+    coin_spawns  = []   # (wx_center, wy_feet)
     player_spawn = None
 
     for r in range(num_rows):
@@ -397,6 +409,11 @@ def convert(txt_path, out_name, out_dir=None):
                 wy = (r + 1) * BLOCK_H
                 key_spawns.append((wx, wy))
 
+            elif ch == 'o':
+                wx = c * BLOCK_W + BLOCK_W // 2
+                wy = (r + 1) * BLOCK_H
+                coin_spawns.append((wx, wy))
+
             c += 1
 
     if player_spawn is None:
@@ -449,28 +466,34 @@ def convert(txt_path, out_name, out_dir=None):
         out_path, world_w, world_h, player_spawn, slime_spawns,
         solid_chunks, bg_chunks, grass_chunks, vine_chunks,
         checkpoints, platforms, doors, locked_doors, key_spawns,
+        coin_spawns,
     )
 
     # ── Summary ───────────────────────────────────────────────────────────────
-    total_blocks = sum(len(v) for v in solid_chunks.values())
-    print(f'Written : {out_path}  ({file_size} bytes)')
-    print(f'World   : {world_w}×{world_h} px  ({num_cols}×{num_rows} cells)')
-    print(f'Blocks  : {total_blocks}')
-    print(f'Platforms: {len(platforms)}')
-    print(f'Grass   : {len(grass)}')
-    print(f'Vines   : {len(vines)}')
-    print(f'BG tiles: {len(bg_tiles)}')
-    print(f'Slimes  : {len(slime_spawns)}')
-    print(f'Checkpoints: {len(checkpoints)}')
-    print(f'Doors   : {len(doors)}')
-    print(f'Locked doors: {len(locked_doors)}')
-    print(f'Keys    : {len(key_spawns)}')
-    print(f'Player  : {player_spawn}')
+    if not quiet:
+        total_blocks = sum(len(v) for v in solid_chunks.values())
+        print(f'Written : {out_path}  ({file_size} bytes)')
+        print(f'World   : {world_w}×{world_h} px  ({num_cols}×{num_rows} cells)')
+        print(f'Blocks  : {total_blocks}')
+        print(f'Platforms: {len(platforms)}')
+        print(f'Grass   : {len(grass)}')
+        print(f'Vines   : {len(vines)}')
+        print(f'BG tiles: {len(bg_tiles)}')
+        print(f'Slimes  : {len(slime_spawns)}')
+        print(f'Checkpoints: {len(checkpoints)}')
+        print(f'Doors   : {len(doors)}')
+        print(f'Locked doors: {len(locked_doors)}')
+        print(f'Keys    : {len(key_spawns)}')
+        print(f'Coins   : {len(coin_spawns)}')
+        print(f'Player  : {player_spawn}')
 
 
 if __name__ == '__main__':
-    if len(sys.argv) not in (3, 4):
-        print('Usage: python tools/convert_level.py <input.txt> <level_name> [output_dir]')
+    args = [a for a in sys.argv[1:] if a != '--quiet']
+    quiet = len(args) != len(sys.argv) - 1
+    if len(args) not in (2, 3):
+        print('Usage: python tools/convert_level.py <input.txt> <level_name> [output_dir] [--quiet]')
         sys.exit(1)
-    convert(sys.argv[1], sys.argv[2],
-            out_dir=sys.argv[3] if len(sys.argv) == 4 else None)
+    convert(args[0], args[1],
+            out_dir=args[2] if len(args) == 3 else None,
+            quiet=quiet)

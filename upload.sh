@@ -74,7 +74,7 @@ echo -e "${YELLOW}Converting level files...${NC}"
 mkdir -p "$BUILD_DIR/platformer_levels"
 for txt in levels/level_*.txt; do
     name=$(basename "${txt%.txt}")
-    python3 tools/convert_level.py "$txt" "$name" "$BUILD_DIR/platformer_levels"
+    python3 tools/convert_level.py "$txt" "$name" "$BUILD_DIR/platformer_levels" --quiet
 done
 
 echo ""

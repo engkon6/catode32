@@ -26,7 +26,7 @@ from assets.platformer_terrain import (
     PLATFORMER_VINES,
     PLATFORMER_BG_TILES,
 )
-from assets.items import KEY
+from assets.items import KEY, SPIN_COIN
 from assets.plants import (
     GRASS_SEEDLING,
     GRASS_YOUNG,
@@ -112,9 +112,12 @@ SLIME_PATROL_RADIUS  = 84
 # Poof death animation
 POOF_SPF = 1.0 / 8   # POOF["speed"] = 8
 
-# Key collectible
-KEY_BOB_PERIOD = 1.2   # seconds per full oscillation cycle
-KEY_BOB_AMP    = 6     # pixels of vertical travel
+# Collectible items (keys and coins)
+KEY_BOB_PERIOD  = 1.2   # seconds per full oscillation cycle
+KEY_BOB_AMP     = 6     # pixels of vertical travel
+COIN_BOB_PERIOD = 1.2
+COIN_BOB_AMP    = 4
+COIN_ANIM_SPF   = 0.1   # 10 FPS spin
 
 # Door transition timing
 DOOR_WALK_DELAY    = 0.35   # seconds the cat walks into the door before fade starts
@@ -151,6 +154,7 @@ CHECKPOINTS  = ()
 DOORS        = ()
 LOCKED_DOORS = ()
 KEY_SPAWNS   = ()
+COIN_SPAWNS  = ()
 PLAYER_SPAWN = (8, 8)
 WORLD_W      = 128
 WORLD_H      = 64
@@ -162,11 +166,12 @@ def load_level(name):
     ever coexists with the data being built).  See tools/convert_level.py for
     the format specification."""
     global SOLID_CHUNKS, PLATFORMS, BG_CHUNKS, GRASS_CHUNKS, VINE_CHUNKS, SLIME_SPAWNS
-    global CHECKPOINTS, DOORS, LOCKED_DOORS, KEY_SPAWNS, PLAYER_SPAWN, WORLD_W, WORLD_H
+    global CHECKPOINTS, DOORS, LOCKED_DOORS, KEY_SPAWNS, COIN_SPAWNS, PLAYER_SPAWN, WORLD_W, WORLD_H
     # Free old level data before loading the new level so the two datasets are
     # never live simultaneously.
     SOLID_CHUNKS = None; PLATFORMS = None; BG_CHUNKS = None
     GRASS_CHUNKS = None; VINE_CHUNKS = None; SLIME_SPAWNS = None
+    COIN_SPAWNS  = None
     import gc; gc.collect()
     import struct
 
@@ -179,6 +184,7 @@ def load_level(name):
     doors   = []
     ldoors  = []
     keys    = []
+    coins   = []
     plats   = []
 
     with open('platformer_levels/' + name + '.bin', 'rb') as f:
@@ -244,6 +250,10 @@ def load_level(name):
                 for _ in range(count):
                     keys.append(struct.unpack('<HH', f.read(4)))
 
+            elif sec_id == 0x0B:  # COIN_SPAWNS
+                for _ in range(count):
+                    coins.append(struct.unpack('<HH', f.read(4)))
+
     SOLID_CHUNKS = solid_d
     BG_CHUNKS    = bg_d
     GRASS_CHUNKS = grass_d
@@ -253,6 +263,7 @@ def load_level(name):
     DOORS        = tuple(doors)
     LOCKED_DOORS = tuple(ldoors)
     KEY_SPAWNS   = tuple(keys)
+    COIN_SPAWNS  = tuple(coins)
     PLATFORMS    = tuple(plats)
 
 
@@ -312,6 +323,7 @@ class PlatformerScene(Scene):
         load_level(getattr(self, '_current_level', 'level_01'))
         self._load_sprites()
         self._init_level_state()
+        self._coins_collected = 0
 
     def _load_sprites(self):
         """Allocate precomputed mirrored sprite frames. Called once per platformer
@@ -402,6 +414,11 @@ class PlatformerScene(Scene):
         self._key_active = [True] * len(KEY_SPAWNS)
         self._has_key    = False
         self._key_timer  = 0.0
+
+        # Coin collectibles
+        self._coin_active      = [True] * len(COIN_SPAWNS)
+        self._coin_anim_frame  = 0
+        self._coin_anim_timer  = 0.0
 
         # Enemies
         self._slimes = [Slime(x, fy) for x, fy in SLIME_SPAWNS]
@@ -509,8 +526,12 @@ class PlatformerScene(Scene):
             return
 
         self._key_timer += dt
+        self._coin_anim_timer += dt
+        if self._coin_anim_timer >= COIN_ANIM_SPF:
+            self._coin_anim_timer -= COIN_ANIM_SPF
+            self._coin_anim_frame = (self._coin_anim_frame + 1) % len(SPIN_COIN["frames"])
         self._check_checkpoints()
-        self._check_key_pickup()
+        self._check_item_pickups()
         self._check_doors()
 
         # Clear drop-through once fully below the platform
@@ -780,25 +801,44 @@ class PlatformerScene(Scene):
             self._checkpoint = (cx + BLOCK_W // 2, cy)
             self._checkpoint_activated[i] = True
 
-    def _check_key_pickup(self):
-        if not any(self._key_active):
-            return
+    def _check_item_pickups(self):
+        cam_col0 = int(self.camera_x) // CHUNK_W
+        cam_col1 = (int(self.camera_x) + 127) // CHUNK_W
         ccl = int(self.x) - CAT_HALF_W
         ccr = int(self.x) + CAT_HALF_W
         cct = int(self.feet_y) - CAT_H
         ccb = int(self.feet_y)
-        kw = KEY["width"]
-        kh = KEY["height"]
-        for i, (kx, ky) in enumerate(KEY_SPAWNS):
-            if not self._key_active[i]:
-                continue
-            if ccl >= kx + kw // 2 or ccr <= kx - kw // 2:
-                continue
-            if cct >= ky or ccb <= ky - kh:
-                continue
-            self._key_active[i] = False
-            self._has_key = True
-            return
+
+        if any(self._key_active):
+            kw = KEY["width"]
+            kh = KEY["height"]
+            for i, (kx, ky) in enumerate(KEY_SPAWNS):
+                if not self._key_active[i]:
+                    continue
+                if not (cam_col0 <= kx // CHUNK_W <= cam_col1):
+                    continue
+                if ccl >= kx + kw // 2 or ccr <= kx - kw // 2:
+                    continue
+                if cct >= ky or ccb <= ky - kh:
+                    continue
+                self._key_active[i] = False
+                self._has_key = True
+                return
+
+        if any(self._coin_active):
+            coin_w = SPIN_COIN["width"]
+            coin_h = SPIN_COIN["height"]
+            for i, (cx, cy) in enumerate(COIN_SPAWNS):
+                if not self._coin_active[i]:
+                    continue
+                if not (cam_col0 <= cx // CHUNK_W <= cam_col1):
+                    continue
+                if ccl >= cx + coin_w // 2 or ccr <= cx - coin_w // 2:
+                    continue
+                if cct >= cy or ccb <= cy - coin_h:
+                    continue
+                self._coin_active[i] = False
+                self._coins_collected += 1
 
     def _check_doors(self):
         if self._door_dest is not None:
@@ -1146,19 +1186,37 @@ class PlatformerScene(Scene):
             if -dw < draw_x < 128 and -dh < draw_y < 64:
                 self.renderer.draw_sprite(locked_door_sprite["frames"][0], dw, dh, draw_x, draw_y)
 
-        # Key collectibles — triangle-wave bob
-        kw = KEY["width"]
-        kh = KEY["height"]
+        # Collectible items — triangle-wave bob, chunk-culled
         t = self._key_timer % KEY_BOB_PERIOD
         half = KEY_BOB_PERIOD * 0.5
-        bob = int(t / half * KEY_BOB_AMP) if t < half else int((KEY_BOB_PERIOD - t) / half * KEY_BOB_AMP)
+        key_bob = int(t / half * KEY_BOB_AMP) if t < half else int((KEY_BOB_PERIOD - t) / half * KEY_BOB_AMP)
+        kw = KEY["width"]
+        kh = KEY["height"]
         for i, (kx, ky) in enumerate(KEY_SPAWNS):
             if not self._key_active[i]:
                 continue
+            if not (col0 <= kx // CHUNK_W <= col1):
+                continue
             draw_x = kx - kw // 2 - cam_x
-            draw_y = ky - kh - bob - cam_y
+            draw_y = ky - kh - key_bob - cam_y
             if -kw < draw_x < 128 and -kh < draw_y < 64:
                 self.renderer.draw_sprite(KEY["frames"][0], kw, kh, draw_x, draw_y)
+
+        t = self._key_timer % COIN_BOB_PERIOD
+        half = COIN_BOB_PERIOD * 0.5
+        coin_bob = int(t / half * COIN_BOB_AMP) if t < half else int((COIN_BOB_PERIOD - t) / half * COIN_BOB_AMP)
+        cw = SPIN_COIN["width"]
+        ch = SPIN_COIN["height"]
+        cf = self._coin_anim_frame
+        for i, (cx, cy) in enumerate(COIN_SPAWNS):
+            if not self._coin_active[i]:
+                continue
+            if not (col0 <= cx // CHUNK_W <= col1):
+                continue
+            draw_x = cx - cw // 2 - cam_x
+            draw_y = cy - ch - coin_bob - cam_y
+            if -cw < draw_x < 128 and -ch < draw_y < 64:
+                self.renderer.draw_sprite(SPIN_COIN["frames"][cf], cw, ch, draw_x, draw_y)
 
         # Slimes — only those in visible chunks
         sw = PLATFORMER_SLIME_IDLE["width"]
