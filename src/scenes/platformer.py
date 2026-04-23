@@ -86,8 +86,8 @@ JUMP_PEAK_RANGE = 70
 CAT_START_HP     = 2
 CAT_BLINK_DUR    = 1.5    # invincibility + blink duration after taking damage
 CAT_BLINK_INT    = 0.1    # visibility toggle interval while blinking
-CAT_KNOCKBACK_VX = 160.0
-CAT_KNOCKBACK_VY = -110.0
+CAT_KNOCKBACK_VX = 100.0
+CAT_KNOCKBACK_VY = -100.0
 
 # Swipe attack
 SWIPE_FPS         = 12   # frames per second for swipe animation
@@ -167,11 +167,13 @@ def load_level(name):
     the format specification."""
     global SOLID_CHUNKS, PLATFORMS, BG_CHUNKS, GRASS_CHUNKS, VINE_CHUNKS, SLIME_SPAWNS
     global CHECKPOINTS, DOORS, LOCKED_DOORS, KEY_SPAWNS, COIN_SPAWNS, PLAYER_SPAWN, WORLD_W, WORLD_H
-    # Free old level data before loading the new level so the two datasets are
-    # never live simultaneously.
-    SOLID_CHUNKS = None; PLATFORMS = None; BG_CHUNKS = None
-    GRASS_CHUNKS = None; VINE_CHUNKS = None; SLIME_SPAWNS = None
-    COIN_SPAWNS  = None
+    # Free ALL old level data before loading the new level so the two datasets
+    # are never live simultaneously.  Sprite caches (_TERRAIN_FRAMES etc.) are
+    # intentionally left alone — they are identical across all levels.
+    SOLID_CHUNKS = None; PLATFORMS    = None; BG_CHUNKS    = None
+    GRASS_CHUNKS = None; VINE_CHUNKS  = None; SLIME_SPAWNS = None
+    COIN_SPAWNS  = None; CHECKPOINTS  = None; DOORS        = None
+    LOCKED_DOORS = None; KEY_SPAWNS   = None
     import gc; gc.collect()
     import struct
 
@@ -254,17 +256,20 @@ def load_level(name):
                 for _ in range(count):
                     coins.append(struct.unpack('<HH', f.read(4)))
 
-    SOLID_CHUNKS = solid_d
-    BG_CHUNKS    = bg_d
-    GRASS_CHUNKS = grass_d
-    VINE_CHUNKS  = vine_d
-    SLIME_SPAWNS = tuple(slimes)
-    CHECKPOINTS  = tuple(cps)
-    DOORS        = tuple(doors)
-    LOCKED_DOORS = tuple(ldoors)
-    KEY_SPAWNS   = tuple(keys)
-    COIN_SPAWNS  = tuple(coins)
-    PLATFORMS    = tuple(plats)
+    # Assign dicts directly (no copy needed) then free each temp list
+    # immediately after tuple conversion so the source and result never
+    # coexist for more than one allocation at a time.
+    SOLID_CHUNKS = solid_d;          solid_d = None
+    BG_CHUNKS    = bg_d;             bg_d    = None
+    GRASS_CHUNKS = grass_d;          grass_d = None
+    VINE_CHUNKS  = vine_d;           vine_d  = None
+    SLIME_SPAWNS = tuple(slimes);    slimes  = None
+    CHECKPOINTS  = tuple(cps);       cps     = None
+    DOORS        = tuple(doors);     doors   = None
+    LOCKED_DOORS = tuple(ldoors);    ldoors  = None
+    KEY_SPAWNS   = tuple(keys);      keys    = None
+    COIN_SPAWNS  = tuple(coins);     coins   = None
+    PLATFORMS    = tuple(plats);     plats   = None
 
 
 def _supported(x, feet_y, half_w):
@@ -420,8 +425,23 @@ class PlatformerScene(Scene):
         self._coin_anim_frame  = 0
         self._coin_anim_timer  = 0.0
 
-        # Enemies
-        self._slimes = [Slime(x, fy) for x, fy in SLIME_SPAWNS]
+        # Enemies — indexed by chunk column for O(visible) update/draw
+        slimes_by_chunk = {}
+        for x, fy in SLIME_SPAWNS:
+            col = int(x) // CHUNK_W
+            slimes_by_chunk.setdefault(col, []).append(Slime(x, fy))
+        self._slimes_by_chunk = slimes_by_chunk
+
+        # Collectibles — indexed by chunk column to skip non-visible chunks
+        key_chunk = {}
+        for i, (kx, ky) in enumerate(KEY_SPAWNS):
+            key_chunk.setdefault(kx // CHUNK_W, []).append((i, kx, ky))
+        self._key_chunk = key_chunk
+
+        coin_chunk = {}
+        for i, (cx, cy) in enumerate(COIN_SPAWNS):
+            coin_chunk.setdefault(cx // CHUNK_W, []).append((i, cx, cy))
+        self._coin_chunk = coin_chunk
 
         # Camera: world coord of top-left of screen — snapped to player spawn
         # so there's no lerp from the top-left corner on entry.
@@ -444,7 +464,9 @@ class PlatformerScene(Scene):
         self._slime_r = self._slime_l = None
         self._slime_fill_r = self._slime_fill_l = None
         self._slime_fill_inv_r = self._slime_fill_inv_l = None
-        self._slimes  = None
+        self._slimes_by_chunk = None
+        self._key_chunk = None
+        self._coin_chunk = None
 
     # ------------------------------------------------------------------
     # Update
@@ -581,13 +603,16 @@ class PlatformerScene(Scene):
         # Update slimes — only those in visible chunks
         cam_col0 = int(self.camera_x) // CHUNK_W
         cam_col1 = (int(self.camera_x) + 127) // CHUNK_W
-        for slime in self._slimes:
-            if slime.alive and cam_col0 <= slime.chunk_col <= cam_col1:
-                self._update_slime(slime, dt)
-
-        # Prune fully-dead slimes (burst animation complete) to shrink future loops
-        if any(not s.alive for s in self._slimes):
-            self._slimes = [s for s in self._slimes if s.alive]
+        for col in range(cam_col0, cam_col1 + 1):
+            chunk = self._slimes_by_chunk.get(col)
+            if not chunk:
+                continue
+            for slime in chunk:
+                if slime.alive:
+                    self._update_slime(slime, dt)
+            # Prune dead slimes from this chunk
+            if any(not s.alive for s in chunk):
+                self._slimes_by_chunk[col] = [s for s in chunk if s.alive]
 
         # Check slime-cat contact damage
         self._check_slime_cat_contact()
@@ -698,21 +723,23 @@ class PlatformerScene(Scene):
         atk_ct = int(self.feet_y) - CAT_H
         atk_cb = int(self.feet_y)
 
-        for slime in self._slimes:
-            if not slime.alive:
-                continue
-            scl = int(slime.x) - SLIME_HALF_W
-            scr = int(slime.x) + SLIME_HALF_W
-            sct = int(slime.feet_y) - SLIME_H
-            scb = int(slime.feet_y)
-            if scl >= atk_cr or scr <= atk_cl:
-                continue
-            if sct >= atk_cb or scb <= atk_ct:
-                continue
-            slime.hp -= 2 if self._swipe_is_run else 1
-            slime.hit_timer = SLIME_HIT_FLASH
-            if slime.hp <= 0:
-                slime.dying = True
+        cat_col = int(self.x) // CHUNK_W
+        for col in range(cat_col - 1, cat_col + 2):
+            for slime in self._slimes_by_chunk.get(col, ()):
+                if not slime.alive:
+                    continue
+                scl = int(slime.x) - SLIME_HALF_W
+                scr = int(slime.x) + SLIME_HALF_W
+                sct = int(slime.feet_y) - SLIME_H
+                scb = int(slime.feet_y)
+                if scl >= atk_cr or scr <= atk_cl:
+                    continue
+                if sct >= atk_cb or scb <= atk_ct:
+                    continue
+                slime.hp -= 2 if self._swipe_is_run else 1
+                slime.hit_timer = SLIME_HIT_FLASH
+                if slime.hp <= 0:
+                    slime.dying = True
 
     def _check_slime_cat_contact(self):
         """If any live slime touches the cat, deal 1 damage and knock the cat back."""
@@ -724,28 +751,30 @@ class PlatformerScene(Scene):
         cct = int(self.feet_y) - CAT_H
         ccb = int(self.feet_y)
 
-        for slime in self._slimes:
-            if not slime.alive or slime.dying:
-                continue
-            scl = int(slime.x) - SLIME_HALF_W
-            scr = int(slime.x) + SLIME_HALF_W
-            sct = int(slime.feet_y) - SLIME_H
-            scb = int(slime.feet_y)
-            if ccl >= scr or ccr <= scl:
-                continue
-            if cct >= scb or ccb <= sct:
-                continue
-            # Contact — take damage and knock back away from the slime
-            self._cat_hp -= 1
-            self._cat_blink_timer = CAT_BLINK_DUR
-            self.vx = CAT_KNOCKBACK_VX if self.x >= slime.x else -CAT_KNOCKBACK_VX
-            self.vy = CAT_KNOCKBACK_VY
-            if self.on_ground:
-                self.on_ground    = False
-                self._on_platform = -1
-            if self._cat_hp <= 0:
-                self._start_poof()
-            break  # one slime contact per frame is enough
+        cat_col = int(self.x) // CHUNK_W
+        for col in range(cat_col - 1, cat_col + 2):
+            for slime in self._slimes_by_chunk.get(col, ()):
+                if not slime.alive or slime.dying:
+                    continue
+                scl = int(slime.x) - SLIME_HALF_W
+                scr = int(slime.x) + SLIME_HALF_W
+                sct = int(slime.feet_y) - SLIME_H
+                scb = int(slime.feet_y)
+                if ccl >= scr or ccr <= scl:
+                    continue
+                if cct >= scb or ccb <= sct:
+                    continue
+                # Contact — take damage and knock back away from the slime
+                self._cat_hp -= 1
+                self._cat_blink_timer = CAT_BLINK_DUR
+                self.vx = CAT_KNOCKBACK_VX if self.x >= slime.x else -CAT_KNOCKBACK_VX
+                self.vy = CAT_KNOCKBACK_VY
+                if self.on_ground:
+                    self.on_ground    = False
+                    self._on_platform = -1
+                if self._cat_hp <= 0:
+                    self._start_poof()
+                return  # one slime contact per frame is enough
 
     def _start_poof(self):
         self._poof_active = True
@@ -802,43 +831,40 @@ class PlatformerScene(Scene):
             self._checkpoint_activated[i] = True
 
     def _check_item_pickups(self):
-        cam_col0 = int(self.camera_x) // CHUNK_W
-        cam_col1 = (int(self.camera_x) + 127) // CHUNK_W
         ccl = int(self.x) - CAT_HALF_W
         ccr = int(self.x) + CAT_HALF_W
         cct = int(self.feet_y) - CAT_H
         ccb = int(self.feet_y)
+        cat_col = int(self.x) // CHUNK_W
 
         if any(self._key_active):
             kw = KEY["width"]
             kh = KEY["height"]
-            for i, (kx, ky) in enumerate(KEY_SPAWNS):
-                if not self._key_active[i]:
-                    continue
-                if not (cam_col0 <= kx // CHUNK_W <= cam_col1):
-                    continue
-                if ccl >= kx + kw // 2 or ccr <= kx - kw // 2:
-                    continue
-                if cct >= ky or ccb <= ky - kh:
-                    continue
-                self._key_active[i] = False
-                self._has_key = True
-                return
+            for col in range(cat_col - 1, cat_col + 2):
+                for i, kx, ky in self._key_chunk.get(col, ()):
+                    if not self._key_active[i]:
+                        continue
+                    if ccl >= kx + kw // 2 or ccr <= kx - kw // 2:
+                        continue
+                    if cct >= ky or ccb <= ky - kh:
+                        continue
+                    self._key_active[i] = False
+                    self._has_key = True
+                    return
 
         if any(self._coin_active):
             coin_w = SPIN_COIN["width"]
             coin_h = SPIN_COIN["height"]
-            for i, (cx, cy) in enumerate(COIN_SPAWNS):
-                if not self._coin_active[i]:
-                    continue
-                if not (cam_col0 <= cx // CHUNK_W <= cam_col1):
-                    continue
-                if ccl >= cx + coin_w // 2 or ccr <= cx - coin_w // 2:
-                    continue
-                if cct >= cy or ccb <= cy - coin_h:
-                    continue
-                self._coin_active[i] = False
-                self._coins_collected += 1
+            for col in range(cat_col - 1, cat_col + 2):
+                for i, cx, cy in self._coin_chunk.get(col, ()):
+                    if not self._coin_active[i]:
+                        continue
+                    if ccl >= cx + coin_w // 2 or ccr <= cx - coin_w // 2:
+                        continue
+                    if cct >= cy or ccb <= cy - coin_h:
+                        continue
+                    self._coin_active[i] = False
+                    self._coins_collected += 1
 
     def _check_doors(self):
         if self._door_dest is not None:
@@ -1192,15 +1218,14 @@ class PlatformerScene(Scene):
         key_bob = int(t / half * KEY_BOB_AMP) if t < half else int((KEY_BOB_PERIOD - t) / half * KEY_BOB_AMP)
         kw = KEY["width"]
         kh = KEY["height"]
-        for i, (kx, ky) in enumerate(KEY_SPAWNS):
-            if not self._key_active[i]:
-                continue
-            if not (col0 <= kx // CHUNK_W <= col1):
-                continue
-            draw_x = kx - kw // 2 - cam_x
-            draw_y = ky - kh - key_bob - cam_y
-            if -kw < draw_x < 128 and -kh < draw_y < 64:
-                self.renderer.draw_sprite(KEY["frames"][0], kw, kh, draw_x, draw_y)
+        for col in range(col0, col1 + 1):
+            for i, kx, ky in self._key_chunk.get(col, ()):
+                if not self._key_active[i]:
+                    continue
+                draw_x = kx - kw // 2 - cam_x
+                draw_y = ky - kh - key_bob - cam_y
+                if -kw < draw_x < 128 and -kh < draw_y < 64:
+                    self.renderer.draw_sprite(KEY["frames"][0], kw, kh, draw_x, draw_y)
 
         t = self._key_timer % COIN_BOB_PERIOD
         half = COIN_BOB_PERIOD * 0.5
@@ -1208,46 +1233,44 @@ class PlatformerScene(Scene):
         cw = SPIN_COIN["width"]
         ch = SPIN_COIN["height"]
         cf = self._coin_anim_frame
-        for i, (cx, cy) in enumerate(COIN_SPAWNS):
-            if not self._coin_active[i]:
-                continue
-            if not (col0 <= cx // CHUNK_W <= col1):
-                continue
-            draw_x = cx - cw // 2 - cam_x
-            draw_y = cy - ch - coin_bob - cam_y
-            if -cw < draw_x < 128 and -ch < draw_y < 64:
-                self.renderer.draw_sprite(SPIN_COIN["frames"][cf], cw, ch, draw_x, draw_y)
+        for col in range(col0, col1 + 1):
+            for i, cx, cy in self._coin_chunk.get(col, ()):
+                if not self._coin_active[i]:
+                    continue
+                draw_x = cx - cw // 2 - cam_x
+                draw_y = cy - ch - coin_bob - cam_y
+                if -cw < draw_x < 128 and -ch < draw_y < 64:
+                    self.renderer.draw_sprite(SPIN_COIN["frames"][cf], cw, ch, draw_x, draw_y)
 
         # Slimes — only those in visible chunks
         sw = PLATFORMER_SLIME_IDLE["width"]
         sh = PLATFORMER_SLIME_IDLE["height"]
         bw = PLATFORMER_SLIME_BURST["width"]
         bh = PLATFORMER_SLIME_BURST["height"]
-        for slime in self._slimes:
-            if not slime.alive:
-                continue
-            if not (col0 <= slime.chunk_col <= col1):
-                continue
-            if slime.dying:
-                fi = slime.burst_frame
-                sx = int(slime.x) - bw // 2 - cam_x
-                sy = int(slime.feet_y) - bh - cam_y
-                self.renderer.draw_sprite(PLATFORMER_SLIME_BURST["frames"][fi], bw, bh, sx, sy)
-                continue
-            sx = int(slime.x) - sw // 2 - cam_x
-            sy = int(slime.feet_y) - sh - cam_y
-            facing_right = slime.vx >= 0
-            fi = slime.anim_frame
-            if slime.hit_timer > 0:
-                # Hit flash: solid white blob
-                data = self._slime_fill_r[fi] if facing_right else self._slime_fill_l[fi]
-                self.renderer.draw_sprite(data, sw, sh, sx, sy)
-            else:
-                # Normal: black silhouette first, then white outline on top
-                fill = self._slime_fill_inv_r[fi] if facing_right else self._slime_fill_inv_l[fi]
-                self.renderer.draw_sprite(fill, sw, sh, sx, sy, transparent_color=1)
-                outline = self._slime_r[fi] if facing_right else self._slime_l[fi]
-                self.renderer.draw_sprite(outline, sw, sh, sx, sy)
+        for col in range(col0, col1 + 1):
+            for slime in self._slimes_by_chunk.get(col, ()):
+                if not slime.alive:
+                    continue
+                if slime.dying:
+                    fi = slime.burst_frame
+                    sx = int(slime.x) - bw // 2 - cam_x
+                    sy = int(slime.feet_y) - bh - cam_y
+                    self.renderer.draw_sprite(PLATFORMER_SLIME_BURST["frames"][fi], bw, bh, sx, sy)
+                    continue
+                sx = int(slime.x) - sw // 2 - cam_x
+                sy = int(slime.feet_y) - sh - cam_y
+                facing_right = slime.vx >= 0
+                fi = slime.anim_frame
+                if slime.hit_timer > 0:
+                    # Hit flash: solid white blob
+                    data = self._slime_fill_r[fi] if facing_right else self._slime_fill_l[fi]
+                    self.renderer.draw_sprite(data, sw, sh, sx, sy)
+                else:
+                    # Normal: black silhouette first, then white outline on top
+                    fill = self._slime_fill_inv_r[fi] if facing_right else self._slime_fill_inv_l[fi]
+                    self.renderer.draw_sprite(fill, sw, sh, sx, sy, transparent_color=1)
+                    outline = self._slime_r[fi] if facing_right else self._slime_l[fi]
+                    self.renderer.draw_sprite(outline, sw, sh, sx, sy)
 
         # Strike effect — independent frame counter, always plays all 3 frames
         if self._strike_active:
