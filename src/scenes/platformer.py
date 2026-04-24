@@ -4,6 +4,7 @@ Character controller: walk, jump, solid blocks, one-way platforms, camera scroll
 Combat: cat swipe attack, slime enemies.
 """
 import random
+import struct
 from scene import Scene
 from sprite_transform import mirror_sprite_h
 from assets.platformer_terrain import (
@@ -136,10 +137,22 @@ GRASS_SPRITES = (GRASS_SEEDLING, GRASS_YOUNG, GRASS_GROWING, GRASS_MATURE, GRASS
 # These are just references to existing frame bytes objects; no copies are made.
 _TERRAIN_FRAMES = [[t["frames"][0] for t in variants] for variants in TERRAIN_TILES]
 _BG_FRAMES      = [[t["frames"][0] for t in variants] for variants in PLATFORMER_BG_TILES]
-_GRASS_DATA     = tuple((s["frames"][0], s["width"], s["height"]) for s in GRASS_SPRITES)
+_GRASS_DATA     = tuple((s["frames"][0], s["width"], s["height"], s["width"] // 2) for s in GRASS_SPRITES)
 _VINE_FRAME     = PLATFORMER_VINES["frames"][0]
 _VINE_W         = PLATFORMER_VINES["width"]
 _VINE_H         = PLATFORMER_VINES["height"]
+
+# Precomputed checkpoint and door draw data — avoids dict lookups inside the draw loop.
+_CP_DOWN_FRAME = PLATFORMER_CHECKPOINT_DOWN["frames"][0]
+_CP_DOWN_W     = PLATFORMER_CHECKPOINT_DOWN["width"]
+_CP_DOWN_H     = PLATFORMER_CHECKPOINT_DOWN["height"]
+_CP_UP_FRAME   = PLATFORMER_CHECKPOINT_UP["frames"][0]
+_CP_UP_W       = PLATFORMER_CHECKPOINT_UP["width"]
+_CP_UP_H       = PLATFORMER_CHECKPOINT_UP["height"]
+_DOOR_FRAME        = PLATFORMER_DOOR["frames"][0]
+_DOOR_LOCKED_FRAME = PLATFORMER_DOOR_LOCKED["frames"][0]
+_DOOR_W            = PLATFORMER_DOOR["width"]
+_DOOR_H            = PLATFORMER_DOOR["height"]
 
 # ── Level data globals ────────────────────────────────────────────────────────
 # Populated by load_level(); kept at module scope so _supported() and the draw
@@ -175,7 +188,6 @@ def load_level(name):
     COIN_SPAWNS  = None; CHECKPOINTS  = None; DOORS        = None
     LOCKED_DOORS = None; KEY_SPAWNS   = None
     import gc; gc.collect()
-    import struct
 
     solid_d = {}
     bg_d    = {}
@@ -203,40 +215,47 @@ def load_level(name):
             sec_id, count = struct.unpack('<BH', hdr)
 
             if sec_id == 0x01:    # SLIME_SPAWNS
-                for _ in range(count):
-                    slimes.append(struct.unpack('<HH', f.read(4)))
+                buf = f.read(4 * count)
+                for i in range(count):
+                    slimes.append(struct.unpack_from('<HH', buf, i * 4))
 
             elif sec_id == 0x02:  # SOLID_CHUNKS
                 for _ in range(count):
                     col, row, n = struct.unpack('<BBB', f.read(3))
+                    buf = f.read(6 * n)
                     solid_d[(col, row)] = tuple(
-                        struct.unpack('<HHBB', f.read(6)) for _ in range(n))
+                        struct.unpack_from('<HHBB', buf, i * 6) for i in range(n))
 
             elif sec_id == 0x03:  # BG_CHUNKS
                 for _ in range(count):
                     col, row, n = struct.unpack('<BBB', f.read(3))
+                    buf = f.read(6 * n)
                     bg_d[(col, row)] = tuple(
-                        struct.unpack('<HHBB', f.read(6)) for _ in range(n))
+                        struct.unpack_from('<HHBB', buf, i * 6) for i in range(n))
 
             elif sec_id == 0x04:  # GRASS_CHUNKS
                 for _ in range(count):
                     col, row, n = struct.unpack('<BBB', f.read(3))
+                    buf = f.read(5 * n)
                     grass_d[(col, row)] = tuple(
-                        struct.unpack('<HHB', f.read(5)) for _ in range(n))
+                        struct.unpack_from('<HHB', buf, i * 5) for i in range(n))
 
             elif sec_id == 0x05:  # VINE_CHUNKS
                 for _ in range(count):
                     col, row, n = struct.unpack('<BBB', f.read(3))
+                    buf = f.read(4 * n)
                     vine_d[(col, row)] = tuple(
-                        struct.unpack('<HH', f.read(4)) for _ in range(n))
+                        struct.unpack_from('<HH', buf, i * 4) for i in range(n))
 
             elif sec_id == 0x06:  # CHECKPOINTS
-                for _ in range(count):
-                    cps.append(struct.unpack('<HH', f.read(4)))
+                buf = f.read(4 * count)
+                for i in range(count):
+                    cps.append(struct.unpack_from('<HH', buf, i * 4))
 
             elif sec_id == 0x07:  # PLATFORMS
-                for _ in range(count):
-                    plats.append(struct.unpack('<HHH', f.read(6)))
+                buf = f.read(6 * count)
+                for i in range(count):
+                    plats.append(struct.unpack_from('<HHH', buf, i * 6))
 
             elif sec_id == 0x08:  # DOORS
                 for _ in range(count):
@@ -249,12 +268,14 @@ def load_level(name):
                     ldoors.append((x, y, f.read(dlen).decode()))
 
             elif sec_id == 0x0A:  # KEY_SPAWNS
-                for _ in range(count):
-                    keys.append(struct.unpack('<HH', f.read(4)))
+                buf = f.read(4 * count)
+                for i in range(count):
+                    keys.append(struct.unpack_from('<HH', buf, i * 4))
 
             elif sec_id == 0x0B:  # COIN_SPAWNS
-                for _ in range(count):
-                    coins.append(struct.unpack('<HH', f.read(4)))
+                buf = f.read(4 * count)
+                for i in range(count):
+                    coins.append(struct.unpack_from('<HH', buf, i * 4))
 
     # Assign dicts directly (no copy needed) then free each temp list
     # immediately after tuple conversion so the source and result never
@@ -416,14 +437,16 @@ class PlatformerScene(Scene):
         self._door_fade_prog   = 0.0
 
         # Key collectibles
-        self._key_active = [True] * len(KEY_SPAWNS)
-        self._has_key    = False
-        self._key_timer  = 0.0
+        self._key_active     = [True] * len(KEY_SPAWNS)
+        self._has_key        = False
+        self._key_timer      = 0.0
+        self._keys_remaining = len(KEY_SPAWNS)
 
         # Coin collectibles
-        self._coin_active      = [True] * len(COIN_SPAWNS)
-        self._coin_anim_frame  = 0
-        self._coin_anim_timer  = 0.0
+        self._coin_active       = [True] * len(COIN_SPAWNS)
+        self._coin_anim_frame   = 0
+        self._coin_anim_timer   = 0.0
+        self._coins_remaining   = len(COIN_SPAWNS)
 
         # Enemies — indexed by chunk column for O(visible) update/draw
         slimes_by_chunk = {}
@@ -607,11 +630,13 @@ class PlatformerScene(Scene):
             chunk = self._slimes_by_chunk.get(col)
             if not chunk:
                 continue
+            dead = False
             for slime in chunk:
                 if slime.alive:
                     self._update_slime(slime, dt)
-            # Prune dead slimes from this chunk
-            if any(not s.alive for s in chunk):
+                    if not slime.alive:
+                        dead = True
+            if dead:
                 self._slimes_by_chunk[col] = [s for s in chunk if s.alive]
 
         # Check slime-cat contact damage
@@ -837,7 +862,7 @@ class PlatformerScene(Scene):
         ccb = int(self.feet_y)
         cat_col = int(self.x) // CHUNK_W
 
-        if any(self._key_active):
+        if self._keys_remaining:
             kw = KEY["width"]
             kh = KEY["height"]
             for col in range(cat_col - 1, cat_col + 2):
@@ -850,9 +875,10 @@ class PlatformerScene(Scene):
                         continue
                     self._key_active[i] = False
                     self._has_key = True
+                    self._keys_remaining -= 1
                     return
 
-        if any(self._coin_active):
+        if self._coins_remaining:
             coin_w = SPIN_COIN["width"]
             coin_h = SPIN_COIN["height"]
             for col in range(cat_col - 1, cat_col + 2):
@@ -865,6 +891,7 @@ class PlatformerScene(Scene):
                         continue
                     self._coin_active[i] = False
                     self._coins_collected += 1
+                    self._coins_remaining -= 1
 
     def _check_doors(self):
         if self._door_dest is not None:
@@ -1165,8 +1192,8 @@ class PlatformerScene(Scene):
                 if not bucket:
                     continue
                 for wx, surface_y, si in bucket:
-                    gframe, sw, sh = _GRASS_DATA[si]
-                    gx = wx - sw // 2 - cam_x
+                    gframe, sw, sh, sw2 = _GRASS_DATA[si]
+                    gx = wx - sw2 - cam_x
                     gy = surface_y - sh - cam_y
                     self.renderer.draw_sprite(gframe, sw, sh, gx, gy)
 
@@ -1185,32 +1212,28 @@ class PlatformerScene(Scene):
         # Checkpoints
         for i, (cx, cy) in enumerate(CHECKPOINTS):
             if self._checkpoint_activated[i]:
-                sp = PLATFORMER_CHECKPOINT_UP
+                frame, cw, ch = _CP_UP_FRAME, _CP_UP_W, _CP_UP_H
             else:
-                sp = PLATFORMER_CHECKPOINT_DOWN
-            sw = sp["width"]
-            sh = sp["height"]
+                frame, cw, ch = _CP_DOWN_FRAME, _CP_DOWN_W, _CP_DOWN_H
             draw_x = cx - cam_x
-            draw_y = cy - sh - cam_y
-            if -sw < draw_x < 128 and -sh < draw_y < 64:
-                self.renderer.draw_sprite(sp["frames"][0], sw, sh, draw_x, draw_y)
+            draw_y = cy - ch - cam_y
+            if -cw < draw_x < 128 and -ch < draw_y < 64:
+                self.renderer.draw_sprite(frame, cw, ch, draw_x, draw_y)
 
         # Doors
-        dw = PLATFORMER_DOOR["width"]
-        dh = PLATFORMER_DOOR["height"]
         for cx, cy, _ in DOORS:
             draw_x = cx - cam_x
-            draw_y = cy - dh - cam_y
-            if -dw < draw_x < 128 and -dh < draw_y < 64:
-                self.renderer.draw_sprite(PLATFORMER_DOOR["frames"][0], dw, dh, draw_x, draw_y)
+            draw_y = cy - _DOOR_H - cam_y
+            if -_DOOR_W < draw_x < 128 and -_DOOR_H < draw_y < 64:
+                self.renderer.draw_sprite(_DOOR_FRAME, _DOOR_W, _DOOR_H, draw_x, draw_y)
 
         # Locked doors — show locked sprite until key obtained, then unlocked sprite
-        locked_door_sprite = PLATFORMER_DOOR if self._has_key else PLATFORMER_DOOR_LOCKED
+        locked_frame = _DOOR_FRAME if self._has_key else _DOOR_LOCKED_FRAME
         for cx, cy, _ in LOCKED_DOORS:
             draw_x = cx - cam_x
-            draw_y = cy - dh - cam_y
-            if -dw < draw_x < 128 and -dh < draw_y < 64:
-                self.renderer.draw_sprite(locked_door_sprite["frames"][0], dw, dh, draw_x, draw_y)
+            draw_y = cy - _DOOR_H - cam_y
+            if -_DOOR_W < draw_x < 128 and -_DOOR_H < draw_y < 64:
+                self.renderer.draw_sprite(locked_frame, _DOOR_W, _DOOR_H, draw_x, draw_y)
 
         # Collectible items — triangle-wave bob, chunk-culled
         t = self._key_timer % KEY_BOB_PERIOD
