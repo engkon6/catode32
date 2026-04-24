@@ -28,6 +28,7 @@ from assets.platformer_terrain import (
     PLATFORMER_BG_TILES,
 )
 from assets.items import KEY, SPIN_COIN
+import assets.platformer_levels as _platformer_levels
 from assets.plants import (
     GRASS_SEEDLING,
     GRASS_YOUNG,
@@ -174,10 +175,10 @@ WORLD_H      = 64
 
 
 def load_level(name):
-    """Read a pre-built binary level file and populate the module-level globals.
-    Binary format avoids the peak-RAM cost of module import (no code object
-    ever coexists with the data being built).  See tools/convert_level.py for
-    the format specification."""
+    """Populate module-level globals from a frozen level bytes object.
+    Reads directly from flash via struct.unpack_from — no filesystem I/O and
+    no temporary read buffers.  See tools/convert_level.py for the binary
+    format specification and tools/build_levels.py to regenerate the module."""
     global SOLID_CHUNKS, PLATFORMS, BG_CHUNKS, GRASS_CHUNKS, VINE_CHUNKS, SLIME_SPAWNS
     global CHECKPOINTS, DOORS, LOCKED_DOORS, KEY_SPAWNS, COIN_SPAWNS, PLAYER_SPAWN, WORLD_W, WORLD_H
     # Free ALL old level data before loading the new level so the two datasets
@@ -201,81 +202,90 @@ def load_level(name):
     coins   = []
     plats   = []
 
-    with open('platformer_levels/' + name + '.bin', 'rb') as f:
-        # Header: version(B) WORLD_W(H) WORLD_H(H) SPAWN_X(H) SPAWN_Y(H)
-        _ver, world_w, world_h, sx, sy = struct.unpack('<BHHHH', f.read(9))
-        WORLD_W      = world_w
-        WORLD_H      = world_h
-        PLAYER_SPAWN = (sx, sy)
+    data   = getattr(_platformer_levels, name)
+    offset = 0
 
-        while True:
-            hdr = f.read(3)
-            if len(hdr) < 3:
-                break
-            sec_id, count = struct.unpack('<BH', hdr)
+    # Header: version(B) WORLD_W(H) WORLD_H(H) SPAWN_X(H) SPAWN_Y(H)
+    _ver, world_w, world_h, sx, sy = struct.unpack_from('<BHHHH', data, offset)
+    offset += 9
+    WORLD_W      = world_w
+    WORLD_H      = world_h
+    PLAYER_SPAWN = (sx, sy)
 
-            if sec_id == 0x01:    # SLIME_SPAWNS
-                buf = f.read(4 * count)
-                for i in range(count):
-                    slimes.append(struct.unpack_from('<HH', buf, i * 4))
+    while offset < len(data):
+        sec_id, count = struct.unpack_from('<BH', data, offset)
+        offset += 3
 
-            elif sec_id == 0x02:  # SOLID_CHUNKS
-                for _ in range(count):
-                    col, row, n = struct.unpack('<BBB', f.read(3))
-                    buf = f.read(6 * n)
-                    solid_d[(col, row)] = tuple(
-                        struct.unpack_from('<HHBB', buf, i * 6) for i in range(n))
+        if sec_id == 0x01:    # SLIME_SPAWNS
+            for i in range(count):
+                slimes.append(struct.unpack_from('<HH', data, offset + i * 4))
+            offset += 4 * count
 
-            elif sec_id == 0x03:  # BG_CHUNKS
-                for _ in range(count):
-                    col, row, n = struct.unpack('<BBB', f.read(3))
-                    buf = f.read(6 * n)
-                    bg_d[(col, row)] = tuple(
-                        struct.unpack_from('<HHBB', buf, i * 6) for i in range(n))
+        elif sec_id == 0x02:  # SOLID_CHUNKS
+            for _ in range(count):
+                col, row, n = struct.unpack_from('<BBB', data, offset)
+                offset += 3
+                solid_d[(col, row)] = tuple(
+                    struct.unpack_from('<HHBB', data, offset + i * 6) for i in range(n))
+                offset += 6 * n
 
-            elif sec_id == 0x04:  # GRASS_CHUNKS
-                for _ in range(count):
-                    col, row, n = struct.unpack('<BBB', f.read(3))
-                    buf = f.read(5 * n)
-                    grass_d[(col, row)] = tuple(
-                        struct.unpack_from('<HHB', buf, i * 5) for i in range(n))
+        elif sec_id == 0x03:  # BG_CHUNKS
+            for _ in range(count):
+                col, row, n = struct.unpack_from('<BBB', data, offset)
+                offset += 3
+                bg_d[(col, row)] = tuple(
+                    struct.unpack_from('<HHBB', data, offset + i * 6) for i in range(n))
+                offset += 6 * n
 
-            elif sec_id == 0x05:  # VINE_CHUNKS
-                for _ in range(count):
-                    col, row, n = struct.unpack('<BBB', f.read(3))
-                    buf = f.read(4 * n)
-                    vine_d[(col, row)] = tuple(
-                        struct.unpack_from('<HH', buf, i * 4) for i in range(n))
+        elif sec_id == 0x04:  # GRASS_CHUNKS
+            for _ in range(count):
+                col, row, n = struct.unpack_from('<BBB', data, offset)
+                offset += 3
+                grass_d[(col, row)] = tuple(
+                    struct.unpack_from('<HHB', data, offset + i * 5) for i in range(n))
+                offset += 5 * n
 
-            elif sec_id == 0x06:  # CHECKPOINTS
-                buf = f.read(4 * count)
-                for i in range(count):
-                    cps.append(struct.unpack_from('<HH', buf, i * 4))
+        elif sec_id == 0x05:  # VINE_CHUNKS
+            for _ in range(count):
+                col, row, n = struct.unpack_from('<BBB', data, offset)
+                offset += 3
+                vine_d[(col, row)] = tuple(
+                    struct.unpack_from('<HH', data, offset + i * 4) for i in range(n))
+                offset += 4 * n
 
-            elif sec_id == 0x07:  # PLATFORMS
-                buf = f.read(6 * count)
-                for i in range(count):
-                    plats.append(struct.unpack_from('<HHH', buf, i * 6))
+        elif sec_id == 0x06:  # CHECKPOINTS
+            for i in range(count):
+                cps.append(struct.unpack_from('<HH', data, offset + i * 4))
+            offset += 4 * count
 
-            elif sec_id == 0x08:  # DOORS
-                for _ in range(count):
-                    x, y, dlen = struct.unpack('<HHB', f.read(5))
-                    doors.append((x, y, f.read(dlen).decode()))
+        elif sec_id == 0x07:  # PLATFORMS
+            for i in range(count):
+                plats.append(struct.unpack_from('<HHH', data, offset + i * 6))
+            offset += 6 * count
 
-            elif sec_id == 0x09:  # LOCKED_DOORS
-                for _ in range(count):
-                    x, y, dlen = struct.unpack('<HHB', f.read(5))
-                    ldoors.append((x, y, f.read(dlen).decode()))
+        elif sec_id == 0x08:  # DOORS
+            for _ in range(count):
+                x, y, dlen = struct.unpack_from('<HHB', data, offset)
+                offset += 5
+                doors.append((x, y, data[offset:offset + dlen].decode()))
+                offset += dlen
 
-            elif sec_id == 0x0A:  # KEY_SPAWNS
-                buf = f.read(4 * count)
-                for i in range(count):
-                    keys.append(struct.unpack_from('<HH', buf, i * 4))
+        elif sec_id == 0x09:  # LOCKED_DOORS
+            for _ in range(count):
+                x, y, dlen = struct.unpack_from('<HHB', data, offset)
+                offset += 5
+                ldoors.append((x, y, data[offset:offset + dlen].decode()))
+                offset += dlen
 
-            elif sec_id == 0x0B:  # COIN_SPAWNS
-                buf = f.read(4 * count)
-                for i in range(count):
-                    coins.append(struct.unpack_from('<HH', buf, i * 4))
+        elif sec_id == 0x0A:  # KEY_SPAWNS
+            for i in range(count):
+                keys.append(struct.unpack_from('<HH', data, offset + i * 4))
+            offset += 4 * count
+
+        elif sec_id == 0x0B:  # COIN_SPAWNS
+            for i in range(count):
+                coins.append(struct.unpack_from('<HH', data, offset + i * 4))
+            offset += 4 * count
 
     # Assign dicts directly (no copy needed) then free each temp list
     # immediately after tuple conversion so the source and result never

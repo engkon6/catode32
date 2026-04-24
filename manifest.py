@@ -23,6 +23,7 @@ freeze(_src, (
     "assets/minigame_assets.py",
     "assets/minigame_character.py",
     "assets/nature.py",
+    "assets/platformer_levels.py",
     "assets/platformer_terrain.py",
     "assets/plants.py",
     "assets/store.py",

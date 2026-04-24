@@ -181,10 +181,11 @@ def _tile_type(grid, r, c, num_rows, num_cols):
 
 # ── Binary writer ─────────────────────────────────────────────────────────────
 
-def _write_binary(out_path, world_w, world_h, player_spawn, slime_spawns,
+def _build_binary(world_w, world_h, player_spawn, slime_spawns,
                   solid_chunks, bg_chunks, grass_chunks, vine_chunks,
                   checkpoints, platforms, doors, locked_doors, key_spawns,
                   coin_spawns):
+    """Build and return the level binary as a bytearray."""
     buf = bytearray()
 
     # Header: version(B) WORLD_W(H) WORLD_H(H) SPAWN_X(H) SPAWN_Y(H) = 9 bytes
@@ -291,15 +292,25 @@ def _write_binary(out_path, world_w, world_h, player_spawn, slime_spawns,
         buf += struct.pack('<BH', 0x0B, len(coin_spawns))
         buf += sec
 
+    return buf
+
+
+def _write_binary(out_path, world_w, world_h, player_spawn, slime_spawns,
+                  solid_chunks, bg_chunks, grass_chunks, vine_chunks,
+                  checkpoints, platforms, doors, locked_doors, key_spawns,
+                  coin_spawns):
+    buf = _build_binary(world_w, world_h, player_spawn, slime_spawns,
+                        solid_chunks, bg_chunks, grass_chunks, vine_chunks,
+                        checkpoints, platforms, doors, locked_doors,
+                        key_spawns, coin_spawns)
     with open(out_path, 'wb') as fh:
         fh.write(buf)
-
     return len(buf)
 
 
 # ── Main converter ────────────────────────────────────────────────────────────
 
-def convert(txt_path, out_name, out_dir=None, quiet=False):
+def convert(txt_path, out_name, out_dir=None, quiet=False, return_bytes=False):
     with open(txt_path) as fh:
         all_lines = fh.read().splitlines()
 
@@ -455,15 +466,9 @@ def convert(txt_path, out_name, out_dir=None, quiet=False):
     vine_chunks  = {k: tuple(v) for k, v in vine_chunks.items()}
     bg_chunks    = {k: tuple(v) for k, v in bg_chunks.items()}
 
-    # ── Write binary output ───────────────────────────────────────────────────
-    if out_dir is None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        out_dir = os.path.join(script_dir, '..', 'src', 'platformer_levels')
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.normpath(os.path.join(out_dir, out_name + '.bin'))
-
-    file_size = _write_binary(
-        out_path, world_w, world_h, player_spawn, slime_spawns,
+    # ── Build binary ─────────────────────────────────────────────────────────
+    buf = _build_binary(
+        world_w, world_h, player_spawn, slime_spawns,
         solid_chunks, bg_chunks, grass_chunks, vine_chunks,
         checkpoints, platforms, doors, locked_doors, key_spawns,
         coin_spawns,
@@ -472,7 +477,6 @@ def convert(txt_path, out_name, out_dir=None, quiet=False):
     # ── Summary ───────────────────────────────────────────────────────────────
     if not quiet:
         total_blocks = sum(len(v) for v in solid_chunks.values())
-        print(f'Written : {out_path}  ({file_size} bytes)')
         print(f'World   : {world_w}×{world_h} px  ({num_cols}×{num_rows} cells)')
         print(f'Blocks  : {total_blocks}')
         print(f'Platforms: {len(platforms)}')
@@ -486,6 +490,22 @@ def convert(txt_path, out_name, out_dir=None, quiet=False):
         print(f'Keys    : {len(key_spawns)}')
         print(f'Coins   : {len(coin_spawns)}')
         print(f'Player  : {player_spawn}')
+
+    if return_bytes:
+        return bytes(buf)
+
+    # ── Write binary output ───────────────────────────────────────────────────
+    if out_dir is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        out_dir = os.path.join(script_dir, '..', 'src', 'platformer_levels')
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.normpath(os.path.join(out_dir, out_name + '.bin'))
+
+    with open(out_path, 'wb') as fh:
+        fh.write(buf)
+
+    if not quiet:
+        print(f'Written : {out_path}  ({len(buf)} bytes)')
 
 
 if __name__ == '__main__':
