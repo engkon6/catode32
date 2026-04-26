@@ -27,7 +27,7 @@ from assets.platformer_terrain import (
     PLATFORMER_VINES,
     PLATFORMER_BG_TILES,
 )
-from assets.items import KEY, SPIN_COIN
+from assets.items import BANDAGE, KEY, SPIN_COIN
 import assets.platformer_levels as _platformer_levels
 from assets.plants import (
     GRASS_SEEDLING,
@@ -114,12 +114,16 @@ SLIME_PATROL_RADIUS  = 84
 # Poof death animation
 POOF_SPF = 1.0 / 8   # POOF["speed"] = 8
 
+# Level start banner
+LEVEL_BANNER_DUR  = 2.5   # seconds the banner is visible
+LEVEL_BANNER_RISE = 16    # pixels it rises over its lifetime
+
 # Collectible items (keys and coins)
 KEY_BOB_PERIOD  = 1.2   # seconds per full oscillation cycle
 KEY_BOB_AMP     = 6     # pixels of vertical travel
 COIN_BOB_PERIOD = 1.2
 COIN_BOB_AMP    = 4
-COIN_ANIM_SPF   = 0.1   # 10 FPS spin
+COIN_ANIM_SPF   = 0.2   # 5 FPS spin
 
 # Door transition timing
 DOOR_WALK_DELAY    = 0.35   # seconds the cat walks into the door before fade starts
@@ -360,7 +364,9 @@ class Slime:
 class PlatformerScene(Scene):
 
     def enter(self):
-        load_level(getattr(self, '_current_level', 'level_06'))
+        level = getattr(self, '_current_level', 'level_01')
+        self._current_level = level
+        load_level(level)
         self._load_sprites()
         self._init_level_state()
         self._coins_collected = 0
@@ -486,6 +492,18 @@ class PlatformerScene(Scene):
             coin_chunk.setdefault(cx // CHUNK_W, []).append((i, cx, cy))
         self._coin_chunk = coin_chunk
 
+        # Per-level stats
+        self._level_num             = int(self._current_level.split('_')[-1])
+        self._injuries              = 0
+        self._slimes_killed         = 0
+        self._total_slimes          = _SLIME_SEC[1]
+        self._total_coins           = _COIN_SEC[1]
+        self._level_coins_collected = 0
+        self._level_time            = 0.0
+        self._banner_timer          = 0.0
+        self._summary_slime_frame   = 0
+        self._summary_slime_timer   = 0.0
+
         # Camera: world coord of top-left of screen — snapped to player spawn
         # so there's no lerp from the top-left corner on entry.
         init_cam_x = max(float(CAM_X_MIN),
@@ -520,15 +538,30 @@ class PlatformerScene(Scene):
         if self._door_fade_phase == 'out':
             self._door_fade_prog += dt / DOOR_FADE_DURATION
             if self._door_fade_prog >= 1.0:
-                # Flush a fully-black frame before the load stall so the display
-                # doesn't stay on the last partially-faded scanline image.
+                # Flush a fully-black frame so the display doesn't hold the last
+                # partially-faded image while we show the summary screen.
                 self.renderer.clear()
                 self.renderer.show()
-                dest = self._door_dest
-                self._transition_to_level(dest)   # calls exit() + enter(), resets state
-                self._door_fade_phase = 'in'
+                # Flawless bonus: 1.5× coins towards the session total
+                _flawless = (self._injuries == 0
+                             and self._slimes_killed == self._total_slimes
+                             and self._level_coins_collected == self._total_coins)
+                if _flawless:
+                    self._coins_collected += self._level_coins_collected // 2
+                self._door_fade_phase = 'summary'
                 self._door_fade_prog  = 0.0
-                self._door_dest       = dest      # restore after enter() cleared it
+            return
+
+        # Summary screen: game is frozen; keep coin and slime icons animated
+        if self._door_fade_phase == 'summary':
+            self._coin_anim_timer += dt
+            if self._coin_anim_timer >= COIN_ANIM_SPF:
+                self._coin_anim_timer -= COIN_ANIM_SPF
+                self._coin_anim_frame = (self._coin_anim_frame + 1) % len(SPIN_COIN["frames"])
+            self._summary_slime_timer += dt
+            if self._summary_slime_timer >= SLIME_ANIM_SPF:
+                self._summary_slime_timer -= SLIME_ANIM_SPF
+                self._summary_slime_frame ^= 1
             return
 
         # Door fade-in phase: new level is loaded, reveal it
@@ -546,6 +579,9 @@ class PlatformerScene(Scene):
                 self._door_fade_phase = 'out'
                 self._door_fade_prog  = 0.0
             # Fall through — let physics and movement keep running
+
+        self._level_time   += dt
+        self._banner_timer += dt
 
         if self._poof_active:
             self._poof_timer += dt
@@ -785,8 +821,9 @@ class PlatformerScene(Scene):
                     continue
                 slime.hp -= 2 if self._swipe_is_run else 1
                 slime.hit_timer = SLIME_HIT_FLASH
-                if slime.hp <= 0:
+                if slime.hp <= 0 and not slime.dying:
                     slime.dying = True
+                    self._slimes_killed += 1
 
     def _check_slime_cat_contact(self):
         """If any live slime touches the cat, deal 1 damage and knock the cat back."""
@@ -833,6 +870,7 @@ class PlatformerScene(Scene):
         self.vy = 0.0
 
     def _respawn_cat(self):
+        self._injuries += 1
         px, py = self._checkpoint
         self.x        = float(px)
         self.feet_y   = float(py)
@@ -913,6 +951,7 @@ class PlatformerScene(Scene):
                         continue
                     self._coin_active[i] = False
                     self._coins_collected += 1
+                    self._level_coins_collected += 1
                     self._coins_remaining -= 1
 
     def _check_doors(self):
@@ -1097,11 +1136,70 @@ class PlatformerScene(Scene):
         self.camera_y += (self.target_cam_y - self.camera_y) * CAM_LERP * dt
 
     # ------------------------------------------------------------------
+    # Level summary and banner
+    # ------------------------------------------------------------------
+
+    def _draw_level_summary(self):
+        r = self.renderer
+        mins = int(self._level_time) // 60
+        secs = int(self._level_time) % 60
+        r.draw_text(f"Level {self._level_num} - {mins}:{secs:02d}", 0, 1)
+
+        # Fixed icon column width (widest icon is 18px); text always starts at TEXT_X
+        ICON_W  = 18
+        TEXT_X  = 1 + ICON_W + 4   # 23
+
+        # Bandage icon — injuries row
+        bh = BANDAGE["height"]   # 18
+        r.draw_sprite(BANDAGE["frames"][0], BANDAGE["width"], bh, 1, 12)
+        text_y = 12 + (bh - 8) // 2
+        r.draw_text(str(self._injuries), TEXT_X, text_y)
+        flawless = (self._injuries == 0
+                    and self._slimes_killed == self._total_slimes
+                    and self._level_coins_collected == self._total_coins)
+        if flawless:
+            r.draw_text("Flawless!", 128 - 9 * 8, text_y)
+
+        # Slime icon — slimes killed row (draw_sprite_obj handles fill + outline)
+        sw = PLATFORMER_SLIME_IDLE["width"]
+        sh = PLATFORMER_SLIME_IDLE["height"]
+        r.draw_sprite_obj(PLATFORMER_SLIME_IDLE, 1, 32, frame=self._summary_slime_frame)
+        r.draw_text(f"{self._slimes_killed}/{self._total_slimes}", TEXT_X, 32 + (sh - 8) // 2)
+
+        # Coin icon — centered in the icon column so it aligns with the wider icons
+        cw = SPIN_COIN["width"]
+        coin_x = 1 + (ICON_W - cw) // 2
+        r.draw_sprite(SPIN_COIN["frames"][self._coin_anim_frame], cw, SPIN_COIN["height"], coin_x, 44)
+        r.draw_text(f"{self._level_coins_collected}/{self._total_coins}", TEXT_X, 44)
+
+    def _draw_level_banner(self, cam_x, cam_y):
+        prog = min(1.0, self._banner_timer / LEVEL_BANNER_DUR)
+        text = f"Level {self._level_num}"
+        tw = len(text) * 8
+        bx = (128 - tw) // 2
+        by = 20 - int(prog * LEVEL_BANNER_RISE)
+        self.renderer.draw_text(text, bx, by)
+
+    # ------------------------------------------------------------------
     # Input
     # ------------------------------------------------------------------
 
     def handle_input(self):
-        if self._poof_active or self._door_fade_phase is not None:
+        if self._poof_active:
+            return
+
+        if self._door_fade_phase == 'summary':
+            for btn in ('a', 'b', 'up', 'down', 'left', 'right'):
+                if self.input.was_just_pressed(btn):
+                    dest = self._door_dest
+                    self._transition_to_level(dest)
+                    self._door_fade_phase = 'in'
+                    self._door_fade_prog  = 0.0
+                    self._door_dest       = dest
+                    break
+            return
+
+        if self._door_fade_phase is not None:
             return
 
         # During a run/jump swipe movement is NOT locked — cat keeps momentum.
@@ -1177,6 +1275,11 @@ class PlatformerScene(Scene):
         return 2       # falling
 
     def draw(self):
+        # Summary screen overrides normal drawing — screen is already black
+        if self._door_fade_phase == 'summary':
+            self._draw_level_summary()
+            return
+
         cam_x = int(self.camera_x)
         cam_y = int(self.camera_y)
 
@@ -1388,6 +1491,10 @@ class PlatformerScene(Scene):
             draw_y = int(self.feet_y) - sprite["height"] - cam_y
             self.renderer.draw_sprite(data, sprite["width"], sprite["height"],
                                       draw_x, draw_y)
+
+        # Level start banner — centered on screen, rises and disappears
+        if self._banner_timer < LEVEL_BANNER_DUR:
+            self._draw_level_banner(cam_x, cam_y)
 
         # Door transition scanline overlay — drawn last so it covers everything
         if self._door_fade_phase is not None:
