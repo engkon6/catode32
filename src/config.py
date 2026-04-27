@@ -85,7 +85,7 @@ FRAME_TIME_MS = 1000 // FPS  # Milliseconds per frame
 TRANSITION_DURATION = 0.25      # seconds per half-transition (total is 2x this)
 
 # Panning Settings
-PAN_SPEED = 2  # pixels per frame when D-pad held
+PAN_SPEED = 4  # pixels per frame when D-pad held
 
 # Sleep / Power Saving
 # SLEEP_MODE controls the device sleep behaviour when idle:

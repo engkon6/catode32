@@ -333,10 +333,10 @@ class SceneManager:
 
         # Minigames submenu
         minigame_items = []
-        minigame_items.append(MenuItem("Prowl", icon=MINIGAME_ICONS.get("Prowl"), action=('scene', 'platformer')))
         minigame_items.append(MenuItem("Zoomies", icon=MINIGAME_ICONS.get("Zoomies"), action=('scene', 'zoomies')))
         minigame_items.append(MenuItem("Breakout", icon=MINIGAME_ICONS.get("Breakout"), action=('scene', 'breakout')))
         minigame_items.append(MenuItem("Snake", icon=MINIGAME_ICONS.get("Snake"), action=('scene', 'snake')))
+        minigame_items.append(MenuItem("Hunter", icon=MINIGAME_ICONS.get("Prowl"), action=('scene', 'platformer')))
         minigame_items.append(MenuItem("Memory", icon=MINIGAME_ICONS.get("Memory"), action=('scene', 'memory')))
         minigame_items.append(MenuItem("Maze", icon=MINIGAME_ICONS.get("Maze"), action=('scene', 'maze')))
         minigame_items.append(MenuItem("TicTacToe", icon=MINIGAME_ICONS.get("TicTacToe"), action=('scene', 'tictactoe')))

@@ -5,6 +5,7 @@ Combat: cat swipe attack, slime enemies.
 """
 import random
 import struct
+from time import ticks_us, ticks_diff
 from scene import Scene
 from sprite_transform import mirror_sprite_h
 from assets.platformer_terrain import (
@@ -111,6 +112,11 @@ SLIME_HIT_FLASH      = 0.15   # seconds to show fill frame after being hit
 SLIME_ANIM_SPF       = 0.5    # seconds per frame (2 FPS)
 SLIME_BURST_SPF      = 1.0 / 12   # seconds per frame for death burst
 SLIME_PATROL_RADIUS  = 84
+# Minimum inset from chunk edge for slime patrol bounds. Guarantees that all
+# edge-detection and wall-collision probes stay within the slime's spawn chunk,
+# so physics never needs to look up blocks outside the cached viewport.
+# Must be ≥ SLIME_HALF_W + BLOCK_W + 2 + SLIME_SPEED/FPS ≈ 19.5  →  use 20.
+_SLIME_INSET = SLIME_HALF_W + BLOCK_W + 4
 
 # Poof death animation
 POOF_SPF = 1.0 / 8   # POOF["speed"] = 8
@@ -310,7 +316,7 @@ def load_level(name):
     LOCKED_DOORS = tuple(ldoors);  ldoors = None
 
 
-def _supported(x, feet_y, half_w):
+def _supported(x, feet_y, half_w, cache):
     """Return True if (x, feet_y) is resting on any solid block or platform."""
     fy  = int(feet_y)
     cl  = int(x) - half_w
@@ -319,11 +325,9 @@ def _supported(x, feet_y, half_w):
     col0 = (cl - BLOCK_W + 1) // CHUNK_W
     col1 = (cr - 1) // CHUNK_W
     for col in range(col0, col1 + 1):
-        entry = SOLID_INDEX.get((col, row))
-        if entry:
-            off, n = entry
-            for i in range(n):
-                bx, by = struct.unpack_from('<HH', _LEVEL_DATA, off + i * 6)
+        blocks = cache.get((col, row))
+        if blocks:
+            for bx, by, _ in blocks:
                 if by == fy and cl < bx + BLOCK_W and cr > bx:
                     return True
     for px, py, pw in PLATFORMS:
@@ -345,9 +349,16 @@ class Slime:
         self.x        = float(x)
         self.feet_y   = float(feet_y)
         self.chunk_col = int(x) // CHUNK_W
-        # Patrol range: ±SLIME_PATROL_RADIUS from spawn, clamped to spawn chunk
-        cx_min = float(self.chunk_col * CHUNK_W + SLIME_HALF_W + 1)
-        cx_max = float((self.chunk_col + 1) * CHUNK_W - SLIME_HALF_W - 1)
+        # feet_y never changes (slimes don't jump/fall), so cache all row lookups once.
+        _ify = int(feet_y)
+        self.ify        = _ify                              # int(feet_y)
+        self.ground_row = _ify // CHUNK_H                  # row for edge-detection probe
+        self.wall_row0  = (_ify - SLIME_H - BLOCK_H + 1) // CHUNK_H   # top of slime body
+        self.wall_row1  = (_ify - 1) // CHUNK_H            # bottom of slime body
+        # Patrol range: ±SLIME_PATROL_RADIUS from spawn, clamped so all edge/wall
+        # probes stay within the spawn chunk (see _SLIME_INSET for the math).
+        cx_min = float(self.chunk_col * CHUNK_W + _SLIME_INSET)
+        cx_max = float((self.chunk_col + 1) * CHUNK_W - _SLIME_INSET)
         self.patrol_min = max(float(int(x) - SLIME_PATROL_RADIUS), cx_min)
         self.patrol_max = min(float(int(x) + SLIME_PATROL_RADIUS), cx_max)
         self.vx        = float(SLIME_SPEED)
@@ -512,6 +523,10 @@ class PlatformerScene(Scene):
         self._burst_effect          = BurstEffect()   # summary screen (screen coords)
         self._collectible_bursts    = BurstEffect()   # in-game pickups (world coords)
 
+        # Profiling: accumulated µs per section + frame count for this level.
+        # [upd_physics, upd_slimes, drw_bg, drw_terrain, drw_deco, drw_entities, frame_count]
+        self._prof = [0, 0, 0, 0, 0, 0, 0]
+
         # Camera: world coord of top-left of screen — snapped to player spawn
         # so there's no lerp from the top-left corner on entry.
         init_cam_x = max(float(CAM_X_MIN),
@@ -523,6 +538,16 @@ class PlatformerScene(Scene):
         self.target_cam_x  = init_cam_x
         self.target_cam_y  = init_cam_y
 
+        # Solid-terrain cache: (bx, by, frame) tuples per chunk, used by both draw
+        # and physics. Pre-built here so physics can use it from the very first frame.
+        # Rebuilt in draw() when the visible chunk set changes.
+        _cx0 = int(init_cam_x); _cy0 = int(init_cam_y)
+        _vc = (_cx0 // CHUNK_W, (_cx0 + 127) // CHUNK_W,
+               _cy0 // CHUNK_H, (_cy0 + 63) // CHUNK_H)
+        self._solid_cache_vis = _vc
+        self._solid_cache     = {}
+        self._rebuild_solid_cache(_vc[0], _vc[1], _vc[2], _vc[3])
+
     def exit(self):
         coins  = getattr(self, '_coins_collected', 0)
         levels = getattr(self, '_session_levels_completed', 0)
@@ -531,14 +556,14 @@ class PlatformerScene(Scene):
             self.context.coins += coins
             print(f"[Platformer] Awarded {coins} coins (total: {self.context.coins})")
         if levels > 0 or slimes > 0:
-            lp = (levels / 4.0) ** 0.5
-            sp = (slimes / 12.0) ** 0.5
+            lp = (levels / 5.0) ** 0.5
+            sp = (slimes / 62.0) ** 0.5
             print(f"[Platformer] levels={levels} lp={lp:.2f}  slimes={slimes} sp={sp:.2f}")
             self.context.apply_stat_changes({
-                'fitness':     5 * lp,
-                'fulfillment': 4 * lp,
-                'playfulness': 4 * lp,
-                'courage':     6 * sp,
+                'fitness':     3 * lp,
+                'fulfillment': 2 * lp,
+                'playfulness': 3 * lp,
+                'courage':     2 * sp,
             })
         self._run_r   = self._run_l   = None
         self._sit_r   = self._sit_l   = None
@@ -575,6 +600,7 @@ class PlatformerScene(Scene):
                 self._level_flawless  = _flawless
                 self._door_fade_phase = 'summary'
                 self._door_fade_prog  = 0.0
+                self._print_prof()
             return
 
         # Summary screen: game is frozen; keep coin and slime icons animated
@@ -641,6 +667,7 @@ class PlatformerScene(Scene):
         # Vertical physics + collision first — so feet_y is correct before _resolve_x
         # evaluates the cat's vertical bounds (prevents ceiling blocks being mistaken
         # for walls when the cat's head briefly overlaps them during ascent)
+        _tp0 = ticks_us()
         if not self.on_ground:
             self.vy += GRAVITY * dt
             prev_feet = self.feet_y
@@ -654,6 +681,7 @@ class PlatformerScene(Scene):
         elif self.x > WORLD_W - CAT_HALF_W:
             self.x = float(WORLD_W - CAT_HALF_W)
         self._resolve_x()
+        self._prof[0] += ticks_diff(ticks_us(), _tp0)
 
         # Recharge double jump on landing
         if self.just_landed:
@@ -718,6 +746,7 @@ class PlatformerScene(Scene):
             self._cat_blink_timer -= dt
 
         # Update slimes — only those in visible chunks
+        _ts0 = ticks_us()
         cam_col0 = int(self.camera_x) // CHUNK_W
         cam_col1 = (int(self.camera_x) + 127) // CHUNK_W
         for col in range(cam_col0, cam_col1 + 1):
@@ -735,10 +764,12 @@ class PlatformerScene(Scene):
 
         # Check slime-cat contact damage
         self._check_slime_cat_contact()
+        self._prof[1] += ticks_diff(ticks_us(), _ts0)
 
         self._burst_effect.update(dt)
         self._collectible_bursts.update(dt)
         self._update_camera(dt)
+        self._prof[6] += 1
 
     # ------------------------------------------------------------------
     # Enemy logic
@@ -760,40 +791,47 @@ class PlatformerScene(Scene):
             slime.vx      = SLIME_SPEED if random.random() > 0.5 else -SLIME_SPEED
             slime.dir_timer = 1.0 + random.random() * 2.0
 
-        # Edge detection: probe just past the leading foot edge
+        # Edge detection: probe just past the leading foot edge.
+        # feet_y is constant so ground_row and chunk_col are pre-computed on the slime.
         look_x = slime.x + ((SLIME_HALF_W + 2) if slime.vx > 0 else -(SLIME_HALF_W + 2))
-        if not _supported(look_x, slime.feet_y, 1):
+        ilook = int(look_x)
+        fy = slime.ify
+        _sc = self._solid_cache
+        has_ground = False
+        blocks = _sc.get((slime.chunk_col, slime.ground_row))
+        if blocks:
+            for bx, by, _ in blocks:
+                if by == fy and ilook - 1 < bx + BLOCK_W and ilook + 1 > bx:
+                    has_ground = True
+                    break
+        if not has_ground:
+            for px, py, pw in PLATFORMS:
+                if py == fy and ilook - 1 < px + pw and ilook + 1 > px:
+                    has_ground = True
+                    break
+        if not has_ground:
             slime.vx = -slime.vx
 
-        # Move with wall collision
+        # Move with wall collision — always the same chunk column; rows pre-computed.
         next_x = slime.x + slime.vx * dt
         nl = int(next_x) - SLIME_HALF_W
         nr = int(next_x) + SLIME_HALF_W
-        st = int(slime.feet_y) - SLIME_H
-        sb = int(slime.feet_y)
-        col0 = (nl - BLOCK_W + 1) // CHUNK_W
-        col1 = (nr - 1) // CHUNK_W
-        row0 = (st - BLOCK_H + 1) // CHUNK_H
-        row1 = (sb - 1) // CHUNK_H
+        st = fy - SLIME_H
+        sb = fy
         wall_hit = False
-        for col in range(col0, col1 + 1):
-            for row in range(row0, row1 + 1):
-                entry = SOLID_INDEX.get((col, row))
-                if not entry:
+        for row in range(slime.wall_row0, slime.wall_row1 + 1):
+            blocks = _sc.get((slime.chunk_col, row))
+            if not blocks:
+                continue
+            for bx, by, _ in blocks:
+                if st >= by + BLOCK_H or sb <= by:
                     continue
-                off, n = entry
-                for i in range(n):
-                    bx, by = struct.unpack_from('<HH', _LEVEL_DATA, off + i * 6)
-                    if st >= by + BLOCK_H or sb <= by:
-                        continue
-                    if nl >= bx + BLOCK_W or nr <= bx:
-                        continue
-                    next_x = float(bx - SLIME_HALF_W) if slime.vx > 0 else float(bx + BLOCK_W + SLIME_HALF_W)
-                    slime.vx = -slime.vx
-                    wall_hit = True
-                    break
-                if wall_hit:
-                    break
+                if nl >= bx + BLOCK_W or nr <= bx:
+                    continue
+                next_x = float(bx - SLIME_HALF_W) if slime.vx > 0 else float(bx + BLOCK_W + SLIME_HALF_W)
+                slime.vx = -slime.vx
+                wall_hit = True
+                break
             if wall_hit:
                 break
 
@@ -920,12 +958,22 @@ class PlatformerScene(Scene):
         self._on_platform = -1
         self._drop_platform = -1
         self.facing_right = True
-        # Point target_cam_x at the checkpoint so the lerp goes there in X.
-        # Without this, _update_camera only updates target_cam_x when the cat
-        # exceeds the scroll thresholds in the direction they're facing, so a
-        # checkpoint to the left of the camera would never pull the camera back.
+        # Snap camera to checkpoint and immediately rebuild the solid cache.
+        # Without the snap, update() on the next frame runs with the cache from
+        # the old camera position, so _is_supported() misses and the cat falls
+        # through solid ground at the respawn point.
         self.target_cam_x = max(float(CAM_X_MIN),
                                 min(float(px) - RIGHT_SCROLL_PX, self._cam_x_max))
+        self.target_cam_y = max(float(self._cam_y_min),
+                                min(float(py) - BOT_SCROLL_PX, float(self._cam_y_max)))
+        self.camera_x = self.target_cam_x
+        self.camera_y = self.target_cam_y
+        _cx0 = int(self.camera_x); _cy0 = int(self.camera_y)
+        _vc = (_cx0 // CHUNK_W, (_cx0 + 127) // CHUNK_W,
+               _cy0 // CHUNK_H, (_cy0 + 63) // CHUNK_H)
+        if _vc != self._solid_cache_vis:
+            self._rebuild_solid_cache(_vc[0], _vc[1], _vc[2], _vc[3])
+            self._solid_cache_vis = _vc
         self._cat_hp          = CAT_START_HP
         self._cat_blink_timer = CAT_BLINK_DUR
         self._swipe_frame     = -1
@@ -1045,12 +1093,11 @@ class PlatformerScene(Scene):
         row  = fy // CHUNK_H
         col0 = (cl - BLOCK_W + 1) // CHUNK_W
         col1 = (cr - 1) // CHUNK_W
+        _sc = self._solid_cache
         for col in range(col0, col1 + 1):
-            entry = SOLID_INDEX.get((col, row))
-            if entry:
-                off, n = entry
-                for i in range(n):
-                    bx, by = struct.unpack_from('<HH', _LEVEL_DATA, off + i * 6)
+            blocks = _sc.get((col, row))
+            if blocks:
+                for bx, by, _ in blocks:
                     if by == fy and cl < bx + BLOCK_W and cr > bx:
                         return True
 
@@ -1072,14 +1119,13 @@ class PlatformerScene(Scene):
         row0 = (ct - BLOCK_H + 1) // CHUNK_H
         row1 = (cb - 1) // CHUNK_H
 
+        _sc = self._solid_cache
         for col in range(col0, col1 + 1):
             for row in range(row0, row1 + 1):
-                entry = SOLID_INDEX.get((col, row))
-                if not entry:
+                blocks = _sc.get((col, row))
+                if not blocks:
                     continue
-                off, n = entry
-                for i in range(n):
-                    bx, by = struct.unpack_from('<HH', _LEVEL_DATA, off + i * 6)
+                for bx, by, _ in blocks:
                     br = bx + BLOCK_W
                     bb = by + BLOCK_H
                     if ct >= bb or cb <= by:
@@ -1106,17 +1152,16 @@ class PlatformerScene(Scene):
         col0 = (cl - BLOCK_W + 1) // CHUNK_W
         col1 = (cr - 1) // CHUNK_W
 
+        _sc = self._solid_cache
         if self.vy >= 0:  # descending
             row0 = int(prev_feet) // CHUNK_H
             row1 = int(self.feet_y) // CHUNK_H
             for col in range(col0, col1 + 1):
                 for row in range(row0, row1 + 1):
-                    entry = SOLID_INDEX.get((col, row))
-                    if not entry:
+                    blocks = _sc.get((col, row))
+                    if not blocks:
                         continue
-                    off, n = entry
-                    for i in range(n):
-                        bx, by = struct.unpack_from('<HH', _LEVEL_DATA, off + i * 6)
+                    for bx, by, _ in blocks:
                         if cl >= bx + BLOCK_W or cr <= bx:
                             continue
                         if prev_feet <= by <= self.feet_y:
@@ -1149,12 +1194,10 @@ class PlatformerScene(Scene):
             row1 = int(prev_head - BLOCK_H) // CHUNK_H
             for col in range(col0, col1 + 1):
                 for row in range(row0, row1 + 1):
-                    entry = SOLID_INDEX.get((col, row))
-                    if not entry:
+                    blocks = _sc.get((col, row))
+                    if not blocks:
                         continue
-                    off, n = entry
-                    for i in range(n):
-                        bx, by = struct.unpack_from('<HH', _LEVEL_DATA, off + i * 6)
+                    for bx, by, _ in blocks:
                         bb = by + BLOCK_H
                         if cl >= bx + BLOCK_W or cr <= bx:
                             continue
@@ -1188,6 +1231,50 @@ class PlatformerScene(Scene):
 
         self.camera_x += (self.target_cam_x - self.camera_x) * CAM_LERP * dt
         self.camera_y += (self.target_cam_y - self.camera_y) * CAM_LERP * dt
+
+    # ------------------------------------------------------------------
+    # Terrain draw cache
+    # ------------------------------------------------------------------
+
+    def _rebuild_solid_cache(self, col0, col1, row0, row1):
+        """Unpack solid block data for all visible chunks (plus one row above/below
+        for slime vertical collision queries) into (bx, by, frame) tuples.
+        Called only when the visible chunk set changes, not every frame."""
+        cache = {}
+        for col in range(col0, col1 + 1):
+            for row in range(row0 - 1, row1 + 2):
+                entry = SOLID_INDEX.get((col, row))
+                if not entry:
+                    continue
+                off, n = entry
+                blocks = [None] * n
+                for i in range(n):
+                    bx, by, tt, vi = struct.unpack_from('<HHBB', _LEVEL_DATA, off + i * 6)
+                    blocks[i] = (bx, by, _TERRAIN_FRAMES[tt][vi])
+                cache[(col, row)] = blocks
+        self._solid_cache = cache
+
+    # ------------------------------------------------------------------
+    # Profiling
+    # ------------------------------------------------------------------
+
+    def _print_prof(self):
+        p = self._prof
+        fc = p[6] if p[6] > 0 else 1
+        fps = fc / max(self._level_time, 0.001)
+        budget = 83333   # µs per frame at 12 FPS
+        labels = ('upd_physics', 'upd_slimes',
+                  'drw_bg', 'drw_terrain', 'drw_deco', 'drw_entities')
+        total_us = p[0] + p[1] + p[2] + p[3] + p[4] + p[5]
+        print(f"[Prof] Level {self._level_num}  {fc} frames  {fps:.1f} fps")
+        for idx, label in enumerate(labels):
+            us = p[idx]
+            ms = us / fc / 1000
+            pct = us * 100 // (fc * budget)
+            print(f"  {label:<14} {ms:5.2f} ms/f  {pct:2d}%")
+        ms_total = total_us / fc / 1000
+        pct_total = total_us * 100 // (fc * budget)
+        print(f"  {'tracked total':<14} {ms_total:5.2f} ms/f  {pct_total:2d}%  (budget 83ms)")
 
     # ------------------------------------------------------------------
     # Level summary and banner
@@ -1344,6 +1431,7 @@ class PlatformerScene(Scene):
         col1 = (cam_x + 127) // CHUNK_W
         row0 = cam_y // CHUNK_H
         row1 = (cam_y + 63) // CHUNK_H
+        _td0 = ticks_us()
         for col in range(col0, col1 + 1):
             for row in range(row0, row1 + 1):
                 entry = BG_INDEX.get((col, row))
@@ -1356,22 +1444,29 @@ class PlatformerScene(Scene):
                     sy = wy - cam_y
                     if -BLOCK_W < sx < 128 and -BLOCK_H < sy < 64:
                         self.renderer.draw_sprite(_BG_FRAMES[gi][vi], BLOCK_W, BLOCK_H, sx, sy)
+        self._prof[2] += ticks_diff(ticks_us(), _td0)
 
-        # Solid terrain — only iterate chunks that overlap the viewport
+        # Solid terrain — rebuild cache only when visible chunks change, then draw from cache
+        _vis = (col0, col1, row0, row1)
+        if _vis != self._solid_cache_vis:
+            self._rebuild_solid_cache(col0, col1, row0, row1)
+            self._solid_cache_vis = _vis
+        _td1 = ticks_us()
+        _sc = self._solid_cache
         for col in range(col0, col1 + 1):
             for row in range(row0, row1 + 1):
-                entry = SOLID_INDEX.get((col, row))
-                if not entry:
+                blocks = _sc.get((col, row))
+                if not blocks:
                     continue
-                off, n = entry
-                for i in range(n):
-                    bx, by, tt, vi = struct.unpack_from('<HHBB', _LEVEL_DATA, off + i * 6)
+                for bx, by, frame in blocks:
                     sx = bx - cam_x
                     sy = by - cam_y
                     if -BLOCK_W < sx < 128 and -BLOCK_H < sy < 64:
-                        self.renderer.draw_sprite(_TERRAIN_FRAMES[tt][vi], BLOCK_W, BLOCK_H, sx, sy)
+                        self.renderer.draw_sprite(frame, BLOCK_W, BLOCK_H, sx, sy)
+        self._prof[3] += ticks_diff(ticks_us(), _td1)
 
-        # Platforms — 13 total, cheap to iterate flat
+        # Platforms, grass, vines — decorations layer
+        _td2 = ticks_us()
         for px, py, pw in PLATFORMS:
             sx = px - cam_x
             sy = py - cam_y
@@ -1405,8 +1500,10 @@ class PlatformerScene(Scene):
                     vy = ty - cam_y
                     if -_VINE_W < vx < 128 and -_VINE_H < vy < 64:
                         self.renderer.draw_sprite(_VINE_FRAME, _VINE_W, _VINE_H, vx, vy)
+        self._prof[4] += ticks_diff(ticks_us(), _td2)
 
-        # Checkpoints
+        # Checkpoints, doors, collectibles, slimes, cat, effects
+        _td3 = ticks_us()
         for i, (cx, cy) in enumerate(CHECKPOINTS):
             if self._checkpoint_activated[i]:
                 frame, cw, ch = _CP_UP_FRAME, _CP_UP_W, _CP_UP_H
@@ -1554,6 +1651,7 @@ class PlatformerScene(Scene):
 
         self._collectible_bursts.draw(self.renderer, -cam_x, -cam_y)
         self._burst_effect.draw(self.renderer)
+        self._prof[5] += ticks_diff(ticks_us(), _td3)
 
         # Door transition scanline overlay — drawn last so it covers everything
         if self._door_fade_phase is not None:

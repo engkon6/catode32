@@ -18,11 +18,11 @@ BTN_B = 0
 btn_a = Pin(BTN_A, Pin.IN, Pin.PULL_UP)
 btn_b = Pin(BTN_B, Pin.IN, Pin.PULL_UP)
 
-# Wait 1 second, then sample A+B once at the end.
+# Wait 0.25 seconds, then sample A+B once at the end.
 # Sampling at the END (not during) avoids false positives from GPIO
 # boot transients on GPIO 0/1 that settle within the first ~100ms.
 # The sleep is interruptible by Ctrl+C so mpremote can still break in.
-time.sleep_ms(1000)
+time.sleep_ms(250)
 _skip = btn_a.value() == 0 and btn_b.value() == 0
 
 if _skip:

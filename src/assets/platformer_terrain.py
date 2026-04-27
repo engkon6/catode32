@@ -48,12 +48,12 @@ TERRAIN_CORNER_TOP_RIGHT = {
 
 TERRAIN_SIDE_LEFT = {
     "width": 8, "height": 8,
-    "frames": [b"\x20\x28\x20\x20\x22\x20\x24\x20"],
+    "frames": [bytearray([0x40, 0x50, 0x40, 0x40, 0x40, 0x40, 0x48, 0x40, ])],
 }
 
 TERRAIN_SIDE_RIGHT = {
     "width": 8, "height": 8,
-    "frames": [b"\x04\x14\x84\x04\x04\x04\x24\x04"],
+    "frames": [bytearray([0x02, 0x0a, 0x42, 0x02, 0x02, 0x02, 0x12, 0x02])],
 }
 
 TERRAIN_CORNER_BOTTOM = {
