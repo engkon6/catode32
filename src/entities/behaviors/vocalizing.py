@@ -34,6 +34,9 @@ class VocalizingBehavior(BaseBehavior):
 
     @classmethod
     def _pick_icon(cls, context):
+        if getattr(context, 'wants_to_go_home', False):
+            print("[vocalizing] wants to go home")
+            return "home"
         needs = [
             (context.fullness, "hunger"),
             (context.comfort, "discomfort"),

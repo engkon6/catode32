@@ -34,6 +34,7 @@ class SceneManager:
         'scene',
         'scenes',               # namespace package, registered on any scenes.* import
         'scenes.main_scene',
+        'scenes.vacation_scene',
         # Entity / behavior system
         'entities',
         'entities.entity',
@@ -116,6 +117,7 @@ class SceneManager:
             'store': ('scenes.store', 'StoreScene'),
             'social': ('scenes.social', 'SocialScene'),
             'pet_info': ('scenes.pet_info', 'PetInfoScene'),
+            'vacation_park': ('scenes.vacation_park', 'VacationParkScene'),
         }
 
     def _get_scene_class(self, name):
@@ -247,7 +249,8 @@ class SceneManager:
             self._idle_timer = 0.0
             if self.overlays.active:
                 self.overlays.clear()
-            if getattr(self.current_scene, 'SCENE_NAME', None) is None:
+            if (getattr(self.current_scene, 'SCENE_NAME', None) is None
+                    and not getattr(self.current_scene, 'IS_VACATION', False)):
                 self.change_scene_by_name(self.context.last_main_scene)
 
         # Update current scene
@@ -318,31 +321,33 @@ class SceneManager:
     def _build_big_menu_items(self):
         """Build the big menu items"""
         items = []
+        on_vacation = getattr(self.current_scene, 'IS_VACATION', False)
+        vac_confirm = "End vacation?" if on_vacation else None
 
         # Stats page
         items.append(MenuItem("Pet stats", icon=STATS_ICON, action=('scene', 'stats')))
 
         # Location options
         location_items = []
-        location_items.append(MenuItem("Living Room", icon=HOUSE_ICON, action=('scene', 'inside')))
-        location_items.append(MenuItem("Bedroom", icon=HOUSE_ICON, action=('scene', 'bedroom')))
-        location_items.append(MenuItem("Kitchen", icon=MEAL_ICON, action=('scene', 'kitchen')))
-        location_items.append(MenuItem("Outside", icon=SUN_ICON, action=('scene', 'outside')))
-        location_items.append(MenuItem("Treehouse", icon=TREES_ICON, action=('scene', 'treehouse')))
+        location_items.append(MenuItem("Living Room", icon=HOUSE_ICON, action=('scene', 'inside'), confirm=vac_confirm))
+        location_items.append(MenuItem("Bedroom", icon=HOUSE_ICON, action=('scene', 'bedroom'), confirm=vac_confirm))
+        location_items.append(MenuItem("Kitchen", icon=MEAL_ICON, action=('scene', 'kitchen'), confirm=vac_confirm))
+        location_items.append(MenuItem("Outside", icon=SUN_ICON, action=('scene', 'outside'), confirm=vac_confirm))
+        location_items.append(MenuItem("Treehouse", icon=TREES_ICON, action=('scene', 'treehouse'), confirm=vac_confirm))
         items.append(MenuItem("Locations", icon=HOUSE_ICON, submenu=location_items))
 
         # Minigames submenu
         minigame_items = []
-        minigame_items.append(MenuItem("Zoomies", icon=MINIGAME_ICONS.get("Zoomies"), action=('scene', 'zoomies')))
-        minigame_items.append(MenuItem("Breakout", icon=MINIGAME_ICONS.get("Breakout"), action=('scene', 'breakout')))
-        minigame_items.append(MenuItem("Snake", icon=MINIGAME_ICONS.get("Snake"), action=('scene', 'snake')))
-        minigame_items.append(MenuItem("Hunter", icon=MINIGAME_ICONS.get("Prowl"), action=('scene', 'platformer')))
-        minigame_items.append(MenuItem("Memory", icon=MINIGAME_ICONS.get("Memory"), action=('scene', 'memory')))
-        minigame_items.append(MenuItem("Maze", icon=MINIGAME_ICONS.get("Maze"), action=('scene', 'maze')))
-        minigame_items.append(MenuItem("TicTacToe", icon=MINIGAME_ICONS.get("TicTacToe"), action=('scene', 'tictactoe')))
-        minigame_items.append(MenuItem("Hanjie", icon=MINIGAME_ICONS.get("Hanjie"), action=('scene', 'hanjie')))
-        minigame_items.append(MenuItem("Lights Out", icon=MINIGAME_ICONS.get("LightsOut"), action=('scene', 'lightsout')))
-        minigame_items.append(MenuItem("Pipes", icon=MINIGAME_ICONS.get("Pipes"), action=('scene', 'pipes')))
+        minigame_items.append(MenuItem("Zoomies", icon=MINIGAME_ICONS.get("Zoomies"), action=('scene', 'zoomies'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Breakout", icon=MINIGAME_ICONS.get("Breakout"), action=('scene', 'breakout'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Snake", icon=MINIGAME_ICONS.get("Snake"), action=('scene', 'snake'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Hunter", icon=MINIGAME_ICONS.get("Prowl"), action=('scene', 'platformer'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Memory", icon=MINIGAME_ICONS.get("Memory"), action=('scene', 'memory'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Maze", icon=MINIGAME_ICONS.get("Maze"), action=('scene', 'maze'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("TicTacToe", icon=MINIGAME_ICONS.get("TicTacToe"), action=('scene', 'tictactoe'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Hanjie", icon=MINIGAME_ICONS.get("Hanjie"), action=('scene', 'hanjie'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Lights Out", icon=MINIGAME_ICONS.get("LightsOut"), action=('scene', 'lightsout'), confirm=vac_confirm))
+        minigame_items.append(MenuItem("Pipes", icon=MINIGAME_ICONS.get("Pipes"), action=('scene', 'pipes'), confirm=vac_confirm))
         items.append(MenuItem("Minigames", icon=MINIGAMES_ICON, submenu=minigame_items))
         
         # Store
@@ -365,6 +370,11 @@ class SceneManager:
             debug_items.append(MenuItem("Behaviors", icon=CAT_ICON, action=('scene', 'debug_behaviors')))
             debug_items.append(MenuItem("Stats", icon=CAT_ICON, action=('scene', 'debug_stats')))
             debug_items.append(MenuItem("Plants", icon=TREES_ICON, action=('scene', 'debug_plants')))
+
+            vacation_items = [
+                MenuItem("Park", icon=HOUSE_ICON, action=('scene', 'vacation_park')),
+            ]
+            debug_items.append(MenuItem("Vacations", icon=SUN_ICON, submenu=vacation_items))
             debug_items.append(MenuItem("Time Speed", icon=WRENCH_ICON, action=('scene', 'time_settings')))
             debug_items.append(MenuItem("Memory", icon=WRENCH_ICON, action=('scene', 'debug_memory')))
             debug_items.append(MenuItem("RGB LED", icon=WRENCH_ICON, action=('scene', 'debug_led')))

@@ -307,6 +307,9 @@ class BehaviorManager:
         (low fullness → kitchen, low comfort/energy → bedroom, bad weather → away
         from outdoor destinations). Never totally deterministic.
         """
+        if getattr(ctx, 'on_vacation', False):
+            return None
+
         current = getattr(ctx, 'last_main_scene', None)
         options = self._SCENE_TRANSITIONS.get(current)
         if not options:
@@ -551,6 +554,8 @@ class BehaviorManager:
         return base
 
     def priority_vocalizing(self, ctx):
+        if getattr(ctx, 'wants_to_go_home', False):
+            return random.uniform(2, 8)  # very high priority — wins most selection rounds
         # Outdoors and not recently vocalized: cats are chatty outside —
         # push priority low enough to win selection roughly every ~5 behaviors.
         # Checked first so mild urgency can't bypass it.

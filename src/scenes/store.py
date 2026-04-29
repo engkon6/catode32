@@ -65,6 +65,11 @@ _SEED_ITEMS = (
     ("Rose",    "Rose",       "rose",       15),
 )
 
+# (display_name, scene_name, cost)
+_TRIP_ITEMS = (
+    ("Park", "vacation_park", 50),
+)
+
 _FERTILIZER_COST = 25
 
 # (display_name, full_name, inventory_key, cost)
@@ -129,12 +134,15 @@ class StoreScene(Scene):
         ]
         service_items = [self._service_item(name, stats, cost, msg)
                          for name, stats, cost, msg in _SERVICE_ITEMS]
+        trip_items = [self._trip_item(label, scene, cost)
+                      for label, scene, cost in _TRIP_ITEMS]
         return [
             MenuItem("Food",    submenu=food_items),
             MenuItem("Snacks",  submenu=snack_items),
             MenuItem("Toys",    submenu=toy_items),
             MenuItem("Garden",  submenu=gardening_items),
             MenuItem("Service", submenu=service_items),
+            MenuItem("Trips",   submenu=trip_items),
             MenuItem("Exit",    action=("leave",)),
         ]
 
@@ -179,6 +187,12 @@ class StoreScene(Scene):
             return MenuItem(name, action=("buy_service", name, stats, cost, msg),
                             confirm=f"{name}: {cost}c")
         return MenuItem(name, action=("no_funds",), confirm="Can't afford!")
+
+    def _trip_item(self, label, scene_name, cost):
+        if self.context.coins >= cost:
+            return MenuItem(label, action=("buy_trip", scene_name, cost),
+                            confirm=f"A trip to the {label.lower()}: {cost}c")
+        return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
 
     def _tool_item(self, label, full, key, cost):
         owned = self.context.inventory['tools'].get(key, False)
@@ -358,6 +372,15 @@ class StoreScene(Scene):
                 print(f"[Store] Used service {name} for {cost}c")
                 self._purchase_msg = msg
                 self._popup.set_text(self._purchase_msg, center=True)
+            else:
+                self.menu.open(self._build_menu())
+
+        elif kind == "buy_trip":
+            _, scene_name, cost = action
+            if self.context.coins >= cost:
+                self.context.coins -= cost
+                print(f"[Store] Bought trip to {scene_name} for {cost}c")
+                return ('change_scene', scene_name)
             else:
                 self.menu.open(self._build_menu())
 

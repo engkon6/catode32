@@ -422,6 +422,14 @@ FREESIA_THRIVING_DEAD = {
     "frames": [ b"\x03\x80\x04\xc0\x09\xc0\x10\xe0\x3c\xe0\x52\x40\x10\xa0\x54\x00\xba\x00\x90\x00\x08\x00\x04\x00" ]
 }
 
+TINY_FLOWER = {
+    "width": 4,
+    "height": 3,
+    "frames": [
+        b"\x60\x90\x60"
+    ]
+}
+
 
 # ---------------------------------------------------------------------------
 # PLANT_SPRITES lookup: (plant_type, stage) -> sprite dict
