@@ -70,6 +70,7 @@ _TRIP_ITEMS = (
     ("Park",   "Park",      "vacation_park",     50),
     ("Forest", "Forest",    "vacation_forest",   50),
     ("Aqua.",  "Aquarium",  "vacation_aquarium", 100),
+    ("Beach",  "Beach",     "vacation_beach",    200),
 )
 
 _FERTILIZER_COST = 25
