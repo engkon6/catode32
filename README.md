@@ -1,133 +1,154 @@
-# Virtual Pet
-
-A virtual pet game for ESP32 with MicroPython, featuring an SSD1306 OLED display and button controls.
+# Catode32 - A virtual pet for your ESP32
 
 ![catstars](https://github.com/user-attachments/assets/2ffc652a-f392-42e7-9a13-d7fb91f3770d)
 
-## How the Pet Works
+![spookycat](https://github.com/user-attachments/assets/c1f8b6eb-b90c-46ad-b652-80093db97f83)
+## Pet Features
+- [Pet Care](#pet-care)
+- [Behaviors](#pet-behavior)
+- [Minigames](#minigames)
+- [In-Game Store](#in-game-store)
+- [Locations](#locations)
+- [Weather](#weather)
+- [Vacations](#vacations)
+- [Gardening](#gardening)
+- [Playdates](#playdates)
+- [Home Comfort](#home-comfort)
 
-### Stats
+### Pet Care
+Your pet needs your help to have a healthy, fulfilling, affectionate life.
 
-The pet tracks 18 stats, split into tiers by how quickly they change:
-
+Your pet has 18 stats which change over time, and they change at different rates.
 | Tier | Stats | Change rate |
 |------|-------|-------------|
-| Rapid | health, fullness, energy, comfort, playfulness, focus | Daily |
-| Medium | fulfillment, cleanliness, intelligence, maturity, affection | Weekly |
-| Slow | fitness, serenity | Monthly |
-| Trait | courage, loyalty, mischievousness, curiosity, sociability | Nearly fixed |
+| Rapid | health, fullness, energy, comfort, playfulness, focus | ~Daily |
+| Medium | fulfillment, cleanliness, intelligence, maturity, affection | ~Weekly |
+| Slow | fitness, serenity | ~Monthly |
+| Slowest | courage, loyalty, mischievousness, curiosity, sociability | Very slowly |
 
-All stats sit on a 0-100 scale. **Health** is never set directly; it's a weighted average of fitness, fullness, energy, cleanliness, comfort, affection, fulfillment, focus, intelligence, and playfulness, recomputed after every behavior completes.
+All stats sit on a 0-100 scale. Health is never set directly; it's a weighted average of some of the other stats.
 
-Each pet gets a unique 64-bit seed at creation. That seed deterministically derives balanced personality offsets (up to +/-10) for the five trait stats, so every pet feels distinct without any individual pet being universally happier or sadder than another.
+To care for your pet, you'll want to:
+- keep them well fed with varied meals
+- give them affection (pets, scratches, kisses)
+- groom them from time to time
+- buy them toys and play with them regularly
+- gently train their behavior
+- play minigames with them
+- take them on trips
+- and keep their environment interesting with healthy plants
 
-Stat changes use **asymptotic damping**: a stat near its ceiling resists further increases, and a stat near the floor resists further decreases. This keeps rewards feeling meaningful throughout the full 0–100 range.
+Your pet will help communicate some of these needs through vocalizations.
 
-### Behaviors
+### Pet Behavior
+Your pet will exhibit various behaviors over time, specifically you'll see them:
+`sleeping`, `napping`, `stretching`, `kneading`, `lounging`, `investigating`, `observing`, `chattering`, `zoomies`, `vocalizing`, `self_grooming`, `being_groomed`, `hunting`, `gift_bringing`, `pacing`, `sulking`, `mischief`, `hiding`, `training`, `playing`, `affection`, `attention`, `eating`, `startled`, `meandering`
 
-The pet runs one behavior at a time. Behaviors are lazy-loaded and their modules are unloaded from memory after completion, keeping RAM usage low. The full list includes:
+After finishing, each behavior transitions to a new behavior. The next behavior is selected based on the pets current needs, which behaviors have been exhibited recently, and a bit of randomness.
 
-`sleeping`, `napping`, `stretching`, `kneading`, `lounging`, `investigating`, `observing`, `chattering`, `zoomies`, `vocalizing`, `self_grooming`, `being_groomed`, `hunting`, `gift_bringing`, `pacing`, `sulking`, `mischief`, `hiding`, `training`, `playing`, `affection`, `attention`, `eating`, `startled`, `meandering`, `go_to`
+By observing your pet's behaviors you can better understand your pet's needs. If they're sulking or vocalizing that they're bored then perhaps you should play with them or show them some affection. If they're looking a bit upset or vocalizing about food then try going to the kitchen to feed them.
 
-After each behavior finishes, the next one is chosen automatically:
+Often they'll be lounging around, napping, or just enjoying their environment.
 
-1. Each behavior defines a `can_trigger` condition (stat thresholds, time of day, location, etc.).
-2. Eligible behaviors are given a random priority draw (lower is better).
-3. Recently completed behaviors get a priority penalty to prevent loops.
-4. The best few behaviors are binned together and one is chosen at random from the top bin.
+### Minigames
+There are several minigames to keep both you and your pet occupied.
 
-Personality traits feed directly into the selection. A high-mischievousness pet triggers `mischief` more often; a low-courage pet is more prone to `hiding` and `startled`.
+Playing these games provides different stat rewards for your pet, depending on the game type. And they provide coins which you can spend at the in-game store to help care for your pet even better.
 
-High serenity adds a chance to skip the selection entirely and stay idle; a content pet is happy doing nothing.
+The rewards for each game are related to the type of game itself. For example, puzzle games are likely to reward intelligence gains. Action games are more likely to provide fitness gains (and probably some energy losses!) Each game is a bit different, and the rewards are also scaled by how long you play and how successful you are in it. 
 
-### Coins and the store
+### In-Game Store
 
-Coins are the in-game currency. They are earned by:
+![In-game store](https://github.com/user-attachments/assets/0920c266-b360-4649-ad1e-e2566e161a54)
 
-- **Minigames**: Zoomies, Snake, Maze, Memory, Hanjie, Breakout, and Tic-tac-toe all award coins on completion, scaled by how well the player did.
-- **Hunting**: each successful hunt awards 1-3 coins at random.
+You can earn coins through the minigames, and sometimes your pet will find a few coins randomly when they're in the mood to do a little hunting.
 
-Coins are spent at the **store**, which is accessible from the main scene menu. The store sells:
+These coins can be spent at the in-game store to help you care for your pet.
 
-| Category | Items | Cost |
-|----------|-------|------|
-| **Meals** | Chicken, Salmon, Tuna, Shrimp, Trout, Herring, Haddock, Cod, Turkey, Kibble, Beef, Lamb, Liver | 4-8c per 5 uses |
-| **Snacks** | Treats, Nuggets, Puree, Milk, Chew Sticks, Fish Bytes, Eggs, Pumpkin, Carrots | 2-4c per 5 uses |
-| **Toys** | String (5c), Feather (8c), Yarn Ball (10c), Laser Pointer (15c) | one-time purchase |
+At the store you can buy:
+- Meals
+	- Kibble, Cod, Haddock, Trout, Shrimp, Herring, Turkey, Tuna, Salmon, Chicken, Liver, Beef, Lamb
+- Snacks
+	- Carrots, Pumpkin, Treats, Fish Bytes, Eggs, Nuggets, Milk, Chew Sticks, Puree 
+- Toys
+	- String, Feather, Yarn Ball, Laser Pointer
+- Gardening supplies
+	- Various sized pots, Seeds (Grass, Fresia, Sunflower, Roses), Spade, Watering Can, Fertilizer
+- Care Services
+	- Professional Grooming, Professional Training
+- Vacations
+	- Trip to the Park, Forest, Aquarium, Beach
 
-Food is consumed by feeding the pet from the main scene menu and depletes by one use per feeding. Different foods grant different stat bonuses: meals primarily restore fullness and energy, while snacks tend to boost comfort and affection. Toys can be used to trigger the playing behavior.
+Your pet will appreciate variety in their meals and snacks, and they'll be enriched by exposure to new toys and locations. Adding plants to your pet's home, and keeping those plants healthy, will give a big boost to your pet's mood and life!
 
-### Location rewards
+### Locations
 
-The pet can roam between five scenes: **inside**, **bedroom**, **kitchen**, **outside**, and **treehouse**. Location is tracked in `context.last_main_scene`.
+Within your pet's home there are a few different spaces for them to hang out. They are the:
+- Living room
+- Bedroom
+- Kitchen
+- Outside (Back yard)
+- Treehouse
 
-The pet navigates autonomously using the `go_to` behavior. At the end of each behavior, there is a small base chance (~8%) of walking to a new room, boosted by relevant needs:
+Some of these have special perks. For example, playing with your pet outside or in the living room provides more satisfaction than playing with them in the kitchen. Likewise, feeding them in the kitchen gives them a bit more satisfaction from food than feeding them in the bedroom. And going to the bedroom when the pet's energy is low will encourage them to sleep or nap earlier than they would otherwise (and they'll get a bigger energy and comfort boost for sleeping there too!) Lounging outside or in the treehouse or the living room will be a bit more serene for your pet than lounging in the kitchen, etc...
 
-- **Hungry**: more likely to head to the kitchen
-- **Tired or uncomfortable**: more likely to head to the bedroom
-- **Bad weather**: strongly discourages trips outside or to the treehouse
+You can choose to take your pet to a different location, and sometimes they'll decide to go to different locations on their own.
 
-Each location modifies the stat rewards from behaviors:
-
-| Location | Effect |
-|----------|--------|
-| **Bedroom** | Sleeping grants +30% energy and +25% comfort. Sleep/nap trigger thresholds are raised (the pet falls asleep more readily). |
-| **Kitchen** | Eating grants +20% fullness and energy. |
-| **Outside / Treehouse** | Hunting grants +50% fitness and bonus fulfillment. |
-| **Outside / Treehouse (bad weather)** | Sleeping or lounging in rain, storms, or snow incurs a comfort penalty. |
-| **Inside / Outside / Treehouse** | Lounging grants +30% comfort (vs. a bedroom baseline). |
+Beyond those at-home locations, there are also some external locations such as the park, forest, aquarium, and beach which you can visit with your pet by taking vacations via the store.
 
 ### Weather
 
-Weather follows a **deterministic Markov chain** seeded from the pet's unique seed, so each pet has its own distinct long-term weather trajectory that is reproducible across saves.
+There's a dynamic weather system that progresses over time. The weather can be one of: Clear, Cloudy, Overcast, Windy, Rain, Storm, or Snow. These transition from one to another in sensible ways (i.e., an overcast day might clear up or might start to rain.)
 
-Possible states: Clear, Cloudy, Overcast, Windy, Rain, Storm, and Snow (Fall/Winter only, transitioning from Overcast). Each state lasts between 30 and 300 in-game minutes before transitioning.
+From the Forecast page in the game you can see what the weather will likely be for the next few hours and days.
 
-Weather influences behavior in several ways:
+The weather has some effects on your pet. For example, you don't want to let them sit outside in the rain or their comfort will rapidly plummet!
 
-- **Scene navigation**: rain, storms, and snow reduce the pet's desire to go outside or to the treehouse.
-- **Outdoor sleep/lounge**: bad weather while outside applies a comfort penalty on completion.
-- **Forecast screen**: because the weather is fully deterministic, a 72-hour forecast can be computed ahead of time without any randomness.
+And while you have a chance to see a shooting star or two each night, you might see a forecast for a meteor shower with lots of them!
 
-### WiFi home detection
+### Vacations
 
-> [!NOTE]
-> **Disabled by default.** Set `WIFI_ENABLED = True` in `config.py` to enable. See the RAM warning below before doing so.
+![beachvacation](https://github.com/user-attachments/assets/05876563-14ce-4c40-b7ae-c9dc321d1562)
 
-The ESP32's WiFi radio is used to determine whether the pet is at its familiar home location. A scan runs **once at boot** (while the loading screen is shown) and can be triggered manually from the debug WiFi scene.
+If you save up some coins you can take your pet on different vacations. Each one will give some different rewards to your pet, like boosting their sense of fulfillment. But don't stay too long! If your pet starts to hint that they're overwhelmed and they want to go home then it's probably time to wrap up the trip.
 
-Two lists of access points are maintained:
+You can take them to:
+- The park
+- A forest
+- The aquarium
+- The beach
 
-- **`wifi_familiar`**: up to 16 well-known APs (persisted to flash). An AP here means the pet considers this a home location.
-- **`wifi_recent`**: up to 8 candidate APs (persisted). New APs land here first and are promoted to familiar after being seen at least 5 times. Entries that aren't seen decay by 0.25 per scan and are pruned when they reach zero.
+### Gardening
 
-`context.in_familiar_location` is set to `True` whenever at least one familiar AP is visible. This flag affects multiple behaviors:
+Through the store you can buy different gardening related items, such as pots, seeds, tools, and fertilizer. Once you've bought some of those things you can then use the gardening menu to place pots around your different rooms, and you can then plant seeds in them (you can also plant seeds directly into the ground outside.)
 
-| When familiar | When unfamiliar |
-|---------------|-----------------|
-| Zoomies and playing are more likely | Investigating, pacing, and startled are more likely |
-| Lounging is more likely; grants +1.5 serenity and +15% comfort | Sulking and hiding are more likely |
-| Sleeping grants +3 serenity | Sleeping loses 2 serenity and 15% comfort |
-| Hiding is much less likely | Hiding is much more likely |
+Once you have a plant started, you should keep them watered over time to keep them growing. And if you fertilize them as well you can really get them to thrive.
+
+Having healthy plants around will give extra boosts to your pet's satisfaction.
+
+### Playdates
+
+You can access the "Social" menu to let your cat go on playdates with other cats! If two Catode32 devices are near each other and both access the social menu, then they'll broadcast availability to each other and you can start a playdate.
+
+Both cats will appear on both devices, and the pets will interact and build social connections. Cats will start to remember friends they've spent a lot of time with.
+
+The devices will also activate their wireless features whenever the cats are in the outside or treehouse scenes, but in a more subtle way. The cats won't see each other directly, but if one vocalizes while outside then any nearby cats who are also outside in their own yards will hear it and they might chatter back.
+
+### Home Comfort
+
+Periodically, your device will use wifi to get a sense of the world around it. It will just do a quick scan to see the names of nearby wireless networks and slowly build up a list of "familiar" ones. Once it has learned what networks you spend the most time around your cat will then feel more comfortable and safe around that location. If you travel to unfamiliar places your cat might be a bit more skittish and less comfortable until they spend some time getting familiar with that new space.
 
 The intent is that a pet left at home is calmer, sleeps better, and plays more freely, while a pet taken somewhere unfamiliar becomes more anxious and restless.
 
-> [!WARNING]
-> #### RAM cost of enabling WiFi
->
-> Enabling wifi will make the device freeze within an hour or two.
-> 
-> On ESP32-C3/C6, all SRAM is shared; there is no separate "WiFi RAM." When the WiFi driver initialises (`network.WLAN(...).active(True)`), the ESP-IDF stack allocates internal buffers (TX/RX queues, the lwIP network stack, control structures) that are never returned, even after `wlan.active(False)` and garbage collection. This is because `active(False)` only stops the radio; it does not call `esp_wifi_deinit()`, and MicroPython's network API does not expose deinit.
-> 
-> The practical result: enabling WiFi permanently reduces available heap for the rest of the boot session. On devices already running close to the memory limit this is enough to cause allocation failures during scene changes or behavior loads, typically within an hour of boot. With `WIFI_ENABLED = False` the devices run indefinitely without issue.
-
 ## Controls
 
-- **D-pad**: Navigate / Move character
-- **A/B buttons**: Action buttons
-- **Menu buttons**: Additional functions
+- **D-pad**: Navigate / Move camera
+- **A**: Select/confirm
+- **B**: Back/cancel
+- **Menu button 1**: Global menu options (always the same)
+- **Menu button 2**: Contextual menu options (based on the current scene)
 
-![spookycat](https://github.com/user-attachments/assets/c1f8b6eb-b90c-46ad-b652-80093db97f83)
+
 
 ## Setup
 
@@ -284,7 +305,7 @@ Asset files are skipped because they are frozen into the firmware. MicroPython r
 
 ## Scripts
 
-### tools/build_firmware.sh
+### ./tools/build_firmware.sh
 
 Builds custom MicroPython firmware with asset modules frozen in flash, then optionally flashes it:
 
@@ -297,7 +318,7 @@ Builds custom MicroPython firmware with asset modules frozen in flash, then opti
 
 Re-run this whenever you add new sprite data to `src/assets/` (after running `tools/convert_bytearrays.py` to convert any new `bytearray` literals to `bytes` literals first).
 
-### test_hardware.sh
+### ./test_hardware.sh
 
 Verifies that your hardware is working correctly:
 
@@ -312,7 +333,7 @@ This script:
 
 Run this first when setting up a new device or debugging hardware issues.
 
-### upload.sh
+### ./upload.sh
 
 Deploys the project to the ESP32's flash storage:
 
