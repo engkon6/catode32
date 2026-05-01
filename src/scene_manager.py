@@ -151,6 +151,9 @@ class SceneManager:
         if self.transitions.active:
             return
 
+        # Track intent in memory for crash handler
+        self.context.pending_intent = name
+
         # If no current scene, import and switch immediately (initial load)
         if self.current_scene is None:
             scene_class = self._get_scene_class(name)
@@ -217,6 +220,14 @@ class SceneManager:
         self.current_scene = scene_class(self.context, self.renderer, self.input)
         self.current_scene.load()
         self.current_scene.enter()
+
+        # Scene entered successfully — clear crash-resume intent
+        self.context.pending_intent = None
+        try:
+            import uos
+            uos.remove('/intent.json')
+        except OSError:
+            pass
 
     def _purge_scene_modules(self):
         """Remove any modules loaded after startup, except pinned asset modules."""

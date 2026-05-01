@@ -15,6 +15,7 @@ _STAT_KEYS = (
 class GameContext:
     def __init__(self):
         self.reset(delete_save=False)
+        self.pending_intent = None  # scene name being loaded; set for crash handler
 
     @property
     def meteor_shower_happening(self):

@@ -2,6 +2,65 @@ import sys
 import time
 import config
 
+_INTENT_PATH = '/intent.json'
+
+
+def _check_resume_intent():
+    """Read /intent.json and return the scene name to resume, or None.
+
+    Deletes the file and returns None if the attempt count has reached the
+    limit, preventing a bootloop caused by a consistently-crashing scene.
+    """
+    try:
+        import ujson
+        with open(_INTENT_PATH) as f:
+            data = ujson.load(f)
+        scene = data.get('s', '')
+        attempts = data.get('a', 0)
+        if not scene or attempts >= 2:
+            import uos
+            uos.remove(_INTENT_PATH)
+            print(f"[Boot] Intent aborted after {attempts} attempt(s): {scene}")
+            return None
+        print(f"[Boot] Resuming intent ({attempts} attempt(s)): {scene}")
+        return scene
+    except OSError:
+        return None
+    except Exception as e:
+        print(f"[Boot] Intent check failed: {e}")
+        return None
+
+
+def _save_on_crash(game):
+    """Best-effort: save context then write /intent.json before rebooting.
+
+    Only writes the intent file if the context save succeeded, so we never
+    resume a scene with stale stats.  Reads any existing attempt count from
+    the intent file and increments it, so boot-loop detection keeps working.
+    """
+    import gc
+    gc.collect()
+    context = getattr(game, 'context', None)
+    if context is None:
+        return
+    intent = getattr(context, 'pending_intent', None)
+    if not context._write_to_flash():
+        return
+    if not intent:
+        return
+    # Read existing attempt count without ujson (low memory path)
+    attempts = 0
+    try:
+        with open(_INTENT_PATH) as f:
+            content = f.read(64)
+        idx = content.find('"a":')
+        if idx >= 0:
+            attempts = int(content[idx + 4:].split(',')[0].split('}')[0])
+    except Exception:
+        pass
+    with open(_INTENT_PATH, 'w') as f:
+        f.write('{"s":"' + intent + '","a":' + str(attempts + 1) + '}')
+
 from input import InputHandler
 from renderer import Renderer
 from context import GameContext
@@ -45,7 +104,8 @@ class Game:
                 print("[Boot] WiFi scan failed: " + str(e))
 
         self.scene_manager = SceneManager(self.context, self.renderer, self.input)
-        self.scene_manager.change_scene_by_name('inside')
+        _resume = _check_resume_intent()
+        self.scene_manager.change_scene_by_name(_resume or 'inside')
 
         self.weather_system = WeatherSystem()
         if 'weather' not in self.context.environment:
@@ -175,6 +235,8 @@ class Game:
 
 
 def main():
+    game = None
+    _crash_save_attempted = False
     try:
         game = Game()
         game.run()
@@ -183,6 +245,12 @@ def main():
     except Exception as e:
         print(f"==! Error: {e}")
         sys.print_exception(e)
+        if not _crash_save_attempted:
+            _crash_save_attempted = True
+            try:
+                _save_on_crash(game)
+            except Exception as save_err:
+                print(f"[Crash] Save failed: {save_err}")
         import machine
         machine.reset()
 
