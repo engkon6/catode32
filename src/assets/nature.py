@@ -361,3 +361,40 @@ WAVE_CHUNKS2 = {
         b"\x30",
     ]
 }
+
+# ------------------------------------------------------------------
+# Beach animation data — packed bytes for vacation_beach.py
+# ------------------------------------------------------------------
+
+# Wave chunks: [y, phase_256, shore_par_128] per entry (stride 3)
+# phase_256     = round(phase_frac * 256)
+# shore_par_128 = round(effective_shore_parallax * 128), pre-baked
+#                 from the parallax-lerp in _shore_x_at_y so the draw
+#                 loop can skip that function entirely.
+BEACH_WAVE_BG    = bytes([44,  59,  51,  46,  95,  64])
+BEACH_WAVE_MG_SM = bytes([48,  33,  77,  50,  64,  94])
+BEACH_WAVE_MG_LG = bytes([52, 108, 111])
+BEACH_WAVE_FG    = bytes([54, 138, 128,  57, 156, 149,  60, 184, 171])
+
+# Shimmers: [x, y, phase_256, dir_bit, max_drift] per entry (stride 5)
+# dir_bit: 1 = drift right (+1), 0 = drift left (-1)
+BEACH_SHIMMERS_BG = bytes([
+     8, 44,   0, 1, 2,
+    22, 44,  32, 0, 3,
+    35, 46,  64, 1, 4,
+    12, 47,  96, 0, 2,
+    28, 48, 128, 1, 3,
+    18, 45, 160, 0, 4,
+    42, 46, 192, 1, 2,
+     5, 44, 224, 0, 3,
+])
+
+BEACH_SHIMMERS_MG = bytes([
+    10, 49,   0, 1, 3,
+    24, 51,  37, 0, 2,
+    38, 49,  73, 1, 4,
+    16, 52, 110, 0, 3,
+    30, 54, 146, 1, 2,
+     7, 55, 183, 0, 4,
+    44, 58, 219, 1, 3,
+])
