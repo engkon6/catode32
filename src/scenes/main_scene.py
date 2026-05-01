@@ -471,6 +471,7 @@ class MainScene(Scene):
             self.character.trigger('eating', food_sprite=TREAT_PILE, food_type=snack_key)
             self.context.food_stock[snack_key] = max(0, self.context.food_stock.get(snack_key, 0) - 1)
         elif action_type == "toy":
+            self.environment.set_camera(int(self.character.x) - config.DISPLAY_WIDTH // 2)
             self.character.trigger('playing', variant=action[1]['variant'])
         elif action_type == "groom":
             self.character.trigger('being_groomed')
