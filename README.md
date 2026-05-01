@@ -38,13 +38,19 @@ To care for your pet, you'll want to:
 - take them on trips
 - and keep their environment interesting with healthy plants
 
-Your pet will help communicate some of these needs through vocalizations.
+Your pet will help communicate some of these needs through vocalizations. You can also go to the pet stats page to see them all at any time:
+
+![Stats](https://github.com/user-attachments/assets/5c1b3411-8439-4798-8d96-3da26b280524)
+
 
 ### Pet Behavior
 Your pet will exhibit various behaviors over time, specifically you'll see them:
 `sleeping`, `napping`, `stretching`, `kneading`, `lounging`, `investigating`, `observing`, `chattering`, `zoomies`, `vocalizing`, `self_grooming`, `being_groomed`, `hunting`, `gift_bringing`, `pacing`, `sulking`, `mischief`, `hiding`, `training`, `playing`, `affection`, `attention`, `eating`, `startled`, `meandering`
 
 After finishing, each behavior transitions to a new behavior. The next behavior is selected based on the pets current needs, which behaviors have been exhibited recently, and a bit of randomness.
+
+![Behaviors](https://github.com/user-attachments/assets/97896a35-8ff2-4229-857f-e3466186c84a)
+
 
 By observing your pet's behaviors you can better understand your pet's needs. If they're sulking or vocalizing that they're bored then perhaps you should play with them or show them some affection. If they're looking a bit upset or vocalizing about food then try going to the kitchen to feed them.
 
