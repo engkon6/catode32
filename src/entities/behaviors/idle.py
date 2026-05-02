@@ -48,6 +48,18 @@ class IdleBehavior(BaseBehavior):
         "sitting_silly.side.angry",
     )
 
+    # How many times "sitting_back.back.neutral" is added to the candidate list.
+    # More repetitions = higher probability. 0 = never appears.
+    LOOK_AWAY_WEIGHT = {
+        'aquarium': 5,
+        'beach': 4,
+        'outside': 3,
+        'treehouse': 3,
+        'bedroom': 0,
+        'kitchen': 0,
+    }
+    LOOK_AWAY_WEIGHT_DEFAULT = 1
+
     COMPLETION_BONUS = {
         # Rapid changers
         "fullness": -0.05,
@@ -135,6 +147,13 @@ class IdleBehavior(BaseBehavior):
     def _pick_new_pose(self):
         """Select a new random idle pose and reset the timer."""
         poses = list(self._get_pose_set())
+
+        ctx = self._character.context
+        scene = ctx.last_main_scene if ctx else None
+        weight = self.LOOK_AWAY_WEIGHT.get(scene, self.LOOK_AWAY_WEIGHT_DEFAULT)
+        for _ in range(weight):
+            poses.append("sitting_back.back.neutral")
+
         if self._current_idle_pose and len(poses) > 1:
             poses = [p for p in poses if p != self._current_idle_pose]
 

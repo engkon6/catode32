@@ -70,7 +70,7 @@ class DebugPosesScene(Scene):
 
         body = pose["body"]
         head = pose["head"]
-        eyes = pose["eyes"]
+        eyes = pose.get("eyes")
         tail = pose["tail"]
 
         # Calculate body position
@@ -83,10 +83,6 @@ class DebugPosesScene(Scene):
         head_x = head_root_x - head["anchor_x"]
         head_y = head_root_y - head["anchor_y"]
 
-        # Calculate eye position
-        eye_x = head_x + head["eye_x"] - eyes["anchor_x"]
-        eye_y = head_y + head["eye_y"] - eyes["anchor_y"]
-
         # Calculate tail position
         tail_root_x = body_x + body["tail_x"]
         tail_root_y = body_y + body["tail_y"]
@@ -98,8 +94,6 @@ class DebugPosesScene(Scene):
         self._draw_anchor_rect(x, y)
         # Head anchor
         self._draw_anchor_rect(head_x + head["anchor_x"], head_y + head["anchor_y"])
-        # Eye anchor
-        self._draw_anchor_rect(eye_x + eyes["anchor_x"], eye_y + eyes["anchor_y"])
         # Tail anchor
         self._draw_anchor_rect(tail_x + tail["anchor_x"], tail_y + tail["anchor_y"])
 
@@ -108,8 +102,12 @@ class DebugPosesScene(Scene):
         self._draw_x_marker(body_x + body["head_x"], body_y + body["head_y"])
         # tail_x/y - where tail attaches to body
         self._draw_x_marker(body_x + body["tail_x"], body_y + body["tail_y"])
-        # eye_x/y - where eyes attach to head
-        self._draw_x_marker(head_x + head["eye_x"], head_y + head["eye_y"])
+
+        if eyes is not None:
+            eye_x = head_x + head["eye_x"] - eyes["anchor_x"]
+            eye_y = head_y + head["eye_y"] - eyes["anchor_y"]
+            self._draw_anchor_rect(eye_x + eyes["anchor_x"], eye_y + eyes["anchor_y"])
+            self._draw_x_marker(head_x + head["eye_x"], head_y + head["eye_y"])
 
     def _draw_anchor_rect(self, cx, cy):
         """Draw a 5x5 anchor rectangle centered at (cx, cy).

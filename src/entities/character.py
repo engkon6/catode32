@@ -86,7 +86,7 @@ class CharacterEntity(Entity):
         self._inv_fill_cache = {}
         self.anim_body = random.uniform(0, self._get_total_frames(pose["body"]))
         self.anim_head = random.uniform(0, self._get_total_frames(pose["head"]))
-        self.anim_eyes = random.uniform(0, self._get_total_frames(pose["eyes"]))
+        self.anim_eyes = random.uniform(0, self._get_total_frames(pose["eyes"])) if "eyes" in pose else 0.0
         self.anim_tail = random.uniform(0, self._get_total_frames(pose["tail"]))
 
     def _get_point(self, sprite, key, frame=0, mirror=False):
@@ -127,7 +127,8 @@ class CharacterEntity(Entity):
         pose = self._pose
         self.anim_body = (self.anim_body + dt * pose["body"].get("speed", 1)) % self._get_total_frames(pose["body"])
         self.anim_head = (self.anim_head + dt * pose["head"].get("speed", 1)) % self._get_total_frames(pose["head"])
-        self.anim_eyes = (self.anim_eyes + dt * pose["eyes"].get("speed", 1)) % self._get_total_frames(pose["eyes"])
+        if "eyes" in pose:
+            self.anim_eyes = (self.anim_eyes + dt * pose["eyes"].get("speed", 1)) % self._get_total_frames(pose["eyes"])
         self.anim_tail = (self.anim_tail + dt * pose["tail"].get("speed", 1)) % self._get_total_frames(pose["tail"])
 
         self._burst_effect.update(dt)
@@ -200,16 +201,17 @@ class CharacterEntity(Entity):
         head_x = head_root_x - self._get_anchor_x(head, mirror)
         head_y = head_root_y - head["anchor_y"]
 
-        eyes = pose["eyes"]
-        eye_frame_idx = self._get_frame_index(eyes, self.anim_eyes)
-        if eye_frame is None and self.current_behavior is not None:
-            beh_override = self.current_behavior.eye_frame_override
-            if beh_override is not None:
-                eye_frame_idx = min(beh_override, len(eyes["frames"]) - 1)
-        elif eye_frame is not None:
-            eye_frame_idx = eye_frame
-        eye_x = head_x + self._get_point(head, "eye_x", head_frame, mirror) - self._get_anchor_x(eyes, mirror)
-        eye_y = head_y + self._get_point(head, "eye_y", head_frame) - eyes["anchor_y"]
+        eyes = pose.get("eyes")
+        if eyes is not None:
+            eye_frame_idx = self._get_frame_index(eyes, self.anim_eyes)
+            if eye_frame is None and self.current_behavior is not None:
+                beh_override = self.current_behavior.eye_frame_override
+                if beh_override is not None:
+                    eye_frame_idx = min(beh_override, len(eyes["frames"]) - 1)
+            elif eye_frame is not None:
+                eye_frame_idx = eye_frame
+            eye_x = head_x + self._get_point(head, "eye_x", head_frame, mirror) - self._get_anchor_x(eyes, mirror)
+            eye_y = head_y + self._get_point(head, "eye_y", head_frame) - eyes["anchor_y"]
 
         tail = pose["tail"]
         tail_frame = self._get_frame_index(tail, self.anim_tail)
@@ -219,24 +221,33 @@ class CharacterEntity(Entity):
         tail_y = tail_root_y - tail["anchor_y"]
 
         # Draw the parts — use cached mirrored frames to avoid per-frame allocation
+        tail_last = pose.get("tail_last")
         if mirror:
-            self._draw_part_mirrored(renderer, tail, tail_x, tail_y, tail_frame)
+            if not tail_last:
+                self._draw_part_mirrored(renderer, tail, tail_x, tail_y, tail_frame)
             if pose.get("head_first"):
                 self._draw_part_mirrored(renderer, head, head_x, head_y, head_frame)
                 self._draw_part_mirrored(renderer, body, body_x, body_y, body_frame)
             else:
                 self._draw_part_mirrored(renderer, body, body_x, body_y, body_frame)
                 self._draw_part_mirrored(renderer, head, head_x, head_y, head_frame)
-            self._draw_part_mirrored(renderer, eyes, eye_x, eye_y, eye_frame_idx)
+            if eyes is not None:
+                self._draw_part_mirrored(renderer, eyes, eye_x, eye_y, eye_frame_idx)
+            if tail_last:
+                self._draw_part_mirrored(renderer, tail, tail_x, tail_y, tail_frame)
         else:
-            self._draw_part(renderer, tail, tail_x, tail_y, tail_frame)
+            if not tail_last:
+                self._draw_part(renderer, tail, tail_x, tail_y, tail_frame)
             if pose.get("head_first"):
                 self._draw_part(renderer, head, head_x, head_y, head_frame)
                 self._draw_part(renderer, body, body_x, body_y, body_frame)
             else:
                 self._draw_part(renderer, body, body_x, body_y, body_frame)
                 self._draw_part(renderer, head, head_x, head_y, head_frame)
-            self._draw_part(renderer, eyes, eye_x, eye_y, eye_frame_idx)
+            if eyes is not None:
+                self._draw_part(renderer, eyes, eye_x, eye_y, eye_frame_idx)
+            if tail_last:
+                self._draw_part(renderer, tail, tail_x, tail_y, tail_frame)
 
         # Draw active behavior's visual effects (bubbles, etc.)
         if self.current_behavior:
