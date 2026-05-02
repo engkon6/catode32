@@ -51,8 +51,8 @@ class IdleBehavior(BaseBehavior):
     # How many times "sitting_back.back.neutral" is added to the candidate list.
     # More repetitions = higher probability. 0 = never appears.
     LOOK_AWAY_WEIGHT = {
-        'aquarium': 5,
-        'beach': 4,
+        'vacation_aquarium': 5,
+        'vacation_beach': 4,
         'outside': 3,
         'treehouse': 3,
         'bedroom': 0,
@@ -158,6 +158,7 @@ class IdleBehavior(BaseBehavior):
             poses = [p for p in poses if p != self._current_idle_pose]
 
         self._current_idle_pose = random.choice(poses)
+        print("[idle] scene=%s weight=%d picked=%s" % (scene, weight, self._current_idle_pose))
         self._character.set_pose(self._current_idle_pose)
 
         self._time_until_pose_change = random.uniform(
