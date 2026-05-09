@@ -11,7 +11,7 @@ from gardening_ui import PlacementMode, PlantSelectionMode
 from assets.icons import (TOYS_ICON, HEART_ICON, HEART_BUBBLE_ICON, HAND_ICON,
                           KIBBLE_ICON, TOY_ICONS, SNACK_ICONS, FISH_ICON,
                           CHICKEN_ICON, MEAL_ICON, TREES_ICON)
-from assets.items import FOOD_BOWL, TREAT_PILE
+from assets.items import CHEW_STICKS, FOOD_BOWL, TREAT_PILE
 from ui import draw_bubble, Popup, BurstEffect
 
 
@@ -468,7 +468,8 @@ class MainScene(Scene):
         elif action_type == "snack":
             snack_key = action[1]
             self._orient_for_eating()
-            self.character.trigger('eating', food_sprite=TREAT_PILE, food_type=snack_key)
+            food_sprite = CHEW_STICKS if snack_key == "chew_stick" else TREAT_PILE
+            self.character.trigger('eating', food_sprite=food_sprite, food_type=snack_key)
             self.context.food_stock[snack_key] = max(0, self.context.food_stock.get(snack_key, 0) - 1)
         elif action_type == "toy":
             self.environment.set_camera(int(self.character.x) - config.DISPLAY_WIDTH // 2)
