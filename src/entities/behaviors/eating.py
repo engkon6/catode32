@@ -47,7 +47,7 @@ class EatingBehavior(BaseBehavior):
         "fish_bite":  {"stats": {"fullness": 4, "affection": 2, "playfulness": 1, "curiosity": 2}, "eating_speed": 1.25, "appeal": 0.8},
         "eggs":       {"stats": {"fullness": 8, "energy": 3, "fitness": 3}, "eating_speed": 1.25, "appeal": 0.5},
         "nugget":     {"stats": {"fullness": 12, "energy": 3, "affection": 2}, "eating_speed": 1.25, "appeal": 0.55},
-        "milk":       {"stats": {"fullness": 8, "affection": 3, "comfort": 5, "mischievousness": 1}, "eating_speed": 1.5, "appeal": 0.7},
+        "milk":       {"stats": {"fullness": 8, "affection": 3, "comfort": 5, "mischievousness": 1}, "eating_speed": 0.25, "appeal": 0.7},
         "chew_stick": {"stats": {"fullness": 6, "fitness": 1, "playfulness": 2, "comfort": 3}, "eating_speed": 1.0, "appeal": 0.4},
         "puree":      {"stats": {"fullness": 8, "affection": 4, "comfort": 4, "fulfillment": 2}, "eating_speed": 1.5, "appeal": 0.85},
     }
