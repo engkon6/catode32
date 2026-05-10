@@ -48,7 +48,7 @@ def import_(path, port):
         json_data = f.read()
     # Embed the JSON as a Python string literal so the whole operation is one
     # exec call (no raw paste mode), then chain reset in the same connection.
-    code = f"open('{_DEVICE_SAVE_PATH}','w').write({repr(json_data)})"
+    code = f"f=open('{_DEVICE_SAVE_PATH}','w');f.write({repr(json_data)});f.close();import uos;uos.sync()"
     _run_mp(port, ['resume', 'exec', code, '+', 'reset'])
     print('Done.')
 

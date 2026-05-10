@@ -262,6 +262,17 @@ class PlayingBehavior(BaseBehavior):
     # Start / stop
     # ------------------------------------------------------------------
 
+    def stop(self, completed=True):
+        if completed and not self._rejecting:
+            context = self._character.context
+            if context:
+                for toy in context.inventory.get("toys", []):
+                    if toy.get("variant") == self._variant:
+                        toy["durability"] = max(0, toy.get("durability", 1) - 1)
+                        print(f"[Playing] {self._variant} durability now {toy['durability']}")
+                        break
+        super().stop(completed)
+
     def start(self, variant=None, on_complete=None):
         if self._active:
             return

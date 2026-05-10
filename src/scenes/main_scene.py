@@ -242,6 +242,10 @@ class MainScene(Scene):
         if self._popup_msg is not None:
             if self.input.was_just_pressed('a') or self.input.was_just_pressed('b'):
                 self._popup_msg = None
+            elif self.input.was_just_pressed('down'):
+                self._popup.scroll_down()
+            elif self.input.was_just_pressed('up'):
+                self._popup.scroll_up()
             return None
 
         if self._placement.active:
@@ -480,8 +484,19 @@ class MainScene(Scene):
             self.character.trigger('eating', food_sprite=food_sprite, food_type=snack_key)
             self.context.food_stock[snack_key] = max(0, self.context.food_stock.get(snack_key, 0) - 1)
         elif action_type == "toy":
-            self.environment.set_camera(int(self.character.x) - config.DISPLAY_WIDTH // 2)
-            self.character.trigger('playing', variant=action[1]['variant'])
+            variant = action[1]['variant']
+            toy = None
+            for t in self.context.inventory.get("toys", []):
+                if t.get("variant") == variant:
+                    toy = t
+                    break
+            print(f"[Play] toy={toy}")
+            if toy is not None and toy.get("durability", 1) <= 0:
+                self._popup_msg = "Too damaged! Buy a new one at the store."
+                self._popup.set_text(self._popup_msg, center=True)
+            else:
+                self.environment.set_camera(int(self.character.x) - config.DISPLAY_WIDTH // 2)
+                self.character.trigger('playing', variant=variant)
         elif action_type == "groom":
             self.character.trigger('being_groomed')
         elif action_type == "train":

@@ -39,6 +39,8 @@ _SNACK_ITEMS = (
     ("Puree",      "puree",       8),
 )
 
+_TOY_DURABILITY = {'string': 28, 'feather': 28, 'ball': 42, 'mouse': 42, 'laser': 100}
+
 # (store_label, full_name, variant, cost)
 _TOY_ITEMS = (
     ("String",  "String",         "string",  20),
@@ -158,10 +160,19 @@ class StoreScene(Scene):
         return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
 
     def _toy_item(self, label, full_name, variant, cost):
-        owned = any(t["name"] == full_name for t in self.context.inventory.get("toys", []))
-        if owned:
-            return MenuItem(label + "*", action=("already_owned",),
-                            confirm="Already owned!")
+        toy = None
+        for t in self.context.inventory.get("toys", []):
+            if t["name"] == full_name:
+                toy = t
+                break
+        if toy is not None:
+            if toy.get("durability", 1) > 0:
+                return MenuItem(label + "*", action=("already_owned",),
+                                confirm="Already owned!")
+            if self.context.coins >= cost:
+                return MenuItem(label + "!", action=("replace_toy", full_name, variant, cost),
+                                confirm=f"Replace: {cost}c")
+            return MenuItem(label + "!", action=("no_funds",), confirm="Can't afford!")
         if self.context.coins >= cost:
             return MenuItem(label, action=("buy_toy", full_name, variant, cost),
                             confirm=f"{label}: {cost}c")
@@ -316,12 +327,25 @@ class StoreScene(Scene):
                 if not owned:
                     self.context.coins -= cost
                     self.context.inventory.setdefault("toys", []).append(
-                        {"name": name, "variant": variant}
+                        {"name": name, "variant": variant, "durability": _TOY_DURABILITY.get(variant, 28)}
                     )
                     print(f"[Store] Bought toy {name} for {cost}c")
                     self._purchase_msg = f"{name} purchased!"
                     self._popup.set_text(self._purchase_msg, center=True)
                     return None
+            self.menu.open(self._build_menu())
+
+        elif kind == "replace_toy":
+            _, name, variant, cost = action
+            if self.context.coins >= cost:
+                for toy in self.context.inventory.get("toys", []):
+                    if toy["name"] == name:
+                        self.context.coins -= cost
+                        toy["durability"] = _TOY_DURABILITY.get(variant, 28)
+                        print(f"[Store] Replaced toy {name} for {cost}c")
+                        self._purchase_msg = f"{name} replaced!"
+                        self._popup.set_text(self._purchase_msg, center=True)
+                        return None
             self.menu.open(self._build_menu())
 
         elif kind == "buy_pot":
