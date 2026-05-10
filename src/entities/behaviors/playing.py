@@ -4,7 +4,7 @@ import math
 import random
 from entities.behaviors.base import BaseBehavior
 from ui import draw_bubble
-from assets.items import YARN_BALL
+from assets.items import YARN_BALL, MOUSE_TOY
 
 
 # Variant configurations
@@ -16,6 +16,9 @@ VARIANTS = {
         "stats": {"playfulness": -6, "energy": -5, "focus": -1, "fitness": 1.5, "fulfillment": 1.5, "courage": 0.4},
     },
     "ball": {
+        "stats": {"playfulness": -8, "energy": -4, "focus": -1, "fitness": 1.5, "fulfillment": 1.5, "courage": 0.4},
+    },
+    "mouse": {
         "stats": {"playfulness": -8, "energy": -4, "focus": -1, "fitness": 1.5, "fulfillment": 1.5, "courage": 0.4},
     },
     "laser": {
@@ -43,6 +46,7 @@ BALL_FRICTION = 0.20           # fraction of speed retained per second (lower = 
 BALL_BOUNCE_DAMPING = 0.55     # fraction of speed kept after hitting a boundary
 BALL_ROLL_RANGE = 60           # max horizontal offset left/right from cat center
 BALL_Y_OFFSET = 8              # pixels above cat's y anchor
+MOUSE_Y_OFFSET = 4             # pixels above cat's y anchor (sits lower, on the floor)
 BALL_POUNCE_DELAY_MIN = 2.5   # minimum seconds before each pounce
 BALL_POUNCE_DELAY_MAX = 6.0   # maximum seconds before each pounce
 
@@ -207,6 +211,11 @@ class PlayingBehavior(BaseBehavior):
         self._ball_vel_x = 0.0       # rolling velocity in pixels per second
         self._ball_rotation = 0.0    # current rotation in degrees (drives frame selection)
 
+        # Mouse variant state
+        self._mouse_offset_x = 0.0
+        self._mouse_vel_x = 0.0
+        self._mouse_facing_right = False
+
         # Laser variant state
         self._laser_offset_x = 0.0    # current offset from character.x (wobble + user)
         self._laser_user_x = 0.0      # player-controlled base position
@@ -270,6 +279,8 @@ class PlayingBehavior(BaseBehavior):
 
         if self._variant == "ball":
             self._start_ball()
+        elif self._variant == "mouse":
+            self._start_mouse()
         elif self._variant == "laser":
             self._start_laser()
         elif self._variant in ("string", "feather"):
@@ -313,6 +324,19 @@ class PlayingBehavior(BaseBehavior):
         self._phase = "watching"
         self._character.set_pose("playful.forward.wowed")
 
+    def _start_mouse(self):
+        """Initialise the mouse toy variant state and enter the watching phase."""
+        self._mouse_offset_x = 0.0
+        self._mouse_vel_x = 0.0
+        self._pounces_total = random.randint(POUNCE_COUNT_MIN, POUNCE_COUNT_MAX)
+        self._pounces_done = 0
+        self._pounce_timer = random.uniform(BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX)
+        self._eye_frame_override = _compute_eye_frame(
+            self._mouse_offset_x, self._character.mirror
+        )
+        self._phase = "watching"
+        self._character.set_pose("playful.forward.wowed")
+
     def _start_string(self):
         """Initialise the dangling string and enter the watching phase."""
         self._str_node_count = FEATHER_SEGMENTS if self._variant == "feather" else STRING_SEGMENTS
@@ -352,6 +376,8 @@ class PlayingBehavior(BaseBehavior):
 
         if self._variant == "ball":
             self._update_ball(dt)
+        elif self._variant == "mouse":
+            self._update_mouse(dt)
         elif self._variant == "laser":
             self._update_laser(dt)
         elif self._variant in ("string", "feather"):
@@ -444,6 +470,64 @@ class PlayingBehavior(BaseBehavior):
             self._phase_timer = 0.0
             self._character.set_pose("sitting_silly.side.happy")
 
+
+    # --- Mouse variant ---
+
+    def _update_mouse(self, dt):
+        inp = getattr(self._character.context, 'input', None)
+        if inp:
+            if inp.is_pressed('left'):
+                self._mouse_vel_x -= BALL_PUSH_FORCE * dt
+            if inp.is_pressed('right'):
+                self._mouse_vel_x += BALL_PUSH_FORCE * dt
+            if self._mouse_vel_x > BALL_MAX_SPEED:
+                self._mouse_vel_x = BALL_MAX_SPEED
+            elif self._mouse_vel_x < -BALL_MAX_SPEED:
+                self._mouse_vel_x = -BALL_MAX_SPEED
+        self._mouse_vel_x *= BALL_FRICTION ** dt
+        self._mouse_offset_x += self._mouse_vel_x * dt
+        if abs(self._mouse_vel_x) > 2.0:
+            self._mouse_facing_right = self._mouse_vel_x > 0
+        if self._mouse_offset_x >= BALL_ROLL_RANGE:
+            self._mouse_offset_x = BALL_ROLL_RANGE
+            self._mouse_vel_x = -abs(self._mouse_vel_x) * BALL_BOUNCE_DAMPING
+        elif self._mouse_offset_x <= -BALL_ROLL_RANGE:
+            self._mouse_offset_x = -BALL_ROLL_RANGE
+            self._mouse_vel_x = abs(self._mouse_vel_x) * BALL_BOUNCE_DAMPING
+        self._eye_frame_override = _compute_eye_frame(
+            self._mouse_offset_x, self._character.mirror
+        )
+
+        if self._phase == "watching":
+            self._update_mouse_rolling(dt)
+        elif self._phase == "pouncing":
+            self._update_mouse_pounce(dt)
+        elif self._phase == "recovering":
+            self._update_recovering(dt, BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX, self._mouse_offset_x)
+        elif self._phase == "catching":
+            self._update_catching(dt)
+
+    def _update_mouse_rolling(self, dt):
+        self._pounce_timer -= dt
+        if self._pounce_timer <= 0:
+            if not self._rejecting:
+                self._pounces_done += 1
+                self._begin_pounce(self._mouse_offset_x)
+                return
+            self._pounce_timer = random.uniform(BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX)
+        self._progress = self._pounces_done / self._pounces_total
+
+    def _update_mouse_pounce(self, dt):
+        slide = self._pounce_direction * POUNCE_SLIDE_SPEED * dt
+        self._character.x += slide
+        self._mouse_offset_x -= slide
+        if self._phase_timer >= POUNCE_SLIDE_DURATION:
+            x_min, x_max = self._get_scene_bounds()
+            self._character.x = max(x_min, min(x_max, self._character.x))
+            self._mouse_vel_x = 0.0
+            self._phase = "recovering"
+            self._phase_timer = 0.0
+            self._character.set_pose("sitting_silly.side.happy")
 
     # --- String / feather variant ---
 
@@ -742,6 +826,8 @@ class PlayingBehavior(BaseBehavior):
 
         if self._variant == "ball":
             self._draw_ball(renderer, char_x, char_y)
+        elif self._variant == "mouse":
+            self._draw_mouse(renderer, char_x, char_y)
         elif self._variant == "laser":
             self._draw_laser(renderer, char_x, char_y)
         elif self._variant in ("string", "feather"):
@@ -764,6 +850,16 @@ class PlayingBehavior(BaseBehavior):
         frame = int(self._ball_rotation // 90) % 4
 
         renderer.draw_sprite_obj(YARN_BALL, ball_x, ball_y, frame=frame)
+
+    def _draw_mouse(self, renderer, char_x, char_y):
+        """Draw the mouse toy (no rotation animation)."""
+        if self._phase not in ("watching", "pouncing", "recovering"):
+            return
+        hw = MOUSE_TOY["width"] // 2
+        hh = MOUSE_TOY["height"] // 2
+        mouse_x = char_x + int(self._mouse_offset_x) - hw
+        mouse_y = char_y - MOUSE_Y_OFFSET - hh
+        renderer.draw_sprite_obj(MOUSE_TOY, mouse_x, mouse_y, mirror_h=self._mouse_facing_right)
 
     def _draw_laser(self, renderer, char_x, char_y):
         """Draw the laser dot and beam line (always together while visible)."""

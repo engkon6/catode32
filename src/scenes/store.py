@@ -43,6 +43,7 @@ _SNACK_ITEMS = (
 _TOY_ITEMS = (
     ("String",  "String",         "string",  20),
     ("Feather", "Feather",        "feather", 35),
+    ("Mouse",   "Mouse Toy",      "mouse",   40),
     ("Yarn",    "Yarn Ball",      "ball",    50),
     ("Laser",   "Laser Pointer",  "laser",   75),
 )

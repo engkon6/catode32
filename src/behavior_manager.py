@@ -431,7 +431,7 @@ class BehaviorManager:
             print("Skipping hunting. " + ", ".join(failures))
         return trigger
 
-    _SOLO_PLAY_VARIANTS = frozenset(('ball', 'string', 'feather'))
+    _SOLO_PLAY_VARIANTS = frozenset(('ball', 'string', 'feather', 'mouse'))
 
     def can_trigger_playing(self, ctx):
         if ctx.playfulness < 40:

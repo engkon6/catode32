@@ -33,7 +33,7 @@ _MEALS = ('kibble', 'cod', 'haddock', 'trout', 'shrimp', 'herring',
           'turkey', 'tuna', 'salmon', 'chicken', 'liver', 'beef', 'lamb')
 _SNACKS = ('carrots', 'pumpkin', 'treats', 'fish_bite', 'eggs',
            'nugget', 'milk', 'chew_stick', 'puree')
-_TOY_VARIANTS = ('string', 'feather', 'ball', 'laser')
+_TOY_VARIANTS = ('string', 'feather', 'ball', 'laser', 'mouse')
 _LOCATIONS = ('outside', 'kitchen', 'treehouse', 'bedroom')
 _TRAIT_MAGNITUDE = 10  # max offset in either direction
 
