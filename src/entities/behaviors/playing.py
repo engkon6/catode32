@@ -63,7 +63,8 @@ LASER_LINE_TOP_Y = -64         # y coordinate of the off-screen line origin
 
 # String variant constants
 STRING_SEGMENTS = 8            # number of rope nodes (anchor + 6 free nodes)
-STRING_SEG_LEN = 12           # rest length of each segment in pixels (7×11=77px reach)
+STRING_SEG_LEN_TOP = 20       # rest length of the topmost segment in pixels
+STRING_SEG_LEN_BOT = 4        # rest length of the bottommost segment in pixels
 STRING_GRAVITY = 120           # pixels per second² downward pull on each node
 STRING_DAMPING = 0.45          # velocity damping per second (lower = more sluggish)
 STRING_ITERATIONS = 3          # constraint solver passes per frame
@@ -230,6 +231,7 @@ class PlayingBehavior(BaseBehavior):
         self._str_oy = [0.0] * STRING_SEGMENTS
         self._str_anchor_x = 0.0       # screen-x of the fixed anchor node
         self._str_node_count = STRING_SEGMENTS  # active node count (fewer for feather)
+        self._str_seg_lens = []        # per-segment rest lengths (tapered top→bottom)
         self._str_needs_init = True
 
         # Shared pounce state (only one variant active at a time)
@@ -351,6 +353,11 @@ class PlayingBehavior(BaseBehavior):
     def _start_string(self):
         """Initialise the dangling string and enter the watching phase."""
         self._str_node_count = FEATHER_SEGMENTS if self._variant == "feather" else STRING_SEGMENTS
+        n_segs = self._str_node_count - 1
+        self._str_seg_lens = [
+            STRING_SEG_LEN_TOP + (STRING_SEG_LEN_BOT - STRING_SEG_LEN_TOP) * (i / max(n_segs - 1, 1))
+            for i in range(n_segs)
+        ]
         self._pounces_total = random.randint(POUNCE_COUNT_MIN, POUNCE_COUNT_MAX)
         self._pounces_done = 0
         self._pounce_timer = random.uniform(STRING_POUNCE_DELAY_MIN, STRING_POUNCE_DELAY_MAX)
@@ -559,13 +566,16 @@ class PlayingBehavior(BaseBehavior):
         n = self._str_node_count
         curve_amp = random.uniform(4.0, 9.0)
         curve_dir = random.choice((-1, 1))
+        cumulative_y = 0.0
         for i in range(n):
             t = i / max(n - 1, 1)
             x_off = curve_dir * curve_amp * math.sin(t * math.pi)
             self._str_px[i] = anchor_sx + x_off
-            self._str_py[i] = anchor_sy + i * STRING_SEG_LEN
+            self._str_py[i] = anchor_sy + cumulative_y
             self._str_ox[i] = self._str_px[i]
             self._str_oy[i] = self._str_py[i]
+            if i < n - 1:
+                cumulative_y += self._str_seg_lens[i]
         self._str_anchor_x = anchor_sx
 
         # Run several settling steps so the string appears hanging correctly from frame 1
@@ -594,7 +604,7 @@ class PlayingBehavior(BaseBehavior):
                     dist = math.sqrt(ddx * ddx + ddy * ddy)
                     if dist < 0.001:
                         dist = 0.001
-                    correction = (dist - STRING_SEG_LEN) / dist * 0.5
+                    correction = (dist - self._str_seg_lens[i]) / dist * 0.5
                     cx_ = ddx * correction
                     cy_ = ddy * correction
                     if i == 0:
@@ -674,7 +684,7 @@ class PlayingBehavior(BaseBehavior):
                 dist = math.sqrt(dx * dx + dy * dy)
                 if dist < 0.001:
                     dist = 0.001
-                correction = (dist - STRING_SEG_LEN) / dist * 0.5
+                correction = (dist - self._str_seg_lens[i]) / dist * 0.5
                 cx_ = dx * correction
                 cy_ = dy * correction
                 if i == 0:
