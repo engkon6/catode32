@@ -77,6 +77,9 @@ WIFI_ENABLED = True
 # Debug Features
 SHOW_DEBUG_MENUS = True
 
+# Software Version
+VERSION = "0.4.0"
+
 # Game Constants
 FPS = 12  # Target frames per second
 FRAME_TIME_MS = 1000 // FPS  # Milliseconds per frame

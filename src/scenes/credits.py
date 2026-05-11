@@ -4,9 +4,9 @@ Up/Down to scroll, B or Menu to exit.
 """
 from scene import Scene
 from ui import Popup
+from config import VERSION
 
 YEAR = "2026"
-VERSION = "0.4.0"
 
 CREDITS = """\
    Catode 32   

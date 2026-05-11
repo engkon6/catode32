@@ -116,7 +116,9 @@ class GameContext:
         """Write stats to flash without rebooting. Returns True on success."""
         import ujson
         import time
-        data = {'v': 1, 'env': self.environment, 'food_stock': self.food_stock,
+        from config import VERSION
+        _major = int(VERSION.split('.')[0])
+        data = {'v': _major, 'env': self.environment, 'food_stock': self.food_stock,
                 'toys': self.inventory["toys"],
                 'pots': self.inventory["pots"],
                 'seeds': self.inventory["seeds"],
