@@ -27,16 +27,16 @@ Adding these features brings Catode32 closer to a complete tamagotchi experience
 
 | Component | Source | Purpose |
 |-----------|--------|---------|
-| PS2 Joystick Module (2-axis analog) | AliExpress 4000965985489 | Free-roam movement, minigame input |
+| PS2 Joystick Module (2-axis analog) | AliExpress 4000965985489 | Free-roam movement, minigame input (D-pad replacement) |
 | Piezo Buzzer | Standard module | Sound effects (feeding, playing, alerts) |
 | DS18B20 Temperature Sensor | OneWire digital | Real-world temperature reactions |
-| 2x Digital Tactile Buttons | Replaces 3-CH analog module | Confirm (A) and Back (B) inputs |
+| OPEN-SMART 3-Channel Analog Button Module | AliExpress 1005003404607069 | A/B/extra via resistor ladder on one ADC pin |
 
 ### Components Dropped
 
 | Component | Reason |
 |-----------|--------|
-| OPEN-SMART 3-Channel Analog Button Module | ESP32-C3 has only 2 ADC pins; joystick needs both |
+| 2x Digital Tactile Buttons | Superseded by 3-CH analog module (one ADC pin instead of two GPIOs) |
 
 ---
 
@@ -46,11 +46,11 @@ Adding these features brings Catode32 closer to a complete tamagotchi experience
 
 | GPIO | Function | Component | Type | Notes |
 |------|----------|-----------|------|-------|
-| 0 | Joystick X | PS2 Module VRx | ADC (analog) | Only ADC-capable pin |
-| 1 | Joystick Y | PS2 Module VRy | ADC (analog) | Only ADC-capable pin |
+| 0 | Joystick X | PS2 Module VRx | ADC (analog) | ADC1_CH0 |
+| 1 | Joystick Y | PS2 Module VRy | ADC (analog) | ADC1_CH1 |
 | 2 | BTN_UP | Tactile button | Digital INPUT_PULLUP | Existing, keep |
 | 3 | DS18B20 DATA | Temperature sensor | Digital (OneWire) | Needs 4.7k pull-up to 3.3V |
-| 4 | BTN_DOWN | Tactile button | Digital INPUT_PULLUP | Existing, keep |
+| 4 | 3-CH Analog Buttons | Resistor ladder module | ADC (analog) | ADC1_CH4; 3 buttons on one pin |
 | 5 | BTN_A (Confirm) | Tactile button | Digital INPUT_PULLUP | Existing, keep |
 | 6 | BTN_B (Back) | Tactile button | Digital INPUT_PULLUP | Existing, keep |
 | 7 | WS2812B LED | Onboard RGB | - | Not used by game |
@@ -63,7 +63,7 @@ Adding these features brings Catode32 closer to a complete tamagotchi experience
 
 ### ADC Pin Constraint
 
-ESP32-C3 has exactly **2 ADC-capable pins** (GPIO 0 and GPIO 1). Both are allocated to the joystick's X/Y analog outputs. This is why the 3-CH analog button module was dropped — it would require a 3rd ADC pin that doesn't exist.
+ESP32-C3 has **5 ADC-capable pins** (ADC1_CH0-4 → GPIO 0-4). After the joystick takes GPIO 0 (X) and GPIO 1 (Y), **GPIO 4 remains free** and hosts the 3-CH analog button module via its internal resistor ladder (no-press + 3 buttons = 4 distinct voltage levels read from one ADC). GPIO 2 is a strapping pin and GPIO 3 is reserved for the DS18B20 / battery monitor, so they are not used for analog input.
 
 ---
 
@@ -117,9 +117,13 @@ ESP32-C3 has exactly **2 ADC-capable pins** (GPIO 0 and GPIO 1). Both are alloca
 Add new pin definitions:
 ```python
 # Joystick (analog)
-JOYSTICK_X_PIN = 0    # ADC
-JOYSTICK_Y_PIN = 1    # ADC
+JOYSTICK_X_PIN = 0    # ADC1_CH0
+JOYSTICK_Y_PIN = 1    # ADC1_CH1
 JOYSTICK_SW_PIN = 12  # Digital button press
+
+# 3-CH analog button module (resistor ladder)
+ANALOG_BTN_PIN = 4    # ADC1_CH4; 3 buttons share this pin
+ANALOG_BTN_THRESHOLDS = (1024, 2048, 3072)  # Tune per module: 4 levels = 3 buttons
 
 # Joystick calibration
 JOYSTICK_DEADZONE = 150   # Center ±150 of 2048 (12-bit ADC)
@@ -150,13 +154,26 @@ def is_joystick_pressed(self):
     """Check if joystick button is pressed."""
 ```
 
+Add 3-CH analog button reading:
+```python
+def read_analog_buttons(self):
+    """Read resistor-ladder buttons from one ADC pin.
+    ADC values: no-press ≈ 0, BTN1 ≈ 1/4 range, BTN2 ≈ 1/2, BTN3 ≈ 3/4.
+    Returns which of 3 buttons is pressed (or None)."""
+    val = self.analog_btn.read_u16()
+    for i, thresh in enumerate(config.ANALOG_BTN_THRESHOLDS):
+        if val > thresh:
+            return i  # BTN0/BTN1/BTN2
+    return None
+
 **Integration Strategy:**
 - Joystick方向 merges with existing D-pad logic
 - If joystick is pushed UP, equivalent to BTN_UP
 - If joystick is pushed LEFT, equivalent to BTN_LEFT (new)
 - If joystick is pushed RIGHT, equivalent to BTN_RIGHT (new)
 - Joystick SW button maps to BTN_A (confirm)
-- This gives full 4-directional + confirm input without extra buttons
+- 3-CH analog module supplies BTN_B (back) + 2 spare buttons (e.g. menu toggle)
+- This gives full 4-directional + confirm/back input without extra GPIOs
 
 #### `src/temperature_system.py`
 Add real sensor fallback chain:
@@ -317,7 +334,7 @@ freeze(_src, (
 
 | Risk | Mitigation |
 |------|------------|
-| ADC conflict (2 pins only) | Dropped 3-CH analog button; joystick uses both |
+| ADC routing (3 free pins: 0, 1, 4) | Joystick on 0/1, 3-CH analog buttons on 4; no conflict |
 | OneWire timing issues | Use proven MicroPython OneWire implementation |
 | Buzzer PWM conflicts with LED | Ensure different timers; test both simultaneously |
 | OOM with new modules | Keep modules small; freeze critical ones |
@@ -347,5 +364,5 @@ If more ADC pins are needed:
 - **LeeByte Source:** `firmware/Tamagotchi.ino` lines 1411-1444 (temperature decay)
 - **LeeByte BOM:** Adafruit #444 PSP1000 joystick ($3.50)
 - **DS18B20 MicroPython:** https://github.com/micropython/micropython-lib (onewire module)
-- **ESP32-C3 Pinout:** LOLIN C3 PICO datasheet (IO0/IO1 = ADC only)
+- **ESP32-C3 Pinout:** LOLIN C3 PICO datasheet / ESP32-C3 TRM (ADC1_CH0-4 = GPIO 0-4)
 - **Project Plan:** `docs/catode32_project_plan.md`
