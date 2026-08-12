@@ -12,8 +12,8 @@ import time
 import gc
 
 # Button pins (must match config.py)
-BTN_A = 1
-BTN_B = 0
+BTN_A = 5
+BTN_B = 6
 
 btn_a = Pin(BTN_A, Pin.IN, Pin.PULL_UP)
 btn_b = Pin(BTN_B, Pin.IN, Pin.PULL_UP)

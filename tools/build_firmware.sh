@@ -1,4 +1,4 @@
-x!/bin/bash
+#!/bin/bash
 # Build and/or flash MicroPython firmware for petpython with frozen assets.
 #
 # Usage:
@@ -61,10 +61,11 @@ do_build() {
     export PETPYTHON_SRC="$PROJECT_DIR/src"
 
     cd "$MICROPYTHON_DIR/ports/esp32"
-    idf.py \
-        -D MICROPY_BOARD="$MICROPY_BOARD" \
-        -D MICROPY_FROZEN_MANIFEST="$PROJECT_DIR/manifest.py" \
-        build
+     idf.py \
+         -D MICROPY_BOARD="$MICROPY_BOARD" \
+         -D MICROPY_FROZEN_MANIFEST="$PROJECT_DIR/manifest.py" \
+         -D MICROPY_PY_BTREE=0 \
+         build
 
     echo ""
     echo "Firmware: $BUILD_DIR/micropython.bin"

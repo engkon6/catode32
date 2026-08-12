@@ -1,5 +1,7 @@
 # Catode32 - A virtual pet for your ESP32
 
+> **ESP32-C3 Port** — This is a private fork of [moonbench/catode32](https://github.com/moonbench/catode32) v0.9.1, ported to the ESP32-C3 (Wemos LOLIN C3 PICO). Changes include: SH1106 display support (with SSD1306 fallback), LOLIN C3 PICO pin mapping, a 4-button control layout, and an OOM fix via frozen modules in `manifest.py`.
+
 ![catstars](https://github.com/user-attachments/assets/2ffc652a-f392-42e7-9a13-d7fb91f3770d)
 
 ![spookycat](https://github.com/user-attachments/assets/c1f8b6eb-b90c-46ad-b652-80093db97f83)
@@ -165,15 +167,17 @@ To care for a sick pet and nurture them back to health, make sure they're well f
 - **Menu button 1**: Global menu options (always the same)
 - **Menu button 2**: Contextual menu options (based on the current scene)
 
+> On the 4-button ESP32-C3 layout, menu 1 / menu 2 options are cycled with the D-pad and confirmed with **B**.
+
 
 
 ## Setup
 
 ### Hardware Requirements
 
-- **ESP32-C6 SuperMini** OR **ESP32-C3** development board
-- **SSD1306 OLED Display** (128x64, I2C)
-- **8 Push Buttons** for input
+- **ESP32-C6 SuperMini** OR **ESP32-C3** (e.g. Wemos LOLIN C3 PICO) development board
+- **SH1106 OLED Display** (128x64, I2C) — SSD1306 also supported (auto-detected)
+- **4 Push Buttons** for input (D-pad + A/B)
 
 ### Software Requirements
 
@@ -188,7 +192,7 @@ The project supports both ESP32-C6 and ESP32-C3 boards. To configure for your bo
 
 ```python
 # In src/config.py
-BOARD_TYPE = "ESP32-C6"  # Change to "ESP32-C3" for ESP32-C3 board
+BOARD_TYPE = "ESP32-C3"  # Default in this port; change to "ESP32-C6" for ESP32-C6 board
 ```
 
 ### Wiring
@@ -217,29 +221,25 @@ Choose the wiring diagram for your board. Each button connects between GPIO pin 
 | MENU1  | GPIO3    |
 | MENU2  | GPIO2    |
 
-#### ESP32-C3 Wiring
+#### ESP32-C3 Wiring (Wemos LOLIN C3 PICO)
 
 **Display (I2C):**
 |Display Pin | ESP32-C3 Pin |
 |--------|----------|
 |VCC | 3V3 |
 |GND | GND |
-|SDA | GPIO6 |
-|SCL | GPIO7 |
+|SDA | GPIO8 |
+|SCL | GPIO10 |
 
-**Buttons:**
+**Buttons (4-button linear layout):**
 | Button | GPIO Pin |
 |--------|----------|
-| UP     | GPIO0    |
-| DOWN   | GPIO1    |
-| LEFT   | GPIO2    |
-| RIGHT  | GPIO3    |
-| A      | GPIO4    |
-| B      | GPIO5    |
-| MENU1   | GPIO10  |
-| MENU2   | GPIO11  |
+| UP / LEFT  | GPIO2 |
+| DOWN / RIGHT | GPIO4 |
+| A      | GPIO5    |
+| B      | GPIO6    |
 
-> **Note:** The ESP32-C3 configuration avoids strapping pins (GPIO2, GPIO8, GPIO9) to prevent boot issues.
+> **Note:** Menu options (menu 1 / menu 2) are accessed via the **B** button. Each button connects between its GPIO pin and GND (internal pull-ups enabled).
 
 ## Installation
 
@@ -290,7 +290,7 @@ This compiles a custom MicroPython binary with all `src/assets/` modules frozen 
 
 Before uploading, set your board type in `src/config.py`:
 ```python
-BOARD_TYPE = "ESP32-C6"  # or "ESP32-C3"
+BOARD_TYPE = "ESP32-C3"  # or "ESP32-C6"
 ```
 
 ### 4. Upload Game Files
@@ -299,7 +299,9 @@ BOARD_TYPE = "ESP32-C6"  # or "ESP32-C3"
 ./upload.sh
 ```
 
-This installs the `ssd1306` library, compiles and uploads all game logic. Asset files are not uploaded since they live in the firmware.
+This compiles and uploads all game logic. Asset files are not uploaded since they live in the firmware.
+
+> **ESP32-C3 port:** the SH1106/SSD1306 driver is bundled in `src/` (`src/sh1106.py`, `src/ssd1306.py`) and compiled in — no external `mip` install is needed.
 
 
 
@@ -401,11 +403,12 @@ Deploys the project to the ESP32's flash storage:
 ```
 
 This script:
-- Installs the `ssd1306` library via `mip`
 - Compiles all `.py` files to `.mpy` bytecode (excluding `src/assets/`, which are frozen in firmware)
 - Converts level files from `levels/` into binary format in `build/platformer_levels/`
 - Cleans existing files from the device (preserves `lib/`, `save.json`, and `webrepl_cfg.py`)
 - Uploads compiled `.mpy` and `.bin` files and `boot.py` to the device
+
+> **ESP32-C3 port:** the SH1106/SSD1306 display driver is bundled in `src/` and compiled in — no external `mip` install is needed.
 
 Use this when you want the pet to run standalone without a laptop connection.
 

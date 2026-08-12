@@ -6,7 +6,7 @@ config.py - Hardware configuration and game constants
 # BOARD SELECTION - Change this to match your ESP32 board
 # ============================================================================
 # Supported boards: "ESP32-C6", "ESP32-C3"
-BOARD_TYPE = "ESP32-C6"  # Change to "ESP32-C3" if using ESP32-C3 board
+BOARD_TYPE = "ESP32-C3"  # Change to "ESP32-C3" if using ESP32-C3 board
 
 # ============================================================================
 # Board-Specific Pin Configurations
@@ -30,16 +30,16 @@ _ESP32_C6_CONFIG = {
 # Uses lower GPIO pins that are commonly available on ESP32-C3 boards
 # Avoids strapping pins (GPIO2, GPIO8, GPIO9)
 _ESP32_C3_CONFIG = {
-    'I2C_SDA': 6,
-    'I2C_SCL': 7,
-    'BTN_UP': 0,
-    'BTN_DOWN': 1,
+    'I2C_SDA': 8,
+    'I2C_SCL': 10,
+    'BTN_UP': 2,
+    'BTN_DOWN': 4,
     'BTN_LEFT': 2,
-    'BTN_RIGHT': 3,
-    'BTN_A': 4,
-    'BTN_B': 5,
-    'BTN_MENU1': 10,
-    'BTN_MENU2': 11,
+    'BTN_RIGHT': 4,
+    'BTN_A': 5,
+    'BTN_B': 6,
+    'BTN_MENU1': 6,
+    'BTN_MENU2': 6,
 }
 
 # Select configuration based on board type
@@ -53,8 +53,8 @@ else:
 # Display Configuration
 DISPLAY_WIDTH = 128
 DISPLAY_HEIGHT = 64
-I2C_SDA = _CONFIG['I2C_SDA']
-I2C_SCL = _CONFIG['I2C_SCL']
+I2C_SDA = 8
+I2C_SCL = 10
 I2C_FREQ = 400000
 
 # Button Pin Mappings

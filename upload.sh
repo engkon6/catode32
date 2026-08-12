@@ -111,8 +111,8 @@ echo "  (boot.py removed - will be restored at end)"
 
 echo ""
 echo "Step 4: Installing dependencies..."
-mp mip install ssd1306
-echo -e "${GREEN}✓ SSD1306 library installed${NC}"
+echo "  (skipped: SH1106 driver is in src/sh1106.py, compiled and uploaded in step 6)"
+echo -e "${GREEN}✓ No external dependencies needed${NC}"
 
 echo ""
 echo -e "${YELLOW}Step 5: Cleaning ALL files from device...${NC}"
