@@ -18,6 +18,7 @@ jobs:
 
       - name: Build MicroPython cross-compiler
         run: |
+          mkdir -p ~/esp
           git clone https://github.com/micropython/micropython.git ~/esp/micropython
           cd ~/esp/micropython
           git submodule update --init --recursive
@@ -25,9 +26,21 @@ jobs:
 
       - name: Build Firmware
         run: |
-          # Set explicit paths for CI environment
+          # Diagnostics
+          echo "Current directory: $(pwd)"
           export IDF_PATH=/opt/esp/idf
-          export MICROPYTHON_DIR=$HOME/esp/micropython
+          export MICROPYTHON_DIR=/home/runner/esp/micropython
+          echo "IDF_PATH: $IDF_PATH"
+          echo "MICROPYTHON_DIR: $MICROPYTHON_DIR"
+          
+          # Debug: verify directory exists
+          if [ -d "$MICROPYTHON_DIR/ports/esp32" ]; then
+            echo "Port directory exists."
+          else
+            echo "Port directory NOT found: $MICROPYTHON_DIR/ports/esp32"
+            exit 1
+          fi
+          
           # Run build script
           ./tools/build_firmware.sh build esp32c3
 
@@ -35,4 +48,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: ~/esp/micropython/ports/esp32/build/micropython.bin
+          path: /home/runner/esp/micropython/ports/esp32/build/micropython.bin
