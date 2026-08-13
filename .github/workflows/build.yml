@@ -25,6 +25,7 @@ jobs:
 
       - name: Build Firmware
         run: |
+          cd ~/catode32 # Add this to ensure we are in the right place
           export IDF_PATH=$HOME/esp/esp-idf
           export MICROPYTHON_DIR=$HOME/esp/micropython
           ./tools/build_firmware.sh build esp32c3
