@@ -1,0 +1,36 @@
+name: Build Firmware
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup ESP-IDF
+        uses: espressif/esp-idf-action@v1
+        with:
+          esp-idf-version: 'v5.5.1'
+
+      - name: Build MicroPython cross-compiler
+        run: |
+          git clone https://github.com/micropython/micropython.git ~/esp/micropython
+          cd ~/esp/micropython
+          git submodule update --init --recursive
+          make -C mpy-cross
+
+      - name: Build Firmware
+        run: |
+          export IDF_PATH=$HOME/esp/esp-idf
+          export MICROPYTHON_DIR=$HOME/esp/micropython
+          ./tools/build_firmware.sh build esp32c3
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: ~/esp/micropython/ports/esp32/build/micropython.bin
