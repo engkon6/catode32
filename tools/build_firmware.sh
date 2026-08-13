@@ -61,7 +61,9 @@ do_build() {
     export PETPYTHON_SRC="$PROJECT_DIR/src"
 
     cd "$MICROPYTHON_DIR/ports/esp32"
-     idf.py \
+    echo "Directory after cd: $(pwd)"
+    idf.py \
+
          -D MICROPY_BOARD="$MICROPY_BOARD" \
          -D MICROPY_FROZEN_MANIFEST="$PROJECT_DIR/manifest.py" \
          -D MICROPY_PY_BTREE=0 \

@@ -27,22 +27,11 @@ jobs:
       - name: Build Firmware
         run: |
           # Diagnostics
-          echo "Current directory: $(pwd)"
           export IDF_PATH=/opt/esp/idf
           export MICROPYTHON_DIR=/home/runner/esp/micropython
-          echo "IDF_PATH: $IDF_PATH"
-          echo "MICROPYTHON_DIR: $MICROPYTHON_DIR"
           
-          # Debug: verify directory exists
-          if [ -d "$MICROPYTHON_DIR/ports/esp32" ]; then
-            echo "Port directory exists."
-          else
-            echo "Port directory NOT found: $MICROPYTHON_DIR/ports/esp32"
-            exit 1
-          fi
-          
-          # Run build script
-          ./tools/build_firmware.sh build esp32c3
+          # Run build script with explicit environment
+          IDF_PATH=$IDF_PATH MICROPYTHON_DIR=$MICROPYTHON_DIR ./tools/build_firmware.sh build esp32c3
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
