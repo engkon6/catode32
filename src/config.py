@@ -27,19 +27,25 @@ _ESP32_C6_CONFIG = {
 }
 
 # ESP32-C3 Pin Configuration
-# Uses lower GPIO pins that are commonly available on ESP32-C3 boards
-# Avoids strapping pins (GPIO2, GPIO8, GPIO9)
+# Using user hardware: SDA=8, SCL=10, JoyX=2, JoyY=4, BtnLadder=0
 _ESP32_C3_CONFIG = {
     'I2C_SDA': 8,
     'I2C_SCL': 10,
+    # Joystick pins (analog)
+    'JOY_X': 2,
+    'JOY_Y': 4,
+    # Button Ladder pin (analog)
+    'BTN_LADDER': 0,
+    
+    # We will map these analog inputs in input.py
     'BTN_UP': 2,
-    'BTN_DOWN': 4,
-    'BTN_LEFT': 2,
+    'BTN_DOWN': 2,
+    'BTN_LEFT': 4,
     'BTN_RIGHT': 4,
-    'BTN_A': 5,
-    'BTN_B': 6,
-    'BTN_MENU1': 6,
-    'BTN_MENU2': 6,
+    'BTN_A': 0,
+    'BTN_B': 0,
+    'BTN_MENU1': 0,
+    'BTN_MENU2': 0,
 }
 
 # Select configuration based on board type
@@ -53,8 +59,8 @@ else:
 # Display Configuration
 DISPLAY_WIDTH = 128
 DISPLAY_HEIGHT = 64
-I2C_SDA = 8
-I2C_SCL = 10
+I2C_SDA = _CONFIG['I2C_SDA']
+I2C_SCL = _CONFIG['I2C_SCL']
 I2C_FREQ = 400000
 
 # Button Pin Mappings
@@ -66,6 +72,17 @@ BTN_A = _CONFIG['BTN_A']
 BTN_B = _CONFIG['BTN_B']
 BTN_MENU1 = _CONFIG['BTN_MENU1']
 BTN_MENU2 = _CONFIG['BTN_MENU2']
+
+# Dummy pin definitions to satisfy InputHandler's Pin(Pin, ...) constructor
+# InputHandler will be modified to handle these as analog inputs
+BTN_UP = 2
+BTN_DOWN = 2
+BTN_LEFT = 4
+BTN_RIGHT = 4
+BTN_A = 0
+BTN_B = 0
+BTN_MENU1 = 0
+BTN_MENU2 = 0
 
 # Free the raw config dicts — all values have been extracted above
 del _ESP32_C6_CONFIG, _ESP32_C3_CONFIG, _CONFIG
