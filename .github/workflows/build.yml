@@ -25,9 +25,10 @@ jobs:
 
       - name: Build Firmware
         run: |
-          cd ~/catode32 # Add this to ensure we are in the right place
-          export IDF_PATH=$HOME/esp/esp-idf
+          # Set explicit paths for CI environment
+          export IDF_PATH=/opt/esp/idf
           export MICROPYTHON_DIR=$HOME/esp/micropython
+          # Run build script
           ./tools/build_firmware.sh build esp32c3
 
       - name: Upload Artifact
