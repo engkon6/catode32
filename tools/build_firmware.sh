@@ -1,4 +1,4 @@
-#!/bin/bash
+x!/bin/bash
 # Build and/or flash MicroPython firmware for petpython with frozen assets.
 #
 # Usage:
@@ -29,7 +29,7 @@ PORT="${3:-}"
 
 case "$BOARD" in
     esp32c6) MICROPY_BOARD="ESP32_GENERIC_C6" ;;
-    esp32c3) MICROPY_BOARD="ESP32_GENERIC_C3" ;;
+    esp32c3) MICROPY_BOARD="ESP32_CATODE32" ;;
     *) echo "Unknown board: $BOARD. Use esp32c6 or esp32c3."; exit 1 ;;
 esac
 
@@ -40,7 +40,7 @@ BUILD_DIR="$MICROPYTHON_DIR/ports/esp32/build"
 
 # Auto-detect port if not specified
 detect_port() {
-    for pattern in /dev/tty.usbmodem* /dev/tty.SLAB_USBtoUART* /dev/tty.wchusbserial* /dev/tty.usbserial*; do
+    for pattern in /dev/ttyACM* /dev/tty.usbmodem* /dev/tty.SLAB_USBtoUART* /dev/tty.wchusbserial* /dev/tty.usbserial*; do
         local matches=($pattern)
         if [ -e "${matches[0]}" ]; then
             echo "${matches[0]}"
@@ -61,13 +61,10 @@ do_build() {
     export PETPYTHON_SRC="$PROJECT_DIR/src"
 
     cd "$MICROPYTHON_DIR/ports/esp32"
-    echo "Directory after cd: $(pwd)"
     idf.py \
-
-         -D MICROPY_BOARD="$MICROPY_BOARD" \
-         -D MICROPY_FROZEN_MANIFEST="$PROJECT_DIR/manifest.py" \
-         -D MICROPY_PY_BTREE=0 \
-         build
+        -D MICROPY_BOARD="$MICROPY_BOARD" \
+        -D MICROPY_FROZEN_MANIFEST="$PROJECT_DIR/manifest.py" \
+        build
 
     echo ""
     echo "Firmware: $BUILD_DIR/micropython.bin"

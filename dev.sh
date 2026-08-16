@@ -55,7 +55,8 @@ while read -r pyfile; do
     mkdir -p "$(dirname "$MPY_PATH")"
 
     echo -n "  Compiling $REL_PATH..."
-    if mpy-cross -march=xtensawin "$pyfile" -o "$MPY_PATH" 2>/tmp/mpy_cross_err; then
+    # ESP32-C3/C6 are RISC-V (rv32imc). xtensawin is ESP32-classic only.
+    if mpy-cross -march=rv32imc "$pyfile" -o "$MPY_PATH" 2>/tmp/mpy_cross_err; then
         echo -e " ${GREEN}✓${NC}"
     else
         echo -e " ${RED}✗${NC}"

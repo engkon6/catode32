@@ -1,12 +1,16 @@
 *.bin
-*.bak
 old/*
 
 .DS_store
 
+venv/
+.venv/
+
 build/
 __pycache__/
 *.pyc
+
+firmware_backup/
 
 log.txt
 parse_stats.py

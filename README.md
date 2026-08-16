@@ -1,7 +1,5 @@
 # Catode32 - A virtual pet for your ESP32
 
-> **ESP32-C3 Port** — This is a private fork of [moonbench/catode32](https://github.com/moonbench/catode32) v0.9.1, ported to the ESP32-C3 (Wemos LOLIN C3 PICO). Changes include: SH1106 display support (with SSD1306 fallback), LOLIN C3 PICO pin mapping, a 4-button control layout, and an OOM fix via frozen modules in `manifest.py`.
-
 ![catstars](https://github.com/user-attachments/assets/2ffc652a-f392-42e7-9a13-d7fb91f3770d)
 
 ![spookycat](https://github.com/user-attachments/assets/c1f8b6eb-b90c-46ad-b652-80093db97f83)
@@ -167,7 +165,7 @@ To care for a sick pet and nurture them back to health, make sure they're well f
 - **Menu button 1**: Global menu options (always the same)
 - **Menu button 2**: Contextual menu options (based on the current scene)
 
-> On the 4-button ESP32-C3 layout, menu 1 / menu 2 options are cycled with the D-pad and confirmed with **B**.
+On the **Lolin C3 Pico** (this device): D-pad = analog joystick (GPIO2/4), A = GPIO5 (or ladder K3), B = GPIO6 (or ladder K1), Menu 1 = ladder K2 double-tap, Menu 2 = ladder K2 single-tap.
 
 
 
@@ -175,9 +173,9 @@ To care for a sick pet and nurture them back to health, make sure they're well f
 
 ### Hardware Requirements
 
-- **ESP32-C6 SuperMini** OR **ESP32-C3** (e.g. Wemos LOLIN C3 PICO) development board
-- **SH1106 OLED Display** (128x64, I2C) — SSD1306 also supported (auto-detected)
-- **4 Push Buttons** for input (D-pad + A/B)
+- **ESP32-C6 SuperMini** OR **ESP32-C3** development board
+- **SSD1306 or SH1106 OLED Display** (128x64, I2C)
+- **8 Push Buttons** for input
 
 ### Software Requirements
 
@@ -192,7 +190,7 @@ The project supports both ESP32-C6 and ESP32-C3 boards. To configure for your bo
 
 ```python
 # In src/config.py
-BOARD_TYPE = "ESP32-C3"  # Default in this port; change to "ESP32-C6" for ESP32-C6 board
+BOARD_TYPE = "ESP32-C6"  # Change to "ESP32-C3" for ESP32-C3 board
 ```
 
 ### Wiring
@@ -221,29 +219,168 @@ Choose the wiring diagram for your board. Each button connects between GPIO pin 
 | MENU1  | GPIO3    |
 | MENU2  | GPIO2    |
 
-#### ESP32-C3 Wiring (Wemos LOLIN C3 PICO)
+#### ESP32-C3 Wiring
 
 **Display (I2C):**
 |Display Pin | ESP32-C3 Pin |
 |--------|----------|
 |VCC | 3V3 |
 |GND | GND |
-|SDA | GPIO8 |
-|SCL | GPIO10 |
+|SDA | GPIO6 |
+|SCL | GPIO7 |
 
-**Buttons (4-button linear layout):**
+**Buttons:**
 | Button | GPIO Pin |
 |--------|----------|
-| UP / LEFT  | GPIO2 |
-| DOWN / RIGHT | GPIO4 |
-| A      | GPIO5    |
-| B      | GPIO6    |
+| UP     | GPIO0    |
+| DOWN   | GPIO1    |
+| LEFT   | GPIO2    |
+| RIGHT  | GPIO3    |
+| A      | GPIO4    |
+| B      | GPIO5    |
+| MENU1   | GPIO10  |
+| MENU2   | GPIO11  |
 
-> **Note:** Menu options (menu 1 / menu 2) are accessed via the **B** button. Each button connects between its GPIO pin and GND (internal pull-ups enabled).
+> **Note:** The ESP32-C3 configuration avoids strapping pins (GPIO2, GPIO8, GPIO9) to prevent boot issues.
+
+##### Catode32 board (this device)
+
+The Catode32's onboard OLED is wired differently from the generic wiring above:
+
+| Display Pin | Catode32 Pin |
+|-------------|--------------|
+| SDA         | GPIO5        |
+| SCL         | GPIO6        |
+
+> **Known issue — BTN_B conflicted with I2C SDA:** `BTN_B` was `GPIO5`, but on the Catode32 GPIO5 is the OLED's SDA. `InputHandler` is built *after* the I2C bus, so creating `Pin(5, IN, PULL_UP)` disconnected the I2C controller from SDA — every later OLED transaction timed out (`OSError: [Errno 116] ETIMEDOUT`, `i2c.scan()` returns `[]`) and the game crash-reset in a boot loop. `BTN_B` is now provisionally `GPIO7` (free, non-strapping). `InputHandler` also skips any button pin that collides with I2C SDA/SCL as a safety net. Update `BTN_B` to the physical B button's real GPIO in `config.py` (and align `boot.py`'s A+B REPL escape) once the board pinout is confirmed.
+
+##### Wemos Lolin C3 Pico (second board)
+
+A generic ESP32-C3 dev board (ESP32-C3FH4, 4MB flash, native USB-Serial/JTAG, 12 I/O on header).
+
+Wiring used for this port:
+
+| Function          | Lolin C3 Pico Pin |
+|-------------------|-------------------|
+| OLED SDA          | GPIO8  (LOLIN I2C port SDA) |
+| OLED SCL          | GPIO10 (LOLIN I2C port SCL) |
+| Joystick X (ADC1) | GPIO2  (A2) |
+| Joystick Y (ADC1) | GPIO4  (A4) |
+| Button A          | GPIO5  |
+| Button B          | GPIO6  |
+| Button ladder (3×) | GPIO0 (resistor ladder → K1/K2/K3) |
+| WS2812 RGB LED    | GPIO7  (onboard, reserved) |
+
+Notes:
+- The **onboard LOLIN I2C port** is wired to SDA=GPIO8 / SCL=GPIO10; an SSD1306 or SH1106 OLED plugs straight in (configured via `OLED_DRIVER` in `config.py`).
+- SH1106 page-addressing mode is fully supported via `sh1106.py`.
+- The D-pad is an **analog joystick** on GPIO2/GPIO4 (both ADC1, so usable even with WiFi on). `InputHandler` samples it once per frame, applies a deadzone + axis map, and feeds `up/down/left/right` into the same interface as the digital buttons. See joystick constants in `src/config.py`.
+- The joystick neutral is **auto-calibrated at startup**: `input.py` samples each axis 8x (stick untouched) and takes the median as the center, because cheap joystick pots sit well off mid-scale. The `JOY_CENTER_*` config values are only fallbacks if that sampling fails. Neutral jitter after calibration is small (≈±0.02 of half-scale, well inside the 0.20 deadzone).
+- A/B buttons on GPIO5/GPIO6; the 3-button analog ladder on GPIO0 provides the missing MENU inputs: **K1=B**, **K2=Menu2 (single tap) / Menu1 (double tap)**, **K3=A** (see `BTN_LADDER_*`/`LADDER_*` in `src/config.py` and the tap decoder in `src/input.py`). Ladder buttons are ADC-polled and can't wake the device from sleep, so digital A/B remain the sleep-wake buttons.
+- GPIO2 is a strapping pin but does **not** control boot mode on ESP32-C3 (only GPIO8/9 do); it is "recommended pulled high" — if you see flaky boots with the stick at center, move X to GPIO3 instead.
+- Firmware: reuses the `ESP32_CATODE32` board definition (same esp32c3/4MB/96KB-heap/BT-off profile; the REPL banner still reads "Catode32").
+- WS2812 on GPIO7 is reserved for a future RGB-LED scene; no game code drives it yet.
+
+##### Verification log (2026-08-13)
+
+Hardware confirmed working on the Lolin C3 Pico (this device):
+
+| Check | Result |
+|-------|--------|
+| OLED (SDA=8 / SCL=10) | Renders the pet; I2C inits cleanly |
+| Joystick neutral auto-calibration | X≈45002, Y≈34008 (`read_u16`), stable across boots |
+| Joystick full-scale | X: 416→65535, Y: 0→65535 |
+| UP / DOWN / LEFT / RIGHT | All register correctly — physical push matches logical direction |
+
+No axis inversion/swap was needed. If the stick is re-wired or a new unit is off, correct with `JOY_INVERT_X/Y` / `JOY_SWAP_AXES` in `src/config.py`, then re-run `./upload.sh` (or the `translate.py` → `mpy-cross` → `mpremote` deploy flow) and reboot.
+
+##### Verification log (2026-08-14)
+
+Board recovered + re-flashed, then fully re-verified as a fresh unit. The flash (from `~/esp/micropython/ports/esp32/build-ESP32_CATODE32/`, built 2026-08-13) wiped the filesystem state; the device was verified over the bare REPL before any game files were uploaded.
+
+| Check | Result |
+|-------|--------|
+| Firmware after re-flash | MicroPython-1.29.0-preview-riscv-IDFv5.5.1, `_build='ESP32_CATODE32'`, `_machine='Catode32 with ESP32-C3'` |
+| OLED (SDA=8 / SCL=10) | `i2c.scan()` → `0x3C` (SH1106) ✓ |
+| Joystick neutral (untouched) | X≈44336, Y≈37325 (`read_u16`), stable across samples ✓ |
+| Digital A / B | GPIO5 / GPIO6 idle HIGH with pull-ups (active-low) ✓ |
+| GPIO0 button ladder (10× read, ATTN_11DB) | None≈16, **K1≈910, K2≈1848, K3≈2796** — matches DOCUMENTATION.md ranges exactly ✓ |
+
+Ladder `read_u16()` equivalents (for `input.py` thresholding): None≈128–304, K1≈14707, K2≈29623, K3≈44778 (≈ r × 16.01).
+
+##### Verification log (2026-08-15)
+
+Ladder button mapping implemented, deployed, and fully verified on hardware. Firmware was rebuilt with frozen assets and flashed, game files uploaded via `./upload.sh`, and the game boots standalone on the device. On-device press tests (raw-REPL, `/tmp/opencode/press_test.py`): **K1→B ✓, K3→A ✓, K2 single-tap→MENU2 ✓, K2 double-tap→MENU1 ✓**. The double-tap initially wasn't detected at the original 350 ms window (too tight for a real double-tap); widening `LADDER_DOUBLE_TAP_MS` to 450 ms fixed it (host + on-device re-verified).
+
+Joystick Y-axis inversion verified: this unit's potentiometer wiring produces an ADC reading above neutral when pushing the stick UP, which mapped to 'down' by default. Setting `JOY_INVERT_Y = True` in `src/config.py` fixed the direction so that pushing up correctly navigates menu selection upward (verified on-device).
+
+| Check | Result |
+|-------|--------|
+| `src/config.py` ladder config | `BTN_LADDER_ADC=0`, `LADDER_K*_MIN/MAX` u16 bands, `BTN_LADDER_K1='b'`, `K2='menu2'` (+`K2_DOUBLE='menu1'`), `K3='a'`, tap timings ✓ |
+| `src/input.py` ladder support | Ladder ADC init, throttled sampling, K1/K3 → `is_pressed('b'/'a')`, K2 single-tap → MENU2 (450 ms after release) / double-tap → MENU1 ✓ |
+| Joystick Y-axis direction | `JOY_INVERT_Y = True`: UP pushes navigate up in menus, DOWN pushes navigate down ✓ |
+| Host harness (`/tmp/opencode/test_ladder.py`, stubbed `machine`/`config`/`time`) | 23/23 checks: K1/K3 press/edge/release, K2 pressed/released raw state, single-tap MENU2 timing, double-tap MENU1 with no stray MENU2, slow-tap fallback, `update()` path, `consume_all()` ✓ |
+| Firmware (rebuilt 2026-08-15) | `import assets.character` + all 13 frozen asset modules OK; `_build='ESP32_CATODE32'` ✓ |
+| Device idle input check | `a=False b=False menu1=False menu2=False` (no spurious events) ✓ |
+| On-device press test #1 (45 s window) | K1→B ✓, K3→A ✓, K2 single-tap→MENU2 ×3 ✓; double-tap→MENU1 not yet observed at 350 ms window |
+| On-device press test #2 (100 s window, `LADDER_DOUBLE_TAP_MS=450`) | K2 single-tap→MENU2 ×4 ✓, K2 double-tap→MENU1 ×4 ✓ |
+
+> **Current state & pending work (2026-08-15):**
+> - **Ladder mapping deployed and verified on-device:** **K1=B** (back/cancel) ✓, **K3=A** (select/confirm) ✓, **K2=MENU2** on single tap ✓, **K2=MENU1** on double tap ✓. Double-tap window widened from 350→450 ms (`LADDER_DOUBLE_TAP_MS`).
+> - **Full codebase deployed and running on-device:** firmware rebuilt with frozen modules (assets + boot graph + pinned modules, see [`manifest.py`](manifest.py)) and flashed; all 133 game files uploaded. The game boots and runs standalone from `boot.py`. See [Build & Deployment Status (2026-08-15)](#build--deployment-status-2026-08-15).
+> - Caveat: ladder buttons are ADC-polled and cannot generate a pin IRQ, so they must not replace digital A/B (which are the sleep-wake buttons).
+> - To get a REPL for development, interrupt the running game (Ctrl+C via serial, after letting it finish booting) or hold A+B on reset — `boot.py` auto-runs the game.
+
+##### Verification log (2026-08-16) — core-scene playtest (quick pass)
+
+On-device playtest of the standalone game (boot from `boot.py`, save loaded from `save.json`). Device rebooted via `mpremote reset`, serial output captured with a passive pyserial logger (`/tmp/opencode/playtest_core.log`) — no REPL interference.
+
+| Check | Result |
+|-------|--------|
+| Boot | `[boot] Module cache cleared` → `Virtual Pet Starting...` → save loaded, `Creating new scene: InsideScene`, game loop running ✓ |
+| Boot memory | `[MEM] post-init: free=25072 alloc=211984` |
+| Core scene walk (menu-driven) | `inside → stats → inside → kitchen → outside → outside → store → outside`, module unload/purge on every transition (e.g. `Purging module: entities.jumper/flyer`, `assets.store`) ✓ |
+| Inputs in live gameplay | K2 double-tap→MENU1, K2 single-tap→MENU2, K3 select, K1 back, joystick up/down navigation (Y-invert) — menu & scene navigation working ✓ (user-observed on hardware) |
+| Errors | No `Traceback`, `MemoryError`, or other exceptions in the captured log ✓ |
+| Heap low-water marks | `peak_free` worst-case **6032 B** (~6 KB headroom); `free` at scene-switch prints ranged 10–37 KB — no OOM ✓ |
+| Still alive after walk | Game loop running, `[MEM]` 30 s probe continuing ✓ |
+
+Memory note: `peak_free` low-water mark drifted down across the session (21.5 KB → 6.0 KB) as more scenes/entities accumulated state; the game kept running with no crash. Minigame transitions (the biggest per-scene allocations) are **not** covered by this quick pass — still pending in Phase 2.
+
+## Build & Deployment Status (2026-08-15)
+
+### Phase 1 (desktop emulator) — complete
+- Headless smoke-test driver `tools/smoke_test.py` boots the game twice (fresh save + restore from `save.json`), exercises scene changes (`adoption → inside → outside → back → memory`), and verifies `save.json` is written and re-loaded. All milestones pass on desktop.
+- Bugs found by the smoke test and fixed:
+  - `input_desktop.py` missing `update()` → desktop crashed on the first frame.
+  - Adoption NAMING keyboard swallowed MENU1/MENU2 during pet naming (fixed via a `handle_menu_keys` opt-out wired through `scene_manager.py` / `scenes/adoption.py`).
+  - `backup.py` hardcoded `/backup.json` → `[Errno 13] Permission denied` on desktop. Now reads `config.BACKUP_PATH` / `config.BACKUP_OLD_PATH` (device paths in `config.py`, desktop paths in `config_desktop.py`).
+  - Smoke-test probe uses a class-name fallback for scenes that lack `SCENE_NAME` (minigame scenes).
+
+### Deploy — complete
+The device was running a stale partial build (~25 old monolithic modules) that structurally could not host the current refactored code, so a full redeploy was done:
+
+1. `tools/translate.py` regenerates `build/translated-en/` (bakes `t()` literals, strips `from lang import t`). **Device code must be compiled from this bundle — never raw `src/`** (raw `src/` keeps the `lang` import, which doesn't exist on-device).
+2. All 127 modules compiled with `mpy-cross -march=rv32imc`; 6 level files converted via `tools/convert_level.py`.
+3. Uploaded over raw REPL in base64 chunks (all 133 files size-verified on-device). `boot.py`, `save.json`, `backup.json`, and `lib/` were preserved.
+- `./upload.sh` (mpremote) was not usable here because `boot.py` races mpremote's raw-REPL entry. The reliable way to get a REPL from a running game: esptool hard-reset → let the game fully boot → open the port and assert DTR → send Ctrl+C → the game stops at the REPL prompt.
+
+### RAM: the codebase exceeded the C3 heap — fixed by freezing more modules
+- Pre-freeze boot OOM'd: the import graph needed ~148KB of the ~154KB available heap, leaving 6.4KB before the first scene import. Biggest consumers (measured at the REPL): `entities.character` −42KB, `sky+clock+environment` −24KB, `menu` −22KB (incl. `ui`), plants −23KB, `behavior_manager` −16KB.
+- Fix: `manifest.py` now freezes the boot/baseline graph and `scene_manager._PINNED_MODULES` into flash — assets, `config`, `input`, `renderer`, `context`, `scene_manager`, `main`, `menu`, `transitions`, `ui`, `framebuf`, `sprite_transform`, weather/time/sleep systems, `backup`, `scene`, `sky`, `environment`, `clock`, `behavior_manager`, plants, `scenes.main_scene`, `scenes.vacation_scene`, `entities.entity`, `entities.character`, and behaviors `base`/`idle`. Lazy-loaded scenes (except the pinned two), lazy behavior modules, `wifi_tracker`, `splash`, and the ESP-NOW stack stay on the filesystem so they can still be unloaded from `sys.modules` on scene transitions.
+- Firmware rebuilt (`./tools/build_firmware.sh build esp32c3`) and flashed (bootloader + partition table + app). The filesystem partition was not touched; the 133 uploaded files and the save survived.
+- Boot now succeeds: `Creating new scene: InsideScene`, idle behaviors running. Runtime memory: `post-init free=37.7KB`; game loop `free≈33KB alloc≈204KB`.
+
+### Current stage / pending work
+- **Phase 1 (desktop fixes)** — done, smoke-tested.
+- **Deploy to device** — done; the current code runs standalone from `boot.py` with the pet loaded from `save.json`.
+- **Phase 2 (on-device playtest)** — partially done: core-scene walkthrough verified on 2026-08-16 (see [Verification log (2026-08-16)](#verification-log-2026-08-16--core-scene-playtest-quick-pass)); no crashes, worst-case heap headroom ~6 KB. Still pending: minigame transitions (highest per-scene allocation), garden/plants round-trip, and save/restart + sleep/wake via digital A/B.
+- **Phase 3 (version control)** — pending: `git init` + `.gitignore` + initial commit.
+- Cleanup (low priority): desktop-only modules (`config_desktop`, `input_desktop`, `main_desktop`, `renderer_desktop`) are still on the device filesystem; harmless since nothing imports them on-device.
 
 ## Installation
 
-This project uses **custom MicroPython firmware** with asset data frozen directly into flash. The sprite/icon data lives in flash rather than RAM, which frees up a significant portion of the ~85KB heap budget. You build the firmware once, flash it, then upload only the game logic.
+This project uses **custom MicroPython firmware** with the always-loaded module set frozen directly into flash: the sprite/icon data in `src/assets/` plus the boot graph and `scene_manager._PINNED_MODULES` (see [`manifest.py`](manifest.py)). Frozen code and byte/string constants live in flash rather than RAM — the ~148KB import graph drops to roughly 35KB of module globals, which is what lets the game boot on the ESP32-C3 (~154KB MicroPython heap). You build the firmware once, flash it, then upload only the game logic.
 
 ### 1. Set Up Build Tools (one-time)
 
@@ -282,15 +419,15 @@ make -C mpy-cross
 ./tools/build_firmware.sh build-flash esp32c3
 ```
 
-This compiles a custom MicroPython binary with all `src/assets/` modules frozen in, then flashes bootloader, partition table, and firmware to the device.
+This compiles a custom MicroPython binary with all `src/assets/` modules plus the boot graph / pinned modules frozen in (per `manifest.py`), then flashes bootloader, partition table, and firmware to the device.
 
-> **Note:** Flashing replaces the entire filesystem. Re-run `./upload.sh` after flashing to restore game files.
+> **Note:** Flashing only writes the bootloader, partition table, and app partitions — the filesystem partition is preserved, so existing game files and `save.json` survive. Still, re-run `./upload.sh` after flashing if you change the frozen set, to keep filesystem copies consistent.
 
 ### 3. Configure Board Type
 
 Before uploading, set your board type in `src/config.py`:
 ```python
-BOARD_TYPE = "ESP32-C3"  # or "ESP32-C6"
+BOARD_TYPE = "ESP32-C6"  # or "ESP32-C3"
 ```
 
 ### 4. Upload Game Files
@@ -299,9 +436,7 @@ BOARD_TYPE = "ESP32-C3"  # or "ESP32-C6"
 ./upload.sh
 ```
 
-This compiles and uploads all game logic. Asset files are not uploaded since they live in the firmware.
-
-> **ESP32-C3 port:** the SH1106/SSD1306 driver is bundled in `src/` (`src/sh1106.py`, `src/ssd1306.py`) and compiled in — no external `mip` install is needed.
+This installs the `ssd1306` library, compiles and uploads all game logic. Asset files are not uploaded since they live in the firmware.
 
 
 
@@ -358,7 +493,7 @@ This script:
 - Mounts the `build/` directory on the device
 - Runs the game
 
-Asset files are skipped because they are frozen into the firmware. MicroPython resolves frozen modules before the filesystem, so uploading them would be redundant.
+Asset files and frozen modules are skipped because they live in the firmware. MicroPython resolves frozen modules before the filesystem, so uploading them would be redundant.
 
 > [!NOTE]
 > Requires `mpy-cross` (`pip install mpy-cross`) and `mpremote` (`pip install mpremote`).
@@ -368,7 +503,7 @@ Asset files are skipped because they are frozen into the firmware. MicroPython r
 
 ### ./tools/build_firmware.sh
 
-Builds custom MicroPython firmware with asset modules frozen in flash, then optionally flashes it:
+Builds custom MicroPython firmware with the frozen module set (assets + boot graph + pinned modules, per `manifest.py`) baked into flash, then optionally flashes it:
 
 ```bash
 ./tools/build_firmware.sh                        # build only, ESP32-C6
@@ -377,7 +512,7 @@ Builds custom MicroPython firmware with asset modules frozen in flash, then opti
 ./tools/build_firmware.sh flash esp32c6 /dev/tty.usbmodem1234  # flash with explicit port
 ```
 
-Re-run this whenever you add new sprite data to `src/assets/` (after running `tools/convert_bytearrays.py` to convert any new `bytearray` literals to `bytes` literals first).
+Re-run this whenever you add new sprite data to `src/assets/` (after running `tools/convert_bytearrays.py` to convert any new `bytearray` literals to `bytes` literals first), or whenever you change a module that is frozen per `manifest.py` (the boot graph / `_PINNED_MODULES`). Modules outside the frozen set (lazy scenes, behaviors, the ESP-NOW stack) only need `./upload.sh`.
 
 ### ./test_hardware.sh
 
@@ -403,12 +538,11 @@ Deploys the project to the ESP32's flash storage:
 ```
 
 This script:
+- Installs the `ssd1306` library via `mip`
 - Compiles all `.py` files to `.mpy` bytecode (excluding `src/assets/`, which are frozen in firmware)
 - Converts level files from `levels/` into binary format in `build/platformer_levels/`
 - Cleans existing files from the device (preserves `lib/`, `save.json`, and `webrepl_cfg.py`)
 - Uploads compiled `.mpy` and `.bin` files and `boot.py` to the device
-
-> **ESP32-C3 port:** the SH1106/SSD1306 display driver is bundled in `src/` and compiled in — no external `mip` install is needed.
 
 Use this when you want the pet to run standalone without a laptop connection.
 

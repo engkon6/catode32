@@ -8,12 +8,14 @@ import framebuf
 import math
 from sprite_transform import mirror_sprite_h, mirror_sprite_v, rotate_sprite, skew_sprite
 
-try:
-    from sh1106 import SH1106_I2C as OLED_I2C
-    _OLED_DRIVER = "sh1106"
-except ImportError:
-    from ssd1306 import SSD1306_I2C as OLED_I2C
-    _OLED_DRIVER = "ssd1306"
+def _create_display_driver(i2c):
+    driver = getattr(config, 'OLED_DRIVER', 'SH1106')
+    if driver == 'SH1106':
+        import sh1106
+        return sh1106.SH1106_I2C(config.DISPLAY_WIDTH, config.DISPLAY_HEIGHT, i2c)
+    else:
+        import ssd1306
+        return ssd1306.SSD1306_I2C(config.DISPLAY_WIDTH, config.DISPLAY_HEIGHT, i2c)
 
 _FILL_PATTERNS = {
     'solid':        lambda x, y: True,
@@ -33,10 +35,8 @@ class Renderer:
         self.i2c = I2C(0, scl=Pin(config.I2C_SCL), sda=Pin(config.I2C_SDA), 
                       freq=config.I2C_FREQ)
         
-        # Initialize OLED display (SH1106 or SSD1306)
-        self.display = OLED_I2C(config.DISPLAY_WIDTH,
-                                config.DISPLAY_HEIGHT,
-                                self.i2c)
+        # Initialize OLED display
+        self.display = _create_display_driver(self.i2c)
         
         # Clear display
         self.clear()
@@ -44,9 +44,7 @@ class Renderer:
     
     def reinit(self):
         """Reinitialize the display (e.g. after an I2C disconnect)"""
-        self.display = OLED_I2C(config.DISPLAY_WIDTH,
-                                config.DISPLAY_HEIGHT,
-                                self.i2c)
+        self.display = _create_display_driver(self.i2c)
 
     def power_off(self):
         """Cut display panel power (~1–2 mA saving)."""

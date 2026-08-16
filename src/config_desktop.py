@@ -15,6 +15,8 @@ IS_DESKTOP = True
 # so the save lands there regardless of which build directory is active.
 _src_dir  = _os.environ.get('CATODE32_SRC', _os.path.dirname(_os.path.abspath(__file__)))
 SAVE_PATH = _os.path.join(_src_dir, 'save.json')
+BACKUP_PATH = _os.path.join(_src_dir, 'backup.json')
+BACKUP_OLD_PATH = _os.path.join(_src_dir, 'backup.old.json')
 
 BOARD_TYPE = "DESKTOP"
 

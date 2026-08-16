@@ -87,6 +87,9 @@ class AdoptionScene(Scene):
         self._moment_x     = 0.0
         self._moment_timer = 0.0
         self._bubble_prog  = 0.0
+        # While naming, menu1/menu2 confirm the keyboard (see SceneManager).
+        # False for every other adoption state so the keys stay swallowed.
+        self.handle_menu_keys = False
 
     # ------------------------------------------------------------------
     # Scene lifecycle
@@ -201,6 +204,7 @@ class AdoptionScene(Scene):
     # ------------------------------------------------------------------
 
     def handle_input(self):
+        self.handle_menu_keys = (self._state == _NAMING)
         if self._state == _GRID:
             return self._input_grid()
         if self._state == _PROFILE:

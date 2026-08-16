@@ -18,7 +18,6 @@ on_espnow_msg() so SocialScene can own that state machine.
 """
 
 import math
-from ui import draw_heard_bubble
 
 # Seconds with no vst from the peer before we consider the visit dropped.
 _VISIT_TIMEOUT = 10.0
@@ -96,6 +95,10 @@ class EspNowHandler:
         """Draw the heard-bubble overlay if active."""
         if self._heard_flash is None:
             return
+        # ui is imported lazily (it pulls in ~19KB of deps) so the ESP-NOW
+        # stack can be loaded late without OOMing the C3; the bubble only
+        # draws after a message actually arrives.
+        from ui import draw_heard_bubble
         icon, corner, timer = self._heard_flash
         elapsed = self._FLASH_DURATION - timer
         y_offset = int(math.sin(elapsed * 9.42) * 3)

@@ -41,6 +41,14 @@ class InputHandler:
         """Refresh internal key state. Call once per game loop iteration."""
         self._keys = pygame.key.get_pressed()
 
+    def update(self):
+        """Refresh key state. Called by SceneManager each frame before input polling.
+
+        Mirrors input.py's update() (which samples the analog D-pad); on desktop
+        there is no analog input so we just refresh the keyboard state.
+        """
+        self.pump()
+
     def is_pressed(self, button_name):
         key = self._key_map.get(button_name)
         if key is None:

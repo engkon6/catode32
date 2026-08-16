@@ -11,9 +11,10 @@ callers so it doesn't occupy RAM during normal gameplay.
 
 import ujson
 import uos
+import config
 
-_BACKUP_PATH     = '/backup.json'
-_BACKUP_OLD_PATH = '/backup.old.json'
+_BACKUP_PATH     = getattr(config, 'BACKUP_PATH', '/backup.json')
+_BACKUP_OLD_PATH = getattr(config, 'BACKUP_OLD_PATH', '/backup.old.json')
 
 _SNAPSHOT_INTERVAL_DAYS = 35
 

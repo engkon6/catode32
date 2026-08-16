@@ -1,8 +1,14 @@
 import sys
 import time
 import config
+import gc
 
 _INTENT_PATH = '/intent.json'
+
+
+def _mem_probe(tag):
+    """[PROBE] print GC free/alloc at a named point. Remove after tuning."""
+    print("[MEM] %s: free=%d alloc=%d" % (tag, gc.mem_free(), gc.mem_alloc()))
 
 
 def _check_resume_intent():
@@ -69,10 +75,8 @@ from weather_system import WeatherSystem
 from time_system import TimeSystem
 from splash import show_splash
 
-if config.WIFI_ENABLED:
-    from espnow_manager import EspNowManager
-    from espnow_handler import EspNowHandler
-    from visit_manager import VisitManager
+
+_WIFI_SCENES = ('outside', 'treehouse', 'social')
 
 
 class Game:
@@ -88,22 +92,49 @@ class Game:
         _has_save = self.context.load()
         self.context.input = self.input  # expose input to behaviors
 
+        # WiFi is initialized NOW, while the ESP-IDF heap is still pristine.
+        # Once the game's split-heap grows, it consumes the IDF heap so the
+        # WiFi driver can't allocate its task stack ("WiFi Out of Memory").
+        # The reduced sdkconfig keeps the driver at ~4KB so the game still
+        # fits.  The WLAN stays active (ESP-NOW reuses this singleton).
+        #
+        # The ESP-NOW *game* stack (espnow_manager/handler/visit_manager and
+        # their deps incl. ui, ~30KB) is NOT imported at boot: it is only
+        # needed by outdoor scenes, and loading it at boot - on top of the
+        # active WiFi driver - OOMs the C3.  It is loaded lazily the first
+        # time the game enters a WiFi scene (see _ensure_espnow_stack).
         if config.WIFI_ENABLED:
-            espnow = EspNowManager()
-            self.context.espnow = espnow
-        else:
-            espnow = None
-
-        # Scan WiFi at boot while memory is cleanest (splash is already showing)
-        if config.WIFI_ENABLED:
+            import network
+            self._wlan = network.WLAN(network.STA_IF)
+            self._wlan.active(True)
             try:
                 import wifi_tracker
                 wifi_tracker.scan_now(self.context)
                 del sys.modules['wifi_tracker']
             except Exception as e:
                 print("[Boot] WiFi scan failed: " + str(e))
+            self._espnow_loaded = False
+        else:
+            self._espnow_loaded = True
+        self._espnow_handler_ref = None
+        self._visit_manager_ref = None
 
         self.scene_manager = SceneManager(self.context, self.renderer, self.input)
+
+        # Lazy-load the ESP-NOW game stack (handlers/visit_manager, ~11KB)
+        # when entering a WiFi scene.  The load happens AFTER the scene
+        # switch so the outgoing scene's modules/data are purged first,
+        # freeing heap for the stack (loading it before OOMs the C3).
+        _orig_change = self.scene_manager.change_scene_by_name
+
+        def _wrapped_change(name, *args, **kwargs):
+            result = _orig_change(name, *args, **kwargs)
+            if not self._espnow_loaded and name in _WIFI_SCENES:
+                self._ensure_espnow_stack()
+            return result
+
+        self.scene_manager.change_scene_by_name = _wrapped_change
+
         _resume = _check_resume_intent()
         if _resume:
             self.scene_manager.change_scene_by_name(_resume)
@@ -122,20 +153,17 @@ class Game:
         self.time_system.update_season(self.context.environment)
         self.time_system.update_temperature(self.context.environment)
 
-        self.espnow_handler = EspNowHandler(espnow, self.scene_manager) if espnow else None
-        self.visit_manager = VisitManager(self.context, self.scene_manager) if espnow else None
-        self.context.visit_manager = self.visit_manager
+        _mem_probe('post-init')
 
         # Collect frequently to limit heap fragmentation.
-        # Trigger after every ~40KB of allocations rather than waiting for OOM.
+        # Trigger after every ~12KB of allocations rather than waiting for OOM.
         import gc as _gc
-        _gc.threshold(24000)
+        _gc.threshold(12000)
         del _gc
 
         self.last_frame_time = time.ticks_ms()
         # Simulated time rate: game minutes per real second (full day = 360 real minutes, 4 game days per IRL day)
         self.time_system.game_minutes_per_second = 1/15
-
         if config.SLEEP_MODE:
             from sleep_manager import SleepManager
             self.sleep_manager = SleepManager(self.input, self.renderer)
@@ -144,6 +172,36 @@ class Game:
         self._sleep_pending = False   # True while transition-out is playing pre-sleep
         self._woke_from_sleep = False  # True on the first frame after waking
         self._last_sleep_debug = time.ticks_ms()
+
+    def _ensure_espnow_stack(self):
+        """Import and wire the ESP-NOW game stack on first WiFi-scene entry.
+
+        Kept out of __init__ because loading it at boot (on top of the active
+        WiFi driver) OOMs the C3: the game's split-heap leaves no room.  The
+        caller runs this AFTER the scene switch so the outgoing scene's
+        modules have been purged.  The WiFi scene's on_enter() ran before the
+        stack existed, so start ESP-NOW here if the current scene needs it.
+        """
+        if self._espnow_loaded:
+            return
+        try:
+            from espnow_manager import EspNowManager
+            from espnow_handler import EspNowHandler
+            from visit_manager import VisitManager
+            espnow = EspNowManager()
+            self.context.espnow = espnow
+            self._espnow_handler_ref = EspNowHandler(espnow, self.scene_manager)
+            self._visit_manager_ref = VisitManager(self.context, self.scene_manager)
+            self.context.visit_manager = self._visit_manager_ref
+            self._espnow_loaded = True
+            print("[ESPNow] Game stack loaded (lazy)")
+            cs = self.scene_manager.current_scene
+            if (cs is not None and getattr(self.scene_manager, 'current_scene_name', None) in _WIFI_SCENES
+                    and self.context.visit is None):
+                espnow.start()
+        except Exception as e:
+            print("[ESPNow] Lazy stack load failed: " + str(e))
+        gc.collect()
 
     def _on_sleep_midpoint(self):
         """Called at the transition-out midpoint: enter sleep, then let transition-in play on wake."""
@@ -170,12 +228,16 @@ class Game:
         dt_scaled = dt * self.context.time_speed
         self.time_system.advance(dt_scaled, self.context.environment, self.weather_system)
         self.scene_manager.sleep_update(dt_scaled)
-        if self.espnow_handler:
-            self.espnow_handler.dispatch()
-            self.espnow_handler.update(dt_scaled)
+        if self._espnow_handler_ref:
+            self._espnow_handler_ref.dispatch()
+            self._espnow_handler_ref.update(dt_scaled)
 
     def run(self):
         print("==> Starting game loop...")
+
+        # [PROBE] peak-heap watcher. Remove after tuning.
+        self._probe_peak_free = gc.mem_free()
+        self._probe_ts = time.ticks_ms()
 
         while True:
             # After waking from sleep the elapsed time since last_frame_time spans
@@ -198,19 +260,28 @@ class Game:
 
             self.time_system.advance(dt, self.context.environment, self.weather_system)
 
-            if self.espnow_handler:
-                self.espnow_handler.dispatch()
-                self.espnow_handler.update(dt)
+            if self._espnow_handler_ref:
+                self._espnow_handler_ref.dispatch()
+                self._espnow_handler_ref.update(dt)
 
             self.scene_manager.update(dt)
 
-            if self.visit_manager:
-                self.visit_manager.update(dt)
+            # [PROBE] track low-water mark of free heap; print every 30s
+            _mf = gc.mem_free()
+            if _mf < self._probe_peak_free:
+                self._probe_peak_free = _mf
+            if time.ticks_diff(time.ticks_ms(), self._probe_ts) >= 30000:
+                self._probe_ts = time.ticks_ms()
+                print("[MEM] peak_free=%d free=%d alloc=%d"
+                      % (self._probe_peak_free, _mf, gc.mem_alloc()))
+
+            if self._visit_manager_ref:
+                self._visit_manager_ref.update(dt)
 
             try:
                 self.scene_manager.draw()
-                if self.espnow_handler:
-                    self.espnow_handler.draw(self.renderer)
+                if self._espnow_handler_ref:
+                    self._espnow_handler_ref.draw(self.renderer)
                 self.renderer.show()
             except OSError as e:
                 if e.errno == 19:  # ENODEV - display disconnected

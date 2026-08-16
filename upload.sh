@@ -72,7 +72,8 @@ while read -r pyfile; do
     MPY_PATH="$BUILD_DIR/${REL_PATH%.py}.mpy"
     mkdir -p "$(dirname "$MPY_PATH")"
     echo -n "  Compiling $REL_PATH..."
-    if mpy-cross -march=xtensawin "$pyfile" -o "$MPY_PATH" 2>/tmp/mpy_cross_err; then
+    # ESP32-C3/C6 are RISC-V (rv32imc). xtensawin is ESP32-classic only.
+    if mpy-cross -march=rv32imc "$pyfile" -o "$MPY_PATH" 2>/tmp/mpy_cross_err; then
         echo -e " ${GREEN}✓${NC}"
     else
         echo -e " ${RED}✗${NC}"
@@ -110,9 +111,14 @@ mp fs rm /boot.py 2>/dev/null || true
 echo "  (boot.py removed - will be restored at end)"
 
 echo ""
-echo "Step 4: Installing dependencies..."
-echo "  (skipped: SH1106 driver is in src/sh1106.py, compiled and uploaded in step 6)"
-echo -e "${GREEN}✓ No external dependencies needed${NC}"
+echo "Step 4: Checking ssd1306 driver..."
+if mp fs ls /lib/ssd1306.py > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ ssd1306 already present in /lib${NC}"
+else
+    echo "  Installing ssd1306 (requires device WiFi)..."
+    mp mip install ssd1306
+    echo -e "${GREEN}✓ SSD1306 library installed${NC}"
+fi
 
 echo ""
 echo -e "${YELLOW}Step 5: Cleaning ALL files from device...${NC}"

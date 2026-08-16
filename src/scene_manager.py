@@ -301,6 +301,10 @@ class SceneManager:
     
     def handle_input(self):
         """Handle input for current scene"""
+        # Sample the analog D-pad once per frame so all input polling in this
+        # frame sees one consistent stick state.
+        self.input.update()
+
         # Any button activity resets the idle timer
         if self.input.any_button_pressed():
             self._idle_timer = 0.0
@@ -315,15 +319,21 @@ class SceneManager:
 
         # Suppress all global navigation while the adoption scene is active
         _on_adoption = getattr(self.current_scene, 'SCENE_NAME', None) == 'adoption'
+        # Scenes can opt out of the swallow (e.g. the adoption naming keyboard
+        # confirms typed text with menu1/menu2)
+        _menu_keys_allowed = getattr(self.current_scene, 'handle_menu_keys', False)
 
         # Open big menu on menu1 button
         if self.input.was_just_pressed('menu1'):
-            if not _on_adoption:
+            if _on_adoption:
+                if not _menu_keys_allowed:
+                    return          # swallow during adoption except naming
+            else:
                 self._open_big_menu()
-            return
+                return
 
         # Swallow menu2 during adoption so it can't be misused
-        if _on_adoption and self.input.was_just_pressed('menu2'):
+        if _on_adoption and not _menu_keys_allowed and self.input.was_just_pressed('menu2'):
             return
 
         if self.current_scene:
