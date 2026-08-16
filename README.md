@@ -375,7 +375,7 @@ The device was running a stale partial build (~25 old monolithic modules) that s
 - **Phase 1 (desktop fixes)** — done, smoke-tested.
 - **Deploy to device** — done; the current code runs standalone from `boot.py` with the pet loaded from `save.json`.
 - **Phase 2 (on-device playtest)** — partially done: core-scene walkthrough verified on 2026-08-16 (see [Verification log (2026-08-16)](#verification-log-2026-08-16--core-scene-playtest-quick-pass)); no crashes, worst-case heap headroom ~6 KB. Still pending: minigame transitions (highest per-scene allocation), garden/plants round-trip, and save/restart + sleep/wake via digital A/B.
-- **Phase 3 (version control)** — done: `git init` + `.gitignore` + history layered onto `engkon6/catode32` (upstream fork lineage preserved) and pushed to `master` (commit `a9fa15f`). Remote-only files (`docs/`, `.github/workflows/build.yml`, `PROGRESS.md`, `src/ssd1306.py`) kept.
+- **Phase 3 (version control)** — done: `git init` + `.gitignore` + history layered onto `engkon6/catode32` (upstream fork lineage preserved) and pushed to `master`. Personal info (username/paths in `PROGRESS.md`/`docs`) scrubbed from all history via `git-filter-repo` (commit `4bcfd3a`). Remote-only files (`docs/`, `.github/workflows/build.yml`, `PROGRESS.md`, `src/ssd1306.py`) kept.
 - Cleanup (low priority): desktop-only modules (`config_desktop`, `input_desktop`, `main_desktop`, `renderer_desktop`) are still on the device filesystem; harmless since nothing imports them on-device.
 
 ## Installation
